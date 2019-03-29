@@ -26,7 +26,7 @@ A userscripts extension is required to actually use these scripts; e.g. Tampermo
 - By default, Tampermonkey will automatically update scripts from the original install location once a day. You can force an update from the extensions menu
 
 # Privacy
-The update URL goes through a URL redirector to get a rough idea of how many people are using this script. To opt-out, change (or disable) the update URL to the original download URL in the Tampermonkey dashboard. 
+The update URL goes through a URL redirector to get a rough idea of how many people are using this script. To opt-out, change the update URL to the original download URL in the Tampermonkey dashboard (or disable updates). The redirector can also help if the URL needs to change; e.g. if the file is moved or renamed.
 
 No other data is collected. The script is sourced and updated directly from the master branch of this repo.
 
