@@ -1,12 +1,13 @@
 // ==UserScript==
 
 // @name         AzDO custom improvements
-// @version      2.1.0
+// @version      2.2.0
 // @author       National Instruments
 // @description  Adds filtering capabilities to the dashboard.
 
 // @namespace    https://ni.com
 // @homepageURL  https://github.com/alejandro5042/azdo-userscripts
+// @updateURL    https://rebrand.ly/update-azdo-pr-dashboard-user-js
 
 // @include      https://dev.azure.com/*
 // @include      https://*.visualstudio.com/*
@@ -143,8 +144,4 @@ function sortPullRequestDashboard() {
             }
         });
     });
-
-    // Super poor man's analytics. We will load the National Instruments favicon via a URL redirector and we can track how many "clicks" it had per day. The opacity is set to 0.05 in case a browser decides not to load the image if its not visible.
-    // Note: I wanted to use Google Analytics or Azure Application Insights, but because of CORS, I cannot simply add analytics to this userscript or to anything I may inject into the page.
-    $('<img>').attr('src', 'https://rebrand.ly/48e3d').css('opacity', 0.05).appendTo('body');
 }
