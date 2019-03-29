@@ -6,7 +6,7 @@ These userscripts were tested in Chrome and Firefox with the Tampermonkey extens
 
 ## 1) PR dashboard improvements
 
-[Install PR dashboard improvements](https://github.com/alejandro5042/azdo-userscripts/raw/master/src/azdo-pr-dashboard.user.js) (see pre-requisites below)
+[Install PR dashboard improvements](https://github.com/alejandro5042/azdo-userscripts/raw/master/src/azdo-pr-dashboard.user.js) (see prerequisites below)
 
 Sorts the PRs in your dashboard into categories. 
 
@@ -16,7 +16,7 @@ Sorts the PRs in your dashboard into categories.
 - Reviews are highlighted red if you are the last reviewer and everyone else approved
 - Incomplete but blocked: Reviews you have not completed but are blocked anyways because another reviewer voted Waiting on Author or Rejected. This section is open by default
 
-# Pre-requisites
+# Prerequisites
 A userscripts extension is required to actually use these scripts; e.g. Tampermonkey, Greasemonkey, etc.
 
 [Install the Tampermonkey extension](https://tampermonkey.net/)
