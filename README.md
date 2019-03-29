@@ -17,7 +17,7 @@ Sorts the PRs in your dashboard into categories.
 - Incomplete but blocked: Reviews you have not completed but are blocked anyways because another reviewer voted Waiting on Author or Rejected. This section is open by default
 
 # Pre-requisites
-A userscripts extension is required to actually use these scripts; e.g. Tampermonkey, Greasemoneky, etc.
+A userscripts extension is required to actually use these scripts; e.g. Tampermonkey, Greasemonkey, etc.
 
 [Install the Tampermonkey extension](https://tampermonkey.net/)
 
