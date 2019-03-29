@@ -2,7 +2,7 @@
 
 A collection of userscripts to improve the Azure DevOps UI.
 
-These userscripts were tested in Chrome and Firefox with the Tampermonkey extension. 
+These userscripts were tested in Chrome and Firefox with the Tampermonkey extension. They may work with other setups.
 
 ## 1) PR dashboard improvements
 
