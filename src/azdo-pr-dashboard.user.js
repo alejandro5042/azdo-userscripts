@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO PR dashboard improvements
-// @version      2.4.1
+// @version      2.5.0
 // @author       National Instruments
 // @description  Adds sorting and categorization to the PR dashboard.
 
@@ -54,6 +54,24 @@ function sortPullRequestDashboard() {
     myReviews.append("<details class='reviews-waiting' style='display: none; margin: 10px 30px'><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Completed as Waiting on Author (<span class='review-subsection-counter'>0</span>)</summary></details>");
     myReviews.append("<details class='reviews-rejected' style='display: none; margin: 10px 30px'><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Completed as Rejected (<span class='review-subsection-counter'>0</span>)</summary></details>");
     myReviews.append("<details class='reviews-approved' style='display: none; margin: 10px 30px'><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Completed as Approved / Approved with Suggestions (<span class='review-subsection-counter'>0</span>)</summary></details>");
+
+    // If we have browser local storage, we can save the open/closed setting of these subsections.
+    if (localStorage) {
+        // Load the subsection open/closed setting if it exists.
+        myReviews.children("details").each((index, item) => {
+            var detailsElement = $(item);
+            var isSubsectionOpen = localStorage.getItem(`userscript/azdo-pr-dashboard/is-subsection-open/${detailsElement.attr('class')}`);
+            if (isSubsectionOpen) {
+                detailsElement.attr('open', isSubsectionOpen == 1 ? 'open' : undefined);
+            }
+        });
+
+        // Save the subsection open/closed setting on toggle.
+        myReviews.children("details").on("toggle", (e) => {
+            var detailsElement = $(e.target);
+            localStorage.setItem(`userscript/azdo-pr-dashboard/is-subsection-open/${detailsElement.attr('class')}`, detailsElement.attr('open') == 'open' ? 1 : 0);
+        });
+    }
 
     // Because of CORS, we need to make sure we're querying the same hostname for our AzDO APIs.
     var apiUrlPrefix;
