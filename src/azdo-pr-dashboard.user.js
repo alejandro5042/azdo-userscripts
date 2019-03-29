@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO PR dashboard improvements
-// @version      2.4.0
+// @version      2.4.1
 // @author       National Instruments
 // @description  Adds sorting and categorization to the PR dashboard.
 
@@ -110,7 +110,6 @@ function sortPullRequestDashboard() {
 
                 // See what section this PR should be filed under and style the row, if necessary.
                 var subsection = "";
-                console.log("hi -- " + pullRequestInfo.isDraft);
                 if (pullRequestInfo.isDraft) {
                     subsection = '.reviews-drafts';
                 } else if (myVote == -5) {
