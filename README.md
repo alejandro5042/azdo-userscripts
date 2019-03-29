@@ -15,6 +15,7 @@ Sorts the PRs in your dashboard into categories.
 - Reviews are sorted from oldest to newest (reverse of the default)
 - Reviews are highlighted red if you are the last reviewer and everyone else approved
 - Incomplete but blocked: Reviews you have not completed but are blocked anyways because another reviewer voted Waiting on Author or Rejected. This section is open by default
+- Sections remember if they are open/closed
 
 # Prerequisites
 A userscripts extension is required to actually use these scripts; e.g. Tampermonkey, Greasemonkey, etc.
