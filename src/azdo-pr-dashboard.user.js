@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO PR dashboard improvements
-// @version      2.3.0
+// @version      2.4.0
 // @author       National Instruments
 // @description  Adds sorting and categorization to the PR dashboard.
 
@@ -50,6 +50,7 @@ function sortPullRequestDashboard() {
 
     // Create review sections with counters.
     myReviews.append("<details class='reviews-incomplete-blocked' style='display: none; margin: 10px 30px' open><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Incomplete but blocked (<span class='review-subsection-counter'>0</span>)</summary></details>");
+    myReviews.append("<details class='reviews-drafts' style='display: none; margin: 10px 30px' open><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Drafts (<span class='review-subsection-counter'>0</span>)</summary></details>");
     myReviews.append("<details class='reviews-waiting' style='display: none; margin: 10px 30px'><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Completed as Waiting on Author (<span class='review-subsection-counter'>0</span>)</summary></details>");
     myReviews.append("<details class='reviews-rejected' style='display: none; margin: 10px 30px'><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Completed as Rejected (<span class='review-subsection-counter'>0</span>)</summary></details>");
     myReviews.append("<details class='reviews-approved' style='display: none; margin: 10px 30px'><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Completed as Approved / Approved with Suggestions (<span class='review-subsection-counter'>0</span>)</summary></details>");
@@ -66,18 +67,11 @@ function sortPullRequestDashboard() {
     var me = $(".vss-Persona").attr("aria-label");
 
     // Loop through the PRs that we've voted on.
-    $(myReviews).find(`.vote-overlay[aria-label^="${me}"], .reviewer-image-with-vote-wrapper[aria-label^="${me}"]`).each((index, avatar) => {
-        var row = $(avatar).closest("[role='listitem']");
+    $(myReviews).find(`[role="listitem"]`).each((index, item) => {
+        var row = $(item);
         if (row.length == 0) {
             return;
         }
-
-        // Move your avatar to the end of the row.
-        $(avatar).closest('.ms-TooltipHost').each((index, item) => {
-            var avatarContainer = $(item);
-            avatarContainer.css('padding', '0px 15px 0px 25px');
-            avatarContainer.appendTo(avatarContainer.parent());
-        });
 
         // Get the PR id.
         var pullRequestUrl = row.find("a[href*='/pullrequest/']").attr('href');
@@ -116,7 +110,10 @@ function sortPullRequestDashboard() {
 
                 // See what section this PR should be filed under and style the row, if necessary.
                 var subsection = "";
-                if (myVote == -5) {
+                console.log("hi -- " + pullRequestInfo.isDraft);
+                if (pullRequestInfo.isDraft) {
+                    subsection = '.reviews-drafts';
+                } else if (myVote == -5) {
                     subsection = '.reviews-waiting';
                 } else if (myVote < 0) {
                     subsection = '.reviews-rejected';
