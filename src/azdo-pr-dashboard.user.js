@@ -1,9 +1,9 @@
 // ==UserScript==
 
-// @name         AzDO custom improvements
-// @version      2.2.0
+// @name         AzDO PR dashboard improvements
+// @version      2.3.0
 // @author       National Instruments
-// @description  Adds filtering capabilities to the dashboard.
+// @description  Adds sorting and categorization to the PR dashboard.
 
 // @namespace    https://ni.com
 // @homepageURL  https://github.com/alejandro5042/azdo-userscripts
