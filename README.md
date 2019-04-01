@@ -14,7 +14,13 @@ Sorts the PRs in your dashboard into categories.
 
 - Reviews are sorted from oldest to newest (reverse of the default)
 - Reviews are highlighted red if you are the last reviewer and everyone else approved
-- Incomplete but blocked: Reviews you have not completed but are blocked anyways because another reviewer voted Waiting on Author or Rejected. This section is open by default
+- Reviews are further categorized into sections:
+  - Uncategorized: Reviews you need to process
+  - Incomplete but blocked: Reviews you have not completed but are blocked anyways because another reviewer voted Waiting on Author or Rejected. This section is open by default
+  - Drafts
+  - Completed as Waiting on Author
+  - Completed as Rejected
+  - Completed as Approved / Approved with Suggestions
 - Sections remember if they are open/closed
 
 # Prerequisites
