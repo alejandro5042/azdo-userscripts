@@ -10,7 +10,7 @@ These userscripts were tested in Chrome and Firefox with the Tampermonkey extens
 
 Sorts the PRs in your dashboard into categories. 
 
-![](static/azdo-pr-dashboard-example.png)
+![(Picture of an example dashboard)](static/azdo-pr-dashboard-example.png)
 
 - Reviews are sorted from oldest to newest (reverse of the default)
 - Reviews are highlighted red if you are the last reviewer and everyone else approved
