@@ -1,6 +1,6 @@
 # Browser Userscripts For Azure DevOps
 
-A collection of userscripts to improve the Azure DevOps UI.
+A collection of userscripts to improve the Azure DevOps UI. [(Homepage on GitHub)](https://github.com/alejandro5042/azdo-userscripts)
 
 These userscripts were tested in Chrome and Firefox with the Tampermonkey extension. They may work with other setups.
 
