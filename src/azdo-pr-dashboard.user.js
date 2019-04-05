@@ -1,13 +1,17 @@
 // ==UserScript==
 
 // @name         AzDO PR dashboard improvements
-// @version      2.5.0
+// @version      2.5.1
 // @author       National Instruments
 // @description  Adds sorting and categorization to the PR dashboard.
+// @license      MIT
 
 // @namespace    https://ni.com
 // @homepageURL  https://github.com/alejandro5042/azdo-userscripts
+// @supportURL   https://github.com/alejandro5042/azdo-userscripts/issues
 // @updateURL    https://rebrand.ly/update-azdo-pr-dashboard-user-js
+
+// @contributionURL  https://github.com/alejandro5042/azdo-userscripts
 
 // @include      https://dev.azure.com/*
 // @include      https://*.visualstudio.com/*
