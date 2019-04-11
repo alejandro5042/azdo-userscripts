@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO PR dashboard improvements
-// @version      2.6.0
+// @version      2.7.0
 // @author       National Instruments
 // @description  Adds sorting and categorization to the PR dashboard.
 // @license      MIT
@@ -65,9 +65,11 @@ function sortPullRequestDashboard() {
         myReviews.children("details").each((index, item) => {
             var detailsElement = $(item);
             var isSubsectionOpen = localStorage.getItem(`userscript/azdo-pr-dashboard/is-subsection-open/${detailsElement.attr('class')}`);
-            if (isSubsectionOpen) {
-                detailsElement.attr('open', isSubsectionOpen == 1 ? 'open' : undefined);
-            }
+            if (isSubsectionOpen == 1) {
+                detailsElement.attr('open', 'open');
+            } else if (isSubsectionOpen == 0) {
+                detailsElement.removeAttr('open');
+            }
         });
 
         // Save the subsection open/closed setting on toggle.
