@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO PR dashboard improvements
-// @version      2.5.2
+// @version      2.6.0
 // @author       National Instruments
 // @description  Adds sorting and categorization to the PR dashboard.
 // @license      MIT
@@ -28,7 +28,7 @@ $(document).bind('DOMNodeInserted', _.debounce(() => {
     if(/\/(_pulls|pullrequests)/i.test(window.location.pathname)) {
         sortPullRequestDashboard();
     }
-}, 1000));
+}, 150));
 
 function sortPullRequestDashboard() {
     // Find the reviews section for this user.
@@ -102,6 +102,9 @@ function sortPullRequestDashboard() {
         }
         var pullRequestId = pullRequestUrl.substring(pullRequestUrl.lastIndexOf('/') + 1);
 
+        // Hide the row while we are updating it.
+        row.hide(150);
+
         // Get complete information about the PR.
         // See: https://docs.microsoft.com/en-us/rest/api/azure/devops/git/pull%20requests/get%20pull%20request%20by%20id?view=azure-devops-rest-5.0
         $.ajax({
@@ -159,6 +162,11 @@ function sortPullRequestDashboard() {
             },
             error: (jqXHR, exception) => {
                 console.log(`Error at PR ${pullRequestId}: ${jqXHR.responseText}`);
+            },
+            complete: (jqXHR, status) => {
+                // Show the row when we're done processing it, whether it resulting in an error or not.
+                row.stop();
+                row.show(150);
             }
         });
     });
