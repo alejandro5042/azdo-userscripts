@@ -21,6 +21,7 @@ Sorts the PRs in your dashboard into categories.
   - Completed as Waiting on Author
   - Completed as Rejected
   - Completed as Approved / Approved with Suggestions
+  - Completed as Approved / Approved with Suggestions (with notable updates): PRs that have had notable activity after you've approved; e.g. lots of comments or non-approval votes
 - Sections remember if they are open/closed
 
 # Prerequisites
