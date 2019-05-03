@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO PR dashboard improvements
-// @version      2.7.2
+// @version      2.8.0
 // @author       National Instruments
 // @description  Adds sorting and categorization to the PR dashboard.
 // @license      MIT
@@ -52,11 +52,18 @@ function sortPullRequestDashboard() {
     // Sort the reviews in reverse; aka. show oldest reviews first then newer reviews.
     myReviews.append(myReviews.find("[role='listitem']").get().reverse());
 
+    // Define what it means to be a notable PR after you have approved it.
+    var peopleToNotApproveToCountAsNotableThread = 2;
+    var commentsToCountAsNotableThread = 4;
+    var wordsToCountAsNotableThread = 400;
+    var notableUpdateDescription = `These are pull requests you've already approved, but since then, any of following events have happened:&#013    1) At least ${peopleToNotApproveToCountAsNotableThread} people voted Rejected or Waiting on Author&#013    2) A thread was posted with at least ${commentsToCountAsNotableThread} comments&#013    3) A thread was posted with at least ${wordsToCountAsNotableThread} words&#013Optional: To remove PRs from this list, simply vote again on the PR (even if it's the same vote).`;
+
     // Create review sections with counters.
     myReviews.append("<details class='reviews-incomplete-blocked' style='display: none; margin: 10px 30px' open><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Incomplete but blocked (<span class='review-subsection-counter'>0</span>)</summary></details>");
     myReviews.append("<details class='reviews-drafts' style='display: none; margin: 10px 30px' open><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Drafts (<span class='review-subsection-counter'>0</span>)</summary></details>");
     myReviews.append("<details class='reviews-waiting' style='display: none; margin: 10px 30px'><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Completed as Waiting on Author (<span class='review-subsection-counter'>0</span>)</summary></details>");
     myReviews.append("<details class='reviews-rejected' style='display: none; margin: 10px 30px'><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Completed as Rejected (<span class='review-subsection-counter'>0</span>)</summary></details>");
+    myReviews.append(`<details class='reviews-approved-notable' style='display: none; margin: 10px 30px' open><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Completed as Approved / Approved with Suggestions (<abbr title="${notableUpdateDescription}">with notable updates</abbr>) (<span class='review-subsection-counter'>0</span>)</summary></details>`);
     myReviews.append("<details class='reviews-approved' style='display: none; margin: 10px 30px'><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Completed as Approved / Approved with Suggestions (<span class='review-subsection-counter'>0</span>)</summary></details>");
 
     // If we have browser local storage, we can save the open/closed setting of these subsections.
@@ -135,6 +142,9 @@ function sortPullRequestDashboard() {
                     }
                 });
 
+                // Any tasks that need to complete in order to calculate the right subsection.
+                var subsectionAsyncTask = null;
+
                 // See what section this PR should be filed under and style the row, if necessary.
                 var subsection = "";
                 if (pullRequestInfo.isDraft) {
@@ -145,6 +155,71 @@ function sortPullRequestDashboard() {
                     subsection = '.reviews-rejected';
                 } else if (myVote > 0) {
                     subsection = '.reviews-approved';
+
+                    // If the user approved the PR, see if we need to resurface it as a notable PR.
+                    // See: https://docs.microsoft.com/en-us/rest/api/azure/devops/git/pull%20request%20threads/list?view=azure-devops-rest-5.0
+                    subsectionAsyncTask = $.ajax({
+                        url: `${pullRequestInfo.url}/threads?api-version=5.0`,
+                        type: 'GET',
+                        cache: false,
+                        success: (pullRequestThreads) => {
+                            // AzDO has returned with threads for this PR.
+
+                            var threadsWithLotsOfComments = 0;
+                            var threadsWithWordyComments = 0;
+                            var newNonApprovedVotes = 0;
+
+                            // Loop through the threads in reverse time order (newest first).
+                            $.each(pullRequestThreads.value.reverse(), function(i, thread) {
+                                // If the thread is deleted, let's ignore it and move on to the next thread.
+                                if (thread.isDeleted) {
+                                    return true;
+                                }
+
+                                // See if this thread represents a non-approved vote.
+                                if (thread.properties.hasOwnProperty("CodeReviewThreadType")) {
+                                    if (thread.properties.CodeReviewThreadType["$value"] == "VoteUpdate") {
+                                        // Stop looking at threads once we find the thread that represents our vote.
+                                        var votingUser = thread.identities[thread.properties.CodeReviewVotedByIdentity["$value"]].displayName;
+                                        if (votingUser == me) {
+                                            return false;
+                                        }
+
+                                        if (thread.properties.CodeReviewVoteResult["$value"] < 0) {
+                                            newNonApprovedVotes++;
+                                        }
+                                    }
+                                }
+
+                                // Count the number of comments and words in the thread.
+
+                                var wordCount = 0;
+                                var commentCount = 0;
+
+                                $.each(thread.comments, (j, comment) => {
+                                    if (comment.commentType != 'system') {
+                                        commentCount++;
+                                        wordCount += comment.content.trim().split(/\s+/).length;
+                                    }
+                                });
+
+                                if (commentCount >= commentsToCountAsNotableThread) {
+                                    threadsWithLotsOfComments++;
+                                }
+                                if (wordCount >= wordsToCountAsNotableThread) {
+                                    threadsWithWordyComments++;
+                                }
+                            });
+
+                            // See if we've tripped any of attributes that would make this PR notable.
+                            if (threadsWithLotsOfComments > 0 || threadsWithWordyComments > 0 || newNonApprovedVotes >= peopleToNotApproveToCountAsNotableThread) {
+                                subsection = '.reviews-approved-notable';
+                            }
+                        },
+                        error: (jqXHR, exception) => {
+                            console.log(`Error at PR ${pullRequestId}: ${jqXHR.responseText}`);
+                        }
+                    });
                 } else {
                     if (waitingOrRejectedVotes > 0) {
                         subsection = '.reviews-incomplete-blocked';
@@ -153,20 +228,23 @@ function sortPullRequestDashboard() {
                     }
                 }
 
-                // If we identified a section, move the row.
-                if (subsection) {
-                    var completedSection = myReviews.children(subsection);
-                    completedSection.find('.review-subsection-counter').text(function(i, value) { return +value + 1 });
-                    completedSection.find('.review-subsection-counter').removeClass('empty');
-                    completedSection.css('display', 'block');
-                    completedSection.append(row);
-                }
+                // Wait until we've finished any task that is needed to calculate subsection.
+                $.when(subsectionAsyncTask).then(() => {
+                    // If we identified a section, move the row.
+                    if (subsection) {
+                        var completedSection = myReviews.children(subsection);
+                        completedSection.find('.review-subsection-counter').text(function(i, value) { return +value + 1 });
+                        completedSection.find('.review-subsection-counter').removeClass('empty');
+                        completedSection.css('display', 'block');
+                        completedSection.append(row);
+                        row.show(150);
+                    }
+                });
             },
             error: (jqXHR, exception) => {
                 console.log(`Error at PR ${pullRequestId}: ${jqXHR.responseText}`);
-            },
-            complete: (jqXHR, status) => {
-                // Show the row when we're done processing it, whether it resulting in an error or not.
+
+                // Un-hide the row if we errored out.
                 row.show(150);
             }
         });
