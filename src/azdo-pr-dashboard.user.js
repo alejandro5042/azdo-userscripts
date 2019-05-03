@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO PR dashboard improvements
-// @version      2.8.0
+// @version      2.8.1
 // @author       National Instruments
 // @description  Adds sorting and categorization to the PR dashboard.
 // @license      MIT
@@ -55,7 +55,7 @@ function sortPullRequestDashboard() {
     // Define what it means to be a notable PR after you have approved it.
     var peopleToNotApproveToCountAsNotableThread = 2;
     var commentsToCountAsNotableThread = 4;
-    var wordsToCountAsNotableThread = 400;
+    var wordsToCountAsNotableThread = 300;
     var notableUpdateDescription = `These are pull requests you've already approved, but since then, any of following events have happened:&#013    1) At least ${peopleToNotApproveToCountAsNotableThread} people voted Rejected or Waiting on Author&#013    2) A thread was posted with at least ${commentsToCountAsNotableThread} comments&#013    3) A thread was posted with at least ${wordsToCountAsNotableThread} words&#013Optional: To remove PRs from this list, simply vote again on the PR (even if it's the same vote).`;
 
     // Create review sections with counters.
