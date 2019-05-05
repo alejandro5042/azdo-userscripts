@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO PR dashboard improvements
-// @version      2.8.2
+// @version      2.8.3
 // @author       National Instruments
 // @description  Adds sorting and categorization to the PR dashboard.
 // @license      MIT
@@ -230,13 +230,16 @@ function sortPullRequestDashboard() {
 
                 // Wait until we've finished any task that is needed to calculate subsection.
                 $.when(subsectionAsyncTask).then(() => {
-                    // If we identified a section, move the row.
-                    if (subsection) {
-                        var completedSection = myReviews.children(subsection);
-                        completedSection.find('.review-subsection-counter').text(function(i, value) { return +value + 1 });
-                        completedSection.find('.review-subsection-counter').removeClass('empty');
-                        completedSection.css('display', 'block');
-                        completedSection.append(row);
+                    try {
+                        // If we identified a section, move the row.
+                        if (subsection) {
+                            var completedSection = myReviews.children(subsection);
+                            completedSection.find('.review-subsection-counter').text(function(i, value) { return +value + 1 });
+                            completedSection.find('.review-subsection-counter').removeClass('empty');
+                            completedSection.css('display', 'block');
+                            completedSection.append(row);
+                        }
+                    } finally {
                         row.show(150);
                     }
                 });
