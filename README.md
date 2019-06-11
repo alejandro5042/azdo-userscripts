@@ -23,6 +23,7 @@ Sorts the PRs in your dashboard into categories.
   - Completed as Approved / Approved with Suggestions
   - Completed as Approved / Approved with Suggestions (with notable updates): PRs that have had notable activity after you've approved; e.g. lots of comments or non-approval votes
 - Sections remember if they are open/closed
+- PRs show how many files the reviewer needs to review
 
 # Prerequisites
 A userscripts extension is required to actually use these scripts; e.g. Tampermonkey, Greasemonkey, etc.
