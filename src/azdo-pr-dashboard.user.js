@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO PR dashboard improvements
-// @version      2.8.3
+// @version      2.9.0
 // @author       National Instruments
 // @description  Adds sorting and categorization to the PR dashboard.
 // @license      MIT
@@ -95,7 +95,10 @@ function sortPullRequestDashboard() {
     }
 
     // Find the user's name.
-    var me = $(".vss-Persona").attr("aria-label");
+    var pageDataProviders = JSON.parse(document.getElementById('dataProviders').innerHTML);
+    var user = pageDataProviders.data["ms.vss-web.page-data"].user;
+    var me = user.displayName;
+    var userEmail = user.uniqueName;
 
     // Loop through the PRs that we've voted on.
     $(myReviews).find(`[role="listitem"]`).each((index, item) => {
@@ -147,8 +150,10 @@ function sortPullRequestDashboard() {
 
                 // See what section this PR should be filed under and style the row, if necessary.
                 var subsection = "";
+                var computeSize = false;
                 if (pullRequestInfo.isDraft) {
                     subsection = '.reviews-drafts';
+                    computeSize = true;
                 } else if (myVote == -5) {
                     subsection = '.reviews-waiting';
                 } else if (myVote < 0) {
@@ -221,10 +226,70 @@ function sortPullRequestDashboard() {
                         }
                     });
                 } else {
+                    computeSize = true;
                     if (waitingOrRejectedVotes > 0) {
                         subsection = '.reviews-incomplete-blocked';
                     } else if (missingVotes == 1) {
                         row.css('background', 'rgba(256, 0, 0, 0.3)');
+                    }
+                }
+
+                // Compute the size of certain PRs; e.g. those we haven't reviewed yet.
+                if (computeSize) {
+                    // Make sure we've created a merge commit that we can compute its size.
+                    if (pullRequestInfo.lastMergeCommit) {
+                        // Helper function to add the size to the PR row.
+                        function addPullRequestFileSize(files) {
+                            var content = `<span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${files}`;
+
+                            // For the overall PR dashboard.
+                            row.find('div.vss-DetailsList--titleCellTwoLine').parent().append(`<div style='margin: 0px 15px; width: 3em; text-align: left;'>${content}</div>`);
+
+                            // For a repo's PR dashboard.
+                            row.find('div.vc-pullrequest-entry-col-secondary').after(`<div style='margin: 15px; width: 3.5em; display: flex; align-items: center; text-align: right;'>${content}</div>`);
+                        }
+
+                        // First, try to find NI.ReviewProperties, which contains reviewer info specific to National Instrument workflows (where this script is used the most).
+                        $.ajax({
+                            url: `${pullRequestInfo.url}/properties?api-version=5.1-preview.1`,
+                            type: 'GET',
+                            cache: false,
+                            success: (prProperties) => {
+                                var reviewProperties = prProperties.value["NI.ReviewProperties"];
+                                if (reviewProperties) {
+                                    reviewProperties = JSON.parse(reviewProperties.$value);
+
+                                    // Count the number of files we are in the reviewers list.
+                                    var filesToReview = 0;
+                                    reviewProperties.fileProperties.forEach(file => {
+                                        file.Reviewers.forEach(reviewer => {
+                                            if (reviewer.includes(userEmail)) {
+                                                filesToReview++;
+                                            }
+                                        });
+                                    });
+
+                                    addPullRequestFileSize(filesToReview);
+                                } else {
+                                    // If there is no NI.ReviewProperties, then count the number of files in the merge commit.
+                                    $.ajax({
+                                        url: `${pullRequestInfo.lastMergeCommit.url}/changes?api-version=5.0`,
+                                        type: 'GET',
+                                        cache: false,
+                                        success: (mergeCommitInfo) => {
+                                            var fileCount = 0;
+                                            mergeCommitInfo.changes.forEach(item => {
+                                                if (!item.item.isFolder) {
+                                                    fileCount++;
+                                                }
+                                            });
+
+                                            addPullRequestFileSize(fileCount);
+                                        }
+                                    });
+                                }
+                            }
+                        });
                     }
                 }
 
