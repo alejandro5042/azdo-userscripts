@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO PR dashboard improvements
-// @version      2.9.0
+// @version      2.9.1
 // @author       National Instruments
 // @description  Adds sorting and categorization to the PR dashboard.
 // @license      MIT
@@ -269,25 +269,29 @@ function sortPullRequestDashboard() {
                                         });
                                     });
 
-                                    addPullRequestFileSize(filesToReview);
-                                } else {
-                                    // If there is no NI.ReviewProperties, then count the number of files in the merge commit.
-                                    $.ajax({
-                                        url: `${pullRequestInfo.lastMergeCommit.url}/changes?api-version=5.0`,
-                                        type: 'GET',
-                                        cache: false,
-                                        success: (mergeCommitInfo) => {
-                                            var fileCount = 0;
-                                            mergeCommitInfo.changes.forEach(item => {
-                                                if (!item.item.isFolder) {
-                                                    fileCount++;
-                                                }
-                                            });
-
-                                            addPullRequestFileSize(fileCount);
-                                        }
-                                    });
+                                    // If there aren't any files to review, then we don't have an explicit role and we should fall through to counting all the files.
+                                    if (filesToReview > 0) {
+                                        addPullRequestFileSize(filesToReview);
+                                        return;
+                                    }
                                 }
+
+                                // If there is no NI.ReviewProperties or if it returns zero files to review, then count the number of files in the merge commit.
+                                $.ajax({
+                                    url: `${pullRequestInfo.lastMergeCommit.url}/changes?api-version=5.0`,
+                                    type: 'GET',
+                                    cache: false,
+                                    success: (mergeCommitInfo) => {
+                                        var fileCount = 0;
+                                        mergeCommitInfo.changes.forEach(item => {
+                                            if (!item.item.isFolder) {
+                                                fileCount++;
+                                            }
+                                        });
+
+                                        addPullRequestFileSize(fileCount);
+                                    }
+                                });
                             }
                         });
                     }
