@@ -251,13 +251,15 @@ function sortPullRequestDashboard() {
 
                                         // Count the number of files we are in the reviewers list.
                                         var filesToReview = 0;
-                                        reviewProperties.fileProperties.forEach(file => {
-                                            file.Reviewers.forEach(reviewer => {
-                                                if (reviewer.includes(userEmail)) {
-                                                    filesToReview++;
+                                        if (reviewProperties.version <= 3 && reviewProperties.fileProperties) {
+                                            for (let file of reviewProperties.fileProperties) {
+                                                for (let reviewer of file.Reviewers) {
+                                                    if (reviewer.includes(userEmail)) {
+                                                        filesToReview++;
+                                                    }
                                                 }
-                                            });
-                                        });
+                                            }
+                                        }
 
                                         // If there aren't any files to review, then we don't have an explicit role and we should fall through to counting all the files.
                                         if (filesToReview > 0) {
