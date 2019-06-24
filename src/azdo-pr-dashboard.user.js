@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO PR dashboard improvements
-// @version      2.10.1
+// @version      2.10.0
 // @author       National Instruments
 // @description  Adds sorting and categorization to the PR dashboard.
 // @license      MIT
@@ -42,6 +42,25 @@ function sortPullRequestDashboard() {
     $("[aria-label='Assigned to me'][role='region'], .ms-GroupedList-group:has([aria-label='Assigned to me'])").once('reviews-sorted').each(function() {
         const personalReviewSection = $(this);
 
+        $(document.head).append(`
+            <style type="text/css">
+                details.reviews-list {
+                    margin: 10px 30px;
+                    display: none;
+                }
+                details.reviews-list summary {
+                    padding: 10px;
+                    cursor: pointer;
+                    color: var(--text-secondary-color);
+                }
+                .blocking-review {
+                    background: rgba(256, 0, 0, 0.25);
+                }
+                .blocking-review:hover {
+                    background: rgba(256, 0, 0, 0.35) !important;
+                }
+            </style>`);
+
         // Sort the reviews in reverse; aka. show oldest reviews first then newer reviews.
         personalReviewSection.append(personalReviewSection.find("[role='listitem']").get().reverse());
 
@@ -52,12 +71,12 @@ function sortPullRequestDashboard() {
         const notableUpdateDescription = `These are pull requests you've already approved, but since then, any of following events have happened:&#013    1) At least ${peopleToNotApproveToCountAsNotableThread} people voted Rejected or Waiting on Author&#013    2) A thread was posted with at least ${commentsToCountAsNotableThread} comments&#013    3) A thread was posted with at least ${wordsToCountAsNotableThread} words&#013Optional: To remove PRs from this list, simply vote again on the PR (even if it's the same vote).`;
 
         // Create review sections with counters.
-        personalReviewSection.append("<details class='reviews-incomplete-blocked' style='display: none; margin: 10px 30px'><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Incomplete but blocked (<span class='review-subsection-counter'>0</span>)</summary></details>");
-        personalReviewSection.append("<details class='reviews-drafts' style='display: none; margin: 10px 30px'><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Drafts (<span class='review-subsection-counter'>0</span>)</summary></details>");
-        personalReviewSection.append("<details class='reviews-waiting' style='display: none; margin: 10px 30px'><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Completed as Waiting on Author (<span class='review-subsection-counter'>0</span>)</summary></details>");
-        personalReviewSection.append("<details class='reviews-rejected' style='display: none; margin: 10px 30px'><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Completed as Rejected (<span class='review-subsection-counter'>0</span>)</summary></details>");
-        personalReviewSection.append(`<details class='reviews-approved-notable' style='display: none; margin: 10px 30px'><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Completed as Approved / Approved with Suggestions (<abbr title="${notableUpdateDescription}">with notable activity</abbr>) (<span class='review-subsection-counter'>0</span>)</summary></details>`);
-        personalReviewSection.append("<details class='reviews-approved' style='display: none; margin: 10px 30px'><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Completed as Approved / Approved with Suggestions (<span class='review-subsection-counter'>0</span>)</summary></details>");
+        personalReviewSection.append("<details class='reviews-list reviews-incomplete-blocked'><summary>Incomplete but blocked (<span class='review-subsection-counter'>0</span>)</summary></details>");
+        personalReviewSection.append("<details class='reviews-list reviews-drafts'><summary>Drafts (<span class='review-subsection-counter'>0</span>)</summary></details>");
+        personalReviewSection.append("<details class='reviews-list reviews-waiting'><summary>Completed as Waiting on Author (<span class='review-subsection-counter'>0</span>)</summary></details>");
+        personalReviewSection.append("<details class='reviews-list reviews-rejected'><summary>Completed as Rejected (<span class='review-subsection-counter'>0</span>)</summary></details>");
+        personalReviewSection.append(`<details class='reviews-list reviews-approved-notable'><summary>Completed as Approved / Approved with Suggestions (<abbr title="${notableUpdateDescription}">with notable activity</abbr>) (<span class='review-subsection-counter'>0</span>)</summary></details>`);
+        personalReviewSection.append("<details class='reviews-list reviews-approved'><summary>Completed as Approved / Approved with Suggestions (<span class='review-subsection-counter'>0</span>)</summary></details>");
 
         // Load the subsection open/closed setting if it exists and setup a change handler to save the setting.
         personalReviewSection.children("details")
@@ -180,7 +199,7 @@ function sortPullRequestDashboard() {
                     if (waitingOrRejectedVotes > 0) {
                         subsection = '.reviews-incomplete-blocked';
                     } else if (missingVotes == 1) {
-                        row.css('background', 'rgba(256, 0, 0, 0.3)');
+                        row.addClass("blocking-review")
                     }
                 }
 
