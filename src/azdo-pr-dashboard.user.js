@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO PR dashboard improvements
-// @version      2.9.1
+// @version      2.9.2
 // @author       National Instruments
 // @description  Adds sorting and categorization to the PR dashboard.
 // @license      MIT
@@ -204,7 +204,7 @@ function sortPullRequestDashboard() {
                                 var commentCount = 0;
 
                                 $.each(thread.comments, (j, comment) => {
-                                    if (comment.commentType != 'system') {
+                                    if (comment.commentType != 'system' && !comment.isDeleted && comment.content) {
                                         commentCount++;
                                         wordCount += comment.content.trim().split(/\s+/).length;
                                     }
