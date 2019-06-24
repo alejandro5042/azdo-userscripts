@@ -42,7 +42,6 @@ function sortPullRequestDashboard() {
     }
     if (myReviews.length == 0) {
         // We are not on a page that has a PR dashboard.
-        console.log("No PR dashboard found at: " + window.location);
         return;
     }
 
@@ -225,7 +224,7 @@ function sortPullRequestDashboard() {
                             }
                         },
                         error: (jqXHR, exception) => {
-                            console.log(`Error at PR ${pullRequestId}: ${jqXHR.responseText}`);
+                            console.error(`Error at PR ${pullRequestId}: ${jqXHR.responseText}`);
                         }
                     });
                 } else {
@@ -317,7 +316,7 @@ function sortPullRequestDashboard() {
                 });
             },
             error: (jqXHR, exception) => {
-                console.log(`Error at PR ${pullRequestId}: ${jqXHR.responseText}`);
+                console.error(`Error at PR ${pullRequestId}: ${jqXHR.responseText}`);
 
                 // Un-hide the row if we errored out.
                 row.show(150);
