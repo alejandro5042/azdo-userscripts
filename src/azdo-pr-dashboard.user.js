@@ -18,17 +18,20 @@
 
 // @run-at       document-start
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js#sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=
-// @require      https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.9.1/underscore-min.js#sha256-G7A4JrJjJlFqP0yamznwPjAApIKPkadeHfyIwiaa9e0=
+// @require      https://cdn.jsdelivr.net/npm/lodash@4.17.11/lodash.min.js#sha256-7/yoZS3548fXSRXqc/xYzjsmuW3sFKzuvOCHd06Pmps=
 
 // ==/UserScript==
 
 // Update if we notice new elements being inserted into the DOM. This happens when AzDO loads the PR dashboard. Debounce new elements by a short time, in case they are being added in a batch.
-$(document).bind('DOMNodeInserted', _.debounce(() => {
+document.addEventListener('DOMNodeInserted', _.throttle(onPageDOMNodeInserted, 400));
+
+function onPageDOMNodeInserted(event) {
     // If we're on a pull request page, attempt to sort it.
-    if(/\/(_pulls|pullrequests)/i.test(window.location.pathname)) {
+    if (/\/(_pulls|pullrequests)/i.test(window.location.pathname)) {
         sortPullRequestDashboard();
+        return;
     }
-}, 500));
+}
 
 function sortPullRequestDashboard() {
     // Find the reviews section for this user.
