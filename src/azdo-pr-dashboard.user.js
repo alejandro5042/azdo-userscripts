@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO PR dashboard improvements
-// @version      2.11.0
+// @version      2.10.0
 // @author       National Instruments
 // @description  Adds sorting and categorization to the PR dashboard.
 // @license      MIT
@@ -81,11 +81,8 @@ function sortPullRequestDashboard() {
         let apiUrlPrefix = `${location.origin}${pageDataProviders.data["ms.vss-tfs-web.header-action-data"].suiteHomeUrl}`;
 
         // Loop through the PRs that we've voted on.
-        $(personalReviewSection).find(`[role="listitem"]`).each((index, item) => {
-            var row = $(item);
-            if (row.length == 0) {
-                return;
-            }
+        $(personalReviewSection).find(`[role="listitem"]`).each(async function () {
+            var row = $(this);
 
             // Get the PR id.
             var pullRequestUrl = row.find("a[href*='/pullrequest/']").attr('href');
@@ -97,211 +94,170 @@ function sortPullRequestDashboard() {
             // Hide the row while we are updating it.
             row.hide(150);
 
-            // Get complete information about the PR.
-            // See: https://docs.microsoft.com/en-us/rest/api/azure/devops/git/pull%20requests/get%20pull%20request%20by%20id?view=azure-devops-rest-5.0
-            $.ajax({
-                url: `${apiUrlPrefix}/_apis/git/pullrequests/${pullRequestId}?api-version=5.0`,
-                type: 'GET',
-                cache: false,
-                success: (pullRequestInfo) => {
-                    // AzDO has returned with info on this PR.
+            try {
+                // Get complete information about the PR.
+                // See: https://docs.microsoft.com/en-us/rest/api/azure/devops/git/pull%20requests/get%20pull%20request%20by%20id?view=azure-devops-rest-5.0
+                let pullRequestInfo = await $.get(`${apiUrlPrefix}/_apis/git/pullrequests/${pullRequestId}?api-version=5.0`);
 
-                    var missingVotes = 0;
-                    var waitingOrRejectedVotes = 0;
-                    var neededVotes = 0;
-                    var myVote = 0;
+                var missingVotes = 0;
+                var waitingOrRejectedVotes = 0;
+                var neededVotes = 0;
+                var myVote = 0;
 
-                    // Count the number of votes.
-                    $.each(pullRequestInfo.reviewers, function(i, reviewer) {
-                        neededVotes++;
-                        if (reviewer.displayName == me) {
-                            myVote = reviewer.vote;
+                // Count the number of votes.
+                $.each(pullRequestInfo.reviewers, function(i, reviewer) {
+                    neededVotes++;
+                    if (reviewer.displayName == me) {
+                        myVote = reviewer.vote;
+                    }
+                    if (reviewer.vote == 0) {
+                        missingVotes++;
+                    }
+                    if (reviewer.vote < 0) {
+                        waitingOrRejectedVotes++;
+                    }
+                });
+
+                // Any tasks that need to complete in order to calculate the right subsection.
+                var subsectionAsyncTask = null;
+
+                // See what section this PR should be filed under and style the row, if necessary.
+                var subsection = "";
+                var computeSize = false;
+                if (pullRequestInfo.isDraft) {
+                    subsection = '.reviews-drafts';
+                    computeSize = true;
+                } else if (myVote == -5) {
+                    subsection = '.reviews-waiting';
+                } else if (myVote < 0) {
+                    subsection = '.reviews-rejected';
+                } else if (myVote > 0) {
+                    subsection = '.reviews-approved';
+
+                    // If the user approved the PR, see if we need to resurface it as a notable PR.
+                    // See: https://docs.microsoft.com/en-us/rest/api/azure/devops/git/pull%20request%20threads/list?view=azure-devops-rest-5.0
+                    let pullRequestThreads = await $.get(`${pullRequestInfo.url}/threads?api-version=5.0`);
+
+                    let threadsWithLotsOfComments = 0;
+                    let threadsWithWordyComments = 0;
+                    let newNonApprovedVotes = 0;
+
+                    // Loop through the threads in reverse time order (newest first).
+                    $.each(pullRequestThreads.value.reverse(), function(i, thread) {
+                        // If the thread is deleted, let's ignore it and move on to the next thread.
+                        if (thread.isDeleted) {
+                            return true;
                         }
-                        if (reviewer.vote == 0) {
-                            missingVotes++;
-                        }
-                        if (reviewer.vote < 0) {
-                            waitingOrRejectedVotes++;
-                        }
-                    });
 
-                    // Any tasks that need to complete in order to calculate the right subsection.
-                    var subsectionAsyncTask = null;
-
-                    // See what section this PR should be filed under and style the row, if necessary.
-                    var subsection = "";
-                    var computeSize = false;
-                    if (pullRequestInfo.isDraft) {
-                        subsection = '.reviews-drafts';
-                        computeSize = true;
-                    } else if (myVote == -5) {
-                        subsection = '.reviews-waiting';
-                    } else if (myVote < 0) {
-                        subsection = '.reviews-rejected';
-                    } else if (myVote > 0) {
-                        subsection = '.reviews-approved';
-
-                        // If the user approved the PR, see if we need to resurface it as a notable PR.
-                        // See: https://docs.microsoft.com/en-us/rest/api/azure/devops/git/pull%20request%20threads/list?view=azure-devops-rest-5.0
-                        subsectionAsyncTask = $.ajax({
-                            url: `${pullRequestInfo.url}/threads?api-version=5.0`,
-                            type: 'GET',
-                            cache: false,
-                            success: (pullRequestThreads) => {
-                                // AzDO has returned with threads for this PR.
-
-                                var threadsWithLotsOfComments = 0;
-                                var threadsWithWordyComments = 0;
-                                var newNonApprovedVotes = 0;
-
-                                // Loop through the threads in reverse time order (newest first).
-                                $.each(pullRequestThreads.value.reverse(), function(i, thread) {
-                                    // If the thread is deleted, let's ignore it and move on to the next thread.
-                                    if (thread.isDeleted) {
-                                        return true;
-                                    }
-
-                                    // See if this thread represents a non-approved vote.
-                                    if (thread.properties.hasOwnProperty("CodeReviewThreadType")) {
-                                        if (thread.properties.CodeReviewThreadType["$value"] == "VoteUpdate") {
-                                            // Stop looking at threads once we find the thread that represents our vote.
-                                            var votingUser = thread.identities[thread.properties.CodeReviewVotedByIdentity["$value"]].displayName;
-                                            if (votingUser == me) {
-                                                return false;
-                                            }
-
-                                            if (thread.properties.CodeReviewVoteResult["$value"] < 0) {
-                                                newNonApprovedVotes++;
-                                            }
-                                        }
-                                    }
-
-                                    // Count the number of comments and words in the thread.
-
-                                    var wordCount = 0;
-                                    var commentCount = 0;
-
-                                    $.each(thread.comments, (j, comment) => {
-                                        if (comment.commentType != 'system' && !comment.isDeleted && comment.content) {
-                                            commentCount++;
-                                            wordCount += comment.content.trim().split(/\s+/).length;
-                                        }
-                                    });
-
-                                    if (commentCount >= commentsToCountAsNotableThread) {
-                                        threadsWithLotsOfComments++;
-                                    }
-                                    if (wordCount >= wordsToCountAsNotableThread) {
-                                        threadsWithWordyComments++;
-                                    }
-                                });
-
-                                // See if we've tripped any of attributes that would make this PR notable.
-                                if (threadsWithLotsOfComments > 0 || threadsWithWordyComments > 0 || newNonApprovedVotes >= peopleToNotApproveToCountAsNotableThread) {
-                                    subsection = '.reviews-approved-notable';
+                        // See if this thread represents a non-approved vote.
+                        if (thread.properties.hasOwnProperty("CodeReviewThreadType")) {
+                            if (thread.properties.CodeReviewThreadType["$value"] == "VoteUpdate") {
+                                // Stop looking at threads once we find the thread that represents our vote.
+                                var votingUser = thread.identities[thread.properties.CodeReviewVotedByIdentity["$value"]].displayName;
+                                if (votingUser == me) {
+                                    return false;
                                 }
-                            },
-                            error: (jqXHR, exception) => {
-                                console.error(`Error at PR ${pullRequestId}: ${jqXHR.responseText}`);
+
+                                if (thread.properties.CodeReviewVoteResult["$value"] < 0) {
+                                    newNonApprovedVotes++;
+                                }
+                            }
+                        }
+
+                        // Count the number of comments and words in the thread.
+
+                        var wordCount = 0;
+                        var commentCount = 0;
+
+                        $.each(thread.comments, (j, comment) => {
+                            if (comment.commentType != 'system' && !comment.isDeleted && comment.content) {
+                                commentCount++;
+                                wordCount += comment.content.trim().split(/\s+/).length;
                             }
                         });
-                    } else {
-                        computeSize = true;
-                        if (waitingOrRejectedVotes > 0) {
-                            subsection = '.reviews-incomplete-blocked';
-                        } else if (missingVotes == 1) {
-                            row.css('background', 'rgba(256, 0, 0, 0.3)');
+
+                        if (commentCount >= commentsToCountAsNotableThread) {
+                            threadsWithLotsOfComments++;
                         }
-                    }
-
-                    // Compute the size of certain PRs; e.g. those we haven't reviewed yet.
-                    if (computeSize) {
-                        // Make sure we've created a merge commit that we can compute its size.
-                        if (pullRequestInfo.lastMergeCommit) {
-                            // Helper function to add the size to the PR row.
-                            function addPullRequestFileSize(files) {
-                                var content = `<span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${files}`;
-
-                                // For the overall PR dashboard.
-                                row.find('div.vss-DetailsList--titleCellTwoLine').parent().append(`<div style='margin: 0px 15px; width: 3em; text-align: left;'>${content}</div>`);
-
-                                // For a repo's PR dashboard.
-                                row.find('div.vc-pullrequest-entry-col-secondary').after(`<div style='margin: 15px; width: 3.5em; display: flex; align-items: center; text-align: right;'>${content}</div>`);
-                            }
-
-                            // First, try to find NI.ReviewProperties, which contains reviewer info specific to National Instrument workflows (where this script is used the most).
-                            $.ajax({
-                                url: `${pullRequestInfo.url}/properties?api-version=5.1-preview.1`,
-                                type: 'GET',
-                                cache: false,
-                                success: (prProperties) => {
-                                    var reviewProperties = prProperties.value["NI.ReviewProperties"];
-                                    if (reviewProperties) {
-                                        reviewProperties = JSON.parse(reviewProperties.$value);
-
-                                        // Count the number of files we are in the reviewers list.
-                                        var filesToReview = 0;
-                                        if (reviewProperties.version <= 3 && reviewProperties.fileProperties) {
-                                            for (let file of reviewProperties.fileProperties) {
-                                                for (let reviewer of file.Reviewers) {
-                                                    if (reviewer.includes(userEmail)) {
-                                                        filesToReview++;
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        // If there aren't any files to review, then we don't have an explicit role and we should fall through to counting all the files.
-                                        if (filesToReview > 0) {
-                                            addPullRequestFileSize(filesToReview);
-                                            return;
-                                        }
-                                    }
-
-                                    // If there is no NI.ReviewProperties or if it returns zero files to review, then count the number of files in the merge commit.
-                                    $.ajax({
-                                        url: `${pullRequestInfo.lastMergeCommit.url}/changes?api-version=5.0`,
-                                        type: 'GET',
-                                        cache: false,
-                                        success: (mergeCommitInfo) => {
-                                            var fileCount = 0;
-                                            mergeCommitInfo.changes.forEach(item => {
-                                                if (!item.item.isFolder) {
-                                                    fileCount++;
-                                                }
-                                            });
-
-                                            addPullRequestFileSize(fileCount);
-                                        }
-                                    });
-                                }
-                            });
-                        }
-                    }
-
-                    // Wait until we've finished any task that is needed to calculate subsection.
-                    $.when(subsectionAsyncTask).then(() => {
-                        try {
-                            // If we identified a section, move the row.
-                            if (subsection) {
-                                var completedSection = personalReviewSection.children(subsection);
-                                completedSection.find('.review-subsection-counter').text(function(i, value) { return +value + 1 });
-                                completedSection.find('.review-subsection-counter').removeClass('empty');
-                                completedSection.css('display', 'block');
-                                completedSection.append(row);
-                            }
-                        } finally {
-                            row.show(150);
+                        if (wordCount >= wordsToCountAsNotableThread) {
+                            threadsWithWordyComments++;
                         }
                     });
-                },
-                error: (jqXHR, exception) => {
-                    console.error(`Error at PR ${pullRequestId}: ${jqXHR.responseText}`);
 
-                    // Un-hide the row if we errored out.
-                    row.show(150);
+                    // See if we've tripped any of attributes that would make this PR notable.
+                    if (threadsWithLotsOfComments > 0 || threadsWithWordyComments > 0 || newNonApprovedVotes >= peopleToNotApproveToCountAsNotableThread) {
+                        subsection = '.reviews-approved-notable';
+                    }
+                } else {
+                    computeSize = true;
+                    if (waitingOrRejectedVotes > 0) {
+                        subsection = '.reviews-incomplete-blocked';
+                    } else if (missingVotes == 1) {
+                        row.css('background', 'rgba(256, 0, 0, 0.3)');
+                    }
                 }
-            });
+
+                // Compute the size of certain PRs; e.g. those we haven't reviewed yet.
+                if (computeSize) {
+                    // Make sure we've created a merge commit that we can compute its size.
+                    if (pullRequestInfo.lastMergeCommit) {
+                        // Helper function to add the size to the PR row.
+                        function addPullRequestFileSize(files) {
+                            var content = `<span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${files}`;
+
+                            // For the overall PR dashboard.
+                            row.find('div.vss-DetailsList--titleCellTwoLine').parent().append(`<div style='margin: 0px 15px; width: 3em; text-align: left;'>${content}</div>`);
+
+                            // For a repo's PR dashboard.
+                            row.find('div.vc-pullrequest-entry-col-secondary').after(`<div style='margin: 15px; width: 3.5em; display: flex; align-items: center; text-align: right;'>${content}</div>`);
+                        }
+
+                        // First, try to find NI.ReviewProperties, which contains reviewer info specific to National Instrument workflows (where this script is used the most).
+                        let prProperties = await $.get(`${pullRequestInfo.url}/properties?api-version=5.1-preview.1`);
+                        let reviewProperties = prProperties.value["NI.ReviewProperties"];
+                        if (reviewProperties) {
+                            reviewProperties = JSON.parse(reviewProperties.$value);
+
+                            // Count the number of files we are in the reviewers list.
+                            let filesToReview = 0;
+                            if (reviewProperties.version <= 3 && reviewProperties.fileProperties) {
+                                for (let file of reviewProperties.fileProperties) {
+                                    for (let reviewer of file.Reviewers) {
+                                        if (reviewer.includes(userEmail)) {
+                                            filesToReview++;
+                                        }
+                                    }
+                                }
+                            }
+
+                            // If there aren't any files to review, then we don't have an explicit role and we should fall through to counting all the files.
+                            if (filesToReview > 0) {
+                                addPullRequestFileSize(filesToReview);
+                                return;
+                            }
+                        }
+
+                        // If there is no NI.ReviewProperties or if it returns zero files to review, then count the number of files in the merge commit.
+                        let mergeCommitInfo = await $.get(`${pullRequestInfo.lastMergeCommit.url}/changes?api-version=5.0`);
+                        let fileCount = _(mergeCommitInfo.changes).filter(item => !item.item.isFolder).size();
+
+                        addPullRequestFileSize(fileCount);
+                    }
+                }
+
+                // If we identified a section, move the row.
+                if (subsection) {
+                    var completedSection = personalReviewSection.children(subsection);
+                    completedSection.find('.review-subsection-counter').text(function(i, value) { return +value + 1 });
+                    completedSection.find('.review-subsection-counter').removeClass('empty');
+                    completedSection.css('display', 'block');
+                    completedSection.append(row);
+                }
+            } catch (e) {
+                console.error(`Error at PR ${pullRequestId}: ${e}`);
+            } finally {
+                row.show(150);
+            }
         });
     });
 }
