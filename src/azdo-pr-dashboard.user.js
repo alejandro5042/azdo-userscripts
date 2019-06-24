@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO PR dashboard improvements
-// @version      2.10.0
+// @version      2.11.0
 // @author       National Instruments
 // @description  Adds sorting and categorization to the PR dashboard.
 // @license      MIT
@@ -19,9 +19,13 @@
 // @run-at       document-start
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js#sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jquery-once/2.2.3/jquery.once.min.js#sha256-HaeXVMzafCQfVtWoLtN3wzhLWNs8cY2cH9OIQ8R9jfM=
+// @require      https://cdnjs.cloudflare.com/ajax/libs/lscache/1.3.0/lscache.js#sha256-QVvX22TtfzD4pclw/4yxR0G1/db2GZMYG9+gxRM9v30=
 // @require      https://cdn.jsdelivr.net/npm/lodash@4.17.11/lodash.min.js#sha256-7/yoZS3548fXSRXqc/xYzjsmuW3sFKzuvOCHd06Pmps=
 
 // ==/UserScript==
+
+// Set a namespace for our local storage items.
+lscache.setBucket("acb-azdo-pr-dashboard/");
 
 // Update if we notice new elements being inserted into the DOM. This happens when AzDO loads the PR dashboard. Debounce new elements by a short time, in case they are being added in a batch.
 document.addEventListener('DOMNodeInserted', _.throttle(onPageDOMNodeInserted, 400));
@@ -49,32 +53,23 @@ function sortPullRequestDashboard() {
         var notableUpdateDescription = `These are pull requests you've already approved, but since then, any of following events have happened:&#013    1) At least ${peopleToNotApproveToCountAsNotableThread} people voted Rejected or Waiting on Author&#013    2) A thread was posted with at least ${commentsToCountAsNotableThread} comments&#013    3) A thread was posted with at least ${wordsToCountAsNotableThread} words&#013Optional: To remove PRs from this list, simply vote again on the PR (even if it's the same vote).`;
 
         // Create review sections with counters.
-        personalReviewSection.append("<details class='reviews-incomplete-blocked' style='display: none; margin: 10px 30px' open><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Incomplete but blocked (<span class='review-subsection-counter'>0</span>)</summary></details>");
-        personalReviewSection.append("<details class='reviews-drafts' style='display: none; margin: 10px 30px' open><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Drafts (<span class='review-subsection-counter'>0</span>)</summary></details>");
+        personalReviewSection.append("<details class='reviews-incomplete-blocked' style='display: none; margin: 10px 30px'><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Incomplete but blocked (<span class='review-subsection-counter'>0</span>)</summary></details>");
+        personalReviewSection.append("<details class='reviews-drafts' style='display: none; margin: 10px 30px'><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Drafts (<span class='review-subsection-counter'>0</span>)</summary></details>");
         personalReviewSection.append("<details class='reviews-waiting' style='display: none; margin: 10px 30px'><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Completed as Waiting on Author (<span class='review-subsection-counter'>0</span>)</summary></details>");
         personalReviewSection.append("<details class='reviews-rejected' style='display: none; margin: 10px 30px'><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Completed as Rejected (<span class='review-subsection-counter'>0</span>)</summary></details>");
-        personalReviewSection.append(`<details class='reviews-approved-notable' style='display: none; margin: 10px 30px' open><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Completed as Approved / Approved with Suggestions (<abbr title="${notableUpdateDescription}">with notable activity</abbr>) (<span class='review-subsection-counter'>0</span>)</summary></details>`);
+        personalReviewSection.append(`<details class='reviews-approved-notable' style='display: none; margin: 10px 30px'><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Completed as Approved / Approved with Suggestions (<abbr title="${notableUpdateDescription}">with notable activity</abbr>) (<span class='review-subsection-counter'>0</span>)</summary></details>`);
         personalReviewSection.append("<details class='reviews-approved' style='display: none; margin: 10px 30px'><summary style='padding: 10px; cursor: pointer; color: var(--text-secondary-color)'>Completed as Approved / Approved with Suggestions (<span class='review-subsection-counter'>0</span>)</summary></details>");
 
-        // If we have browser local storage, we can save the open/closed setting of these subsections.
-        if (localStorage) {
-            // Load the subsection open/closed setting if it exists.
-            personalReviewSection.children("details").each((index, item) => {
-                var detailsElement = $(item);
-                var isSubsectionOpen = localStorage.getItem(`userscript/azdo-pr-dashboard/is-subsection-open/${detailsElement.attr('class')}`);
-                if (isSubsectionOpen == 1) {
-                    detailsElement.attr('open', 'open');
-                } else if (isSubsectionOpen == 0) {
-                    detailsElement.removeAttr('open');
-                }
+        // Load the subsection open/closed setting if it exists and setup a change handler to save the setting.
+        personalReviewSection.children("details")
+            .each(function() {
+                if (lscache.get(`pr-section-open/${$(this).attr('class')}`)) {
+                    $(this).attr('open', 'open');
+                }
+            })
+            .on("toggle", function(event) {
+                lscache.set(`pr-section-open/${$(this).attr('class')}`, $(this).attr('open') == 'open');
             });
-
-            // Save the subsection open/closed setting on toggle.
-            personalReviewSection.children("details").on("toggle", (e) => {
-                var detailsElement = $(e.target);
-                localStorage.setItem(`userscript/azdo-pr-dashboard/is-subsection-open/${detailsElement.attr('class')}`, detailsElement.attr('open') == 'open' ? 1 : 0);
-            });
-        }
 
         // Because of CORS, we need to make sure we're querying the same hostname for our AzDO APIs.
         var apiUrlPrefix;
