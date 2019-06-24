@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO PR dashboard improvements
-// @version      2.10.0
+// @version      2.10.1
 // @author       National Instruments
 // @description  Adds sorting and categorization to the PR dashboard.
 // @license      MIT
@@ -104,8 +104,7 @@ function sortPullRequestDashboard() {
                     }
                     if (reviewer.vote == 0) {
                         missingVotes++;
-                    }
-                    if (reviewer.vote < 0) {
+                    } else if (reviewer.vote < 0) {
                         waitingOrRejectedVotes++;
                     }
                 }
@@ -189,7 +188,6 @@ function sortPullRequestDashboard() {
                 if (subsection) {
                     const completedSection = personalReviewSection.children(subsection);
                     completedSection.find('.review-subsection-counter').text((i, value) => +value + 1);
-                    completedSection.find('.review-subsection-counter').removeClass('empty');
                     completedSection.css('display', 'block');
                     completedSection.append(row);
                 }
@@ -213,7 +211,7 @@ function sortPullRequestDashboard() {
                     }
 
                     // If there is no NI.ReviewProperties or if it returns zero files to review (since we may not be on the review explicitly), then count the number of files in the merge commit.
-                    if (fileCount < 1) {
+                    if (fileCount == 0) {
                         const mergeCommitInfo = await $.get(`${pullRequestInfo.lastMergeCommit.url}/changes?api-version=5.0`);
                         fileCount = _(mergeCommitInfo.changes).filter(item => !item.item.isFolder).size();
                     }
