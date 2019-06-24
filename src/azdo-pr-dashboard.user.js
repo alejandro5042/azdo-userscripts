@@ -71,19 +71,14 @@ function sortPullRequestDashboard() {
                 lscache.set(`pr-section-open/${$(this).attr('class')}`, $(this).attr('open') == 'open');
             });
 
-        // Because of CORS, we need to make sure we're querying the same hostname for our AzDO APIs.
-        var apiUrlPrefix;
-        if (window.location.hostname == 'dev.azure.com') {
-            apiUrlPrefix = `https://${window.location.hostname}${window.location.pathname.match(/^\/.*?\//ig)[0]}`;
-        } else {
-            apiUrlPrefix = `https://${window.location.hostname}`;
-        }
-
         // Find the user's name.
         var pageDataProviders = JSON.parse(document.getElementById('dataProviders').innerHTML);
         var user = pageDataProviders.data["ms.vss-web.page-data"].user;
         var me = user.displayName;
         var userEmail = user.uniqueName;
+
+        // Because of CORS, we need to make sure we're querying the same hostname for our AzDO APIs.
+        let apiUrlPrefix = `${location.origin}${pageDataProviders.data["ms.vss-tfs-web.header-action-data"].suiteHomeUrl}`;
 
         // Loop through the PRs that we've voted on.
         $(personalReviewSection).find(`[role="listitem"]`).each((index, item) => {
