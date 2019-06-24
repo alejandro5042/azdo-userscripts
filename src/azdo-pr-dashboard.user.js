@@ -207,20 +207,7 @@ function sortPullRequestDashboard() {
                         // Count the number of files we are in the reviewers list.
                         if (reviewProperties.version <= 3 && reviewProperties.fileProperties) {
                             for (const file of reviewProperties.fileProperties) {
-                                if (file.Owner == user.uniqueName) {
-                                    fileCount++;
-                                    continue;
-                                }
-                                if (file.Alternate == user.uniqueName) {
-                                    fileCount++;
-                                    continue;
-                                }
-                                for (const reviewer of file.Reviewers) {
-                                    if (reviewer.includes(user.uniqueName)) {
-                                        fileCount++;
-                                        break;
-                                    }
-                                }
+                                fileCount += _([file.Owner, file.Alternate, file.Reviewers].flat()).some(reviewer => reviewer.includes(user.uniqueName)) ? 1 : 0;
                             }
                         }
                     }
