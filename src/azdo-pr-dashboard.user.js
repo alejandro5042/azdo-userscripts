@@ -73,6 +73,7 @@ function sortPullRequestDashboard() {
 
         // Find the user's name.
         var pageDataProviders = JSON.parse(document.getElementById('dataProviders').innerHTML);
+        console.log(pageDataProviders);
         var user = pageDataProviders.data["ms.vss-web.page-data"].user;
         var me = user.displayName;
         var userEmail = user.uniqueName;
@@ -197,54 +198,6 @@ function sortPullRequestDashboard() {
                     }
                 }
 
-                // Compute the size of certain PRs; e.g. those we haven't reviewed yet.
-                if (computeSize) {
-                    // Make sure we've created a merge commit that we can compute its size.
-                    if (pullRequestInfo.lastMergeCommit) {
-                        // Helper function to add the size to the PR row.
-                        function addPullRequestFileSize(files) {
-                            var content = `<span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${files}`;
-
-                            // For the overall PR dashboard.
-                            row.find('div.vss-DetailsList--titleCellTwoLine').parent().append(`<div style='margin: 0px 15px; width: 3em; text-align: left;'>${content}</div>`);
-
-                            // For a repo's PR dashboard.
-                            row.find('div.vc-pullrequest-entry-col-secondary').after(`<div style='margin: 15px; width: 3.5em; display: flex; align-items: center; text-align: right;'>${content}</div>`);
-                        }
-
-                        // First, try to find NI.ReviewProperties, which contains reviewer info specific to National Instrument workflows (where this script is used the most).
-                        let prProperties = await $.get(`${pullRequestInfo.url}/properties?api-version=5.1-preview.1`);
-                        let reviewProperties = prProperties.value["NI.ReviewProperties"];
-                        if (reviewProperties) {
-                            reviewProperties = JSON.parse(reviewProperties.$value);
-
-                            // Count the number of files we are in the reviewers list.
-                            let filesToReview = 0;
-                            if (reviewProperties.version <= 3 && reviewProperties.fileProperties) {
-                                for (let file of reviewProperties.fileProperties) {
-                                    for (let reviewer of file.Reviewers) {
-                                        if (reviewer.includes(userEmail)) {
-                                            filesToReview++;
-                                        }
-                                    }
-                                }
-                            }
-
-                            // If there aren't any files to review, then we don't have an explicit role and we should fall through to counting all the files.
-                            if (filesToReview > 0) {
-                                addPullRequestFileSize(filesToReview);
-                                return;
-                            }
-                        }
-
-                        // If there is no NI.ReviewProperties or if it returns zero files to review, then count the number of files in the merge commit.
-                        let mergeCommitInfo = await $.get(`${pullRequestInfo.lastMergeCommit.url}/changes?api-version=5.0`);
-                        let fileCount = _(mergeCommitInfo.changes).filter(item => !item.item.isFolder).size();
-
-                        addPullRequestFileSize(fileCount);
-                    }
-                }
-
                 // If we identified a section, move the row.
                 if (subsection) {
                     var completedSection = personalReviewSection.children(subsection);
@@ -252,6 +205,59 @@ function sortPullRequestDashboard() {
                     completedSection.find('.review-subsection-counter').removeClass('empty');
                     completedSection.css('display', 'block');
                     completedSection.append(row);
+                }
+
+                // Compute the size of certain PRs; e.g. those we haven't reviewed yet. But first, sure we've created a merge commit that we can compute its size.
+                if (computeSize && pullRequestInfo.lastMergeCommit) {
+                    let fileCount = undefined;
+
+                    // First, try to find NI.ReviewProperties, which contains reviewer info specific to National Instrument workflows (where this script is used the most).
+                    let prProperties = await $.get(`${pullRequestInfo.url}/properties?api-version=5.1-preview.1`);
+                    let reviewProperties = prProperties.value["NI.ReviewProperties"];
+
+                    if (reviewProperties) {
+                        reviewProperties = JSON.parse(reviewProperties.$value);
+
+                        // Count the number of files we are in the reviewers list.
+                        let fileCountByOwnerData = 0;
+                        if (reviewProperties.version <= 3 && reviewProperties.fileProperties) {
+                            for (let file of reviewProperties.fileProperties) {
+                                if (file.Owner == userEmail) {
+                                    fileCountByOwnerData++;
+                                    continue;
+                                }
+                                if (file.Alternate == userEmail) {
+                                    fileCountByOwnerData++;
+                                    continue;
+                                }
+                                for (let reviewer of file.Reviewers) {
+                                    if (reviewer.includes(userEmail)) {
+                                        fileCountByOwnerData++;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        // If there aren't any files to review, then we don't have an explicit role and we should fall through to counting all the files.
+                        if (fileCountByOwnerData > 0) {
+                            fileCount = fileCountByOwnerData;
+                        }
+                    }
+
+                    // If there is no NI.ReviewProperties or if it returns zero files to review, then count the number of files in the merge commit.
+                    if (fileCount === undefined) {
+                        let mergeCommitInfo = await $.get(`${pullRequestInfo.lastMergeCommit.url}/changes?api-version=5.0`);
+                        fileCount = _(mergeCommitInfo.changes).filter(item => !item.item.isFolder).size();
+                    }
+
+                    let fileCountContent = `<span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}`;
+
+                    // For the overall PR dashboard.
+                    row.find('div.vss-DetailsList--titleCellTwoLine').parent().append(`<div style='margin: 0px 15px; width: 3em; text-align: left;'>${fileCountContent}</div>`);
+
+                    // For a repo's PR dashboard.
+                    row.find('div.vc-pullrequest-entry-col-secondary').after(`<div style='margin: 15px; width: 3.5em; display: flex; align-items: center; text-align: right;'>${fileCountContent}</div>`);
                 }
             } catch (e) {
                 console.error(`Error at PR ${pullRequestId}: ${e}`);
