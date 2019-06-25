@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO PR dashboard improvements
-// @version      2.10.0
+// @version      2.11.0
 // @author       National Instruments
 // @description  Adds sorting and categorization to the PR dashboard.
 // @license      MIT
@@ -37,29 +37,30 @@ function onPageDOMNodeInserted(event) {
     }
 }
 
+// The func we'll call to continuously sort new PRs into categories.
+let sortEachPullRequestFunc = () => {};
+
 function sortPullRequestDashboard() {
     // Find the reviews section for this user. Note the two selectors: 1) a repo dashboard; 2) the overall dashboard (e.g. https://dev.azure.com/*/_pulls).
     $("[aria-label='Assigned to me'][role='region'], .ms-GroupedList-group:has([aria-label='Assigned to me'])").once('reviews-sorted').each(function() {
         const personalReviewSection = $(this);
 
-        $(document.head).append(`
-            <style type="text/css">
-                details.reviews-list {
-                    margin: 10px 30px;
-                    display: none;
-                }
-                details.reviews-list summary {
-                    padding: 10px;
-                    cursor: pointer;
-                    color: var(--text-secondary-color);
-                }
-                .blocking-review {
-                    background: rgba(256, 0, 0, 0.25);
-                }
-                .blocking-review:hover {
-                    background: rgba(256, 0, 0, 0.35) !important;
-                }
-            </style>`);
+        addStyleOnce("reviews-list-css", `
+            details.reviews-list {
+                margin: 10px 30px;
+                display: none;
+            }
+            details.reviews-list summary {
+                padding: 10px;
+                cursor: pointer;
+                color: var(--text-secondary-color);
+            }
+            .blocking-review {
+                background: rgba(256, 0, 0, 0.25);
+            }
+            .blocking-review:hover {
+                background: rgba(256, 0, 0, 0.35) !important;
+            }`);
 
         // Sort the reviews in reverse; aka. show oldest reviews first then newer reviews.
         personalReviewSection.append(personalReviewSection.find("[role='listitem']").get().reverse());
@@ -97,12 +98,13 @@ function sortPullRequestDashboard() {
         const apiUrlPrefix = `${location.origin}${pageDataProviders.data["ms.vss-tfs-web.header-action-data"].suiteHomeUrl}`;
 
         // Loop through the PRs that we've voted on.
-        $(personalReviewSection).find(`[role="listitem"]`).each(async function () {
+        sortEachPullRequestFunc = () => $(personalReviewSection).find(`[role="listitem"]`).once("pr-sorted").each(async function () {
             const row = $(this);
 
             // Get the PR id.
-            const pullRequestUrl = row.find("a[href*='/pullrequest/']").attr('href');
-            const pullRequestId = pullRequestUrl.substring(pullRequestUrl.lastIndexOf('/') + 1);
+            const pullRequestUrl = new URL(row.find("a[href*='/pullrequest/']").attr('href'), location.origin);
+            const pullRequestId = pullRequestUrl.pathname.substring(pullRequestUrl.pathname.lastIndexOf('/') + 1);
+            console.debug(`Sorting PR: ${pullRequestId}`);
 
             try {
                 // Hide the row while we are updating it.
@@ -248,4 +250,13 @@ function sortPullRequestDashboard() {
             }
         });
     });
+
+    sortEachPullRequestFunc();
+}
+
+// Helper function to avoid adding CSS twice into a document.
+function addStyleOnce(id, style) {
+    if ($(`head #${id}`).length == 0) {
+        $(document.head).append(`<style id="${id}" type="text/css">${style}</style>`);
+    }
 }
