@@ -30,8 +30,8 @@ lscache.setBucket("acb-azdo-pr-dashboard/");
 // Update if we notice new elements being inserted into the DOM. This happens when AzDO loads the PR dashboard. Debounce new elements by a short time, in case they are being added in a batch.
 document.addEventListener('DOMNodeInserted', _.throttle(onPageDOMNodeInserted, 400));
 
+// This is "main()" for this script. Runs periodically when the page updates.
 function onPageDOMNodeInserted(event) {
-    // If we're on a pull request page, attempt to sort it.
     if (/\/(_pulls|pullrequests)/i.test(window.location.pathname)) {
         sortPullRequestDashboard();
     }
