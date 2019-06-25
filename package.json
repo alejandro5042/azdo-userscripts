@@ -1,0 +1,8 @@
+{
+  "name": "azdo-userscripts",
+  "version": "1.0.0",
+  "dependencies": {},
+  "devDependencies": {
+    "eslint": "^6.0.1"
+  }
+}

@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO PR dashboard improvements
-// @version      2.11.0
+// @version      2.11.1
 // @author       National Instruments
 // @description  Adds sorting and categorization to the PR dashboard.
 // @license      MIT
@@ -33,6 +33,7 @@ document.addEventListener('DOMNodeInserted', _.throttle(onPageDOMNodeInserted, 4
 // This is "main()" for this script. Runs periodically when the page updates.
 function onPageDOMNodeInserted(event) {
     if (/\/(_pulls|pullrequests)/i.test(window.location.pathname)) {
+        // If we're on a pull request page, attempt to sort it.
         sortPullRequestDashboard();
     }
 }
@@ -119,7 +120,7 @@ function sortPullRequestDashboard() {
                 let userVote = 0;
 
                 // Count the number of votes.
-                for (let reviewer of pullRequestInfo.reviewers) {
+                for (const reviewer of pullRequestInfo.reviewers) {
                     if (reviewer.uniqueName == user.uniqueName) {
                         userVote = reviewer.vote;
                     }
@@ -160,7 +161,7 @@ function sortPullRequestDashboard() {
                         }
 
                         // See if this thread represents a non-approved vote.
-                        if (thread.properties.hasOwnProperty("CodeReviewThreadType")) {
+                        if (Object.prototype.hasOwnProperty.call(thread, "CodeReviewThreadType")) {
                             if (thread.properties.CodeReviewThreadType["$value"] == "VoteUpdate") {
                                 // Stop looking at threads once we find the thread that represents our vote.
                                 const votingUser = thread.identities[thread.properties.CodeReviewVotedByIdentity["$value"]];
