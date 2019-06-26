@@ -444,9 +444,13 @@
     const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 
     for (let i = 0; i < 10; i += 1) {
-      const pageData = JSON.parse(document.getElementById('dataProviders').innerHTML).data;
-      if (validityChecker(pageData)) {
-        return pageData;
+      try {
+        const pageData = JSON.parse(document.getElementById('dataProviders').innerHTML).data;
+        if (validityChecker(pageData)) {
+          return pageData;
+        }
+      } catch (e) {
+        // Do nothing. Loop.
       }
 
       // eslint-disable-next-line no-await-in-loop
