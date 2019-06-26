@@ -44,57 +44,69 @@
     }
   }
 
-  // Stores the checkbox state for the current page. A map of files => iteration it was checked.
-  let filesToIterationReviewed;
+  // The func we'll call to continuously add checkboxes to the PR file listing.
+  let addCheckboxesToNewFilesFunc = () => { };
 
   // If we're on specific PR, add checkboxes to the file listing.
   function addCheckboxesToFiles() {
-    $('.vc-sparse-files-tree').once('add-checkbox-support').each(function () {
+    $('.vc-sparse-files-tree').once('add-checkbox-support').each(async function () {
+      addCheckboxesToNewFilesFunc = () => { };
+
+      const filesTree = $(this);
+
+      // Get the current iteration of the PR.
+      const pageData = await getPageData();
+      const iterations = pageData['ms.vss-code-web.pull-request-detail-data-provider']['TFS.VersionControl.PullRequestDetailProvider.PullRequestIterations'];
+      const currentPullRequestIteration = iterations.length;
+
       // Get the current checkbox state for the PR at this URL.
       const checkboxStateId = `pr-file-iteration6/${window.location.pathname}`;
-      filesToIterationReviewed = lscache.get(checkboxStateId) || {};
+
+      // Stores the checkbox state for the current page. A map of files => iteration it was checked.
+      const filesToIterationReviewed = lscache.get(checkboxStateId) || {};
 
       addStyleOnce('pr-file-checbox-support-css', `
         button.file-complete-checkbox {
-            /* Make a checkbox out of a button. */
-            cursor: pointer;
-            width: 15px;
-            height: 15px;
-            line-height: 15px;
-            margin: -3px 8px 0px 0px;
-            padding: 0px;
-            background: var(--palette-black-alpha-6);
-            border-radius: 3px;
-            border: 1px solid var(--palette-black-alpha-10);
-            vertical-align: middle;
-            display: inline-block;
-            font-size: 0.75em;
-            text-align: center;
-            color: var(--text-primary-color);
+          /* Make a checkbox out of a button. */
+          cursor: pointer;
+          width: 15px;
+          height: 15px;
+          line-height: 15px;
+          margin: -3px 8px 0px 0px;
+          padding: 0px;
+          background: var(--palette-black-alpha-6);
+          border-radius: 3px;
+          border: 1px solid var(--palette-black-alpha-10);
+          vertical-align: middle;
+          display: inline-block;
+          font-size: 0.75em;
+          text-align: center;
+          color: var(--text-primary-color);
         }
         button.file-complete-checkbox:hover {
-            /* Make a checkbox out of a button. */
-            background: var(--palette-black-alpha-10);
+          /* Make a checkbox out of a button. */
+          background: var(--palette-black-alpha-10);
         }
         button.file-complete-checkbox.checked:after {
-            /* Make a checkbox out of a button. */
-            content: "✔";
+          /* Make a checkbox out of a button. */
+          content: "✔";
+        }
+        button.file-complete-checkbox.old-review {
+          /* Highlight old checks with blue. */
+          color: var(--communication-foreground);
         }`);
 
       // Handle clicking on file checkboxes.
-      $(this).on('click', 'button.file-complete-checkbox', async function (event) {
+      filesTree.on('click', 'button.file-complete-checkbox', async function (event) {
         const checkbox = $(this);
 
         // Toggle the look of the checkbox.
         checkbox.toggleClass('checked');
-        // TODO FUTURE: checkbox.removeClass('old-review');
+        checkbox.removeClass('old-review');
 
         if (checkbox.hasClass('checked')) {
-          // The checkbox is checked. Get the current iteration and save it in our map.
-          const pageData = await getPageData();
-          const iterations = pageData['ms.vss-code-web.pull-request-detail-data-provider']['TFS.VersionControl.PullRequestDetailProvider.PullRequestIterations'];
-          const currentIteration = iterations.length;
-          filesToIterationReviewed[checkbox.attr('name')] = currentIteration;
+          // The checkbox is checked. Save the file and the current iteration in our map.
+          filesToIterationReviewed[checkbox.attr('name')] = currentPullRequestIteration;
         } else {
           // If the checkbox is unchecked, just remove the file from our map to save space.
           delete filesToIterationReviewed[checkbox.attr('name')];
@@ -106,30 +118,31 @@
         // Stop the click event here to avoid the checkbox click from selecting the PR row underneath, which changes the active diff in the right panel.
         event.stopPropagation();
       });
+
+      addCheckboxesToNewFilesFunc = () => $('.vc-sparse-files-tree .vc-tree-cell').once('add-complete-checkbox').each(function () {
+        const fileCell = $(this);
+        const fileRow = fileCell.closest('.tree-row');
+        const typeIcon = fileRow.find('.type-icon');
+
+        // Don't put checkboxes on rows that don't represent files.
+        if (!/bowtie-file\b/i.test(typeIcon.attr('class'))) {
+          return;
+        }
+
+        const name = fileCell.attr('content'); // The 'content' attribute contains the file operation; e.g. "/src/file.cs [edit]".
+        const iteration = filesToIterationReviewed[name] || 0;
+
+        // TODO FUTURE: fileRow.toggleClass('file-to-review-row', filesToReview.includes(path));
+        // Create the checkbox before the type icon.
+        $('<button class="file-complete-checkbox" />')
+          .attr('name', name)
+          .toggleClass('checked', iteration > 0)
+          .toggleClass('old-review', iteration !== currentPullRequestIteration)
+          .insertBefore(typeIcon);
+      });
     });
 
-    $('.vc-sparse-files-tree .vc-tree-cell').once('add-complete-checkbox').each(function () {
-      const fileCell = $(this);
-      const fileRow = fileCell.closest('.tree-row');
-      const typeIcon = fileRow.find('.type-icon');
-
-      // Don't put checkboxes on rows that don't represent files.
-      if (!/bowtie-file\b/i.test(typeIcon.attr('class'))) {
-        return;
-      }
-
-      const name = fileCell.attr('content'); // The 'content' attribute contains the file operation; e.g. "/src/file.cs [edit]".
-      const iteration = filesToIterationReviewed[name] || 0;
-
-      // TODO FUTURE: fileRow.toggleClass('file-to-review-row', filesToReview.includes(path));
-
-      // Create the checkbox before the type icon.
-      $('<button class="file-complete-checkbox" />')
-        .attr('name', name)
-        .toggleClass('checked', iteration > 0)
-        // TODO FUTURE: .toggleClass('old-review', iteration > 0)
-        .insertBefore(typeIcon);
-    });
+    addCheckboxesToNewFilesFunc();
   }
 
   // Parse the page state data provided by AzDO.
@@ -139,7 +152,9 @@
 
   // If we're on specific PR, add a base update selector.
   function addBaseUpdateSelector() {
-    $('.vc-iteration-selector').once('add-base-selector').each(async function () {
+    $('.vc-iteration-selector').once('add-base-selector').each(function () {
+      const toolbar = $(this);
+
       addStyleOnce('base-selector-css', `
         .base-selector {
           color: var(--text-secondary-color);
@@ -189,7 +204,7 @@
       }
 
       // Finally add the dropdown to the toolbar.
-      $('<div class="base-selector" />').append(selector).prependTo($(this));
+      $('<div class="base-selector" />').append(selector).prependTo(toolbar);
     });
   }
 
@@ -200,6 +215,8 @@
   function sortPullRequestDashboard() {
     // Find the reviews section for this user. Note the two selectors: 1) a repo dashboard; 2) the overall dashboard (e.g. https://dev.azure.com/*/_pulls).
     $("[aria-label='Assigned to me'][role='region'], .ms-GroupedList-group:has([aria-label='Assigned to me'])").once('reviews-sorted').each(function () {
+      sortEachPullRequestFunc = () => { };
+
       const personalReviewSection = $(this);
 
       addStyleOnce('reviews-list-css', `
