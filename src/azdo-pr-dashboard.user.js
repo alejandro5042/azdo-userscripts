@@ -1,7 +1,7 @@
 // ==UserScript==
 
-// @name         AzDO PR dashboard improvements
-// @version      2.11.2
+// @name         AzDO Pull Request Improvements
+// @version      2.12.0
 // @author       National Instruments
 // @description  Adds sorting and categorization to the PR dashboard.
 // @license      MIT
@@ -238,12 +238,8 @@ function sortPullRequestDashboard() {
           }
 
           const fileCountContent = `<span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}`;
-
-          // For the overall PR dashboard.
-          row.find('div.vss-DetailsList--titleCellTwoLine').parent().append(`<div style='margin: 0px 15px; width: 3em; text-align: left;'>${fileCountContent}</div>`);
-
-          // For a repo's PR dashboard.
-          row.find('div.vc-pullrequest-entry-col-secondary').after(`<div style='margin: 15px; width: 3.5em; display: flex; align-items: center; text-align: right;'>${fileCountContent}</div>`);
+          row.find('div.vss-DetailsList--titleCellTwoLine').parent().append(`<div style='margin: 0px 15px; width: 3em; text-align: left;'>${fileCountContent}</div>`); // For the overall PR dashboard.
+          row.find('div.vc-pullrequest-entry-col-secondary').after(`<div style='margin: 15px; width: 3.5em; display: flex; align-items: center; text-align: right;'>${fileCountContent}</div>`); // For a repo's PR dashboard.
         }
       } finally {
         row.show(150);
