@@ -37,8 +37,8 @@
   // This is "main()" for this script. Runs periodically when the page updates.
   function onPageDOMNodeInserted(event) {
     if (/\/(pullrequest)\//i.test(window.location.pathname)) {
-      addBaseUpdateSelector();
       addCheckboxesToFiles();
+      addBaseUpdateSelector();
     } else if (/\/(_pulls|pullrequests)/i.test(window.location.pathname)) {
       sortPullRequestDashboard();
     }
