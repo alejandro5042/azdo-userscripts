@@ -90,13 +90,6 @@
         button.file-complete-checkbox.checked:after {
           /* Make a checkbox out of a button. */
           content: "✔";
-        }
-        button.file-complete-checkbox.old-review {
-          /* Highlight old checks with blue. */
-          /*
-            DISABLED: This does not take into account whether the file was actually changed in a future iteration!
-            color: var(--communication-foreground);
-          */
         }`);
 
       // Handle clicking on file checkboxes.
@@ -105,13 +98,11 @@
 
         // Toggle the look of the checkbox.
         checkbox.toggleClass('checked');
-        checkbox.removeClass('old-review');
 
+        // Save the iteration number the file was checked in our map. To save space, if it is unchecked, simply remove the entry.
         if (checkbox.hasClass('checked')) {
-          // The checkbox is checked. Save the file and the current iteration in our map.
           filesToIterationReviewed[checkbox.attr('name')] = currentPullRequestIteration;
         } else {
-          // If the checkbox is unchecked, just remove the file from our map to save space.
           delete filesToIterationReviewed[checkbox.attr('name')];
         }
 
@@ -135,12 +126,10 @@
         const name = fileCell.attr('content'); // The 'content' attribute contains the file operation; e.g. "/src/file.cs [edit]".
         const iteration = filesToIterationReviewed[name] || 0;
 
-        // TODO FUTURE: fileRow.toggleClass('file-to-review-row', filesToReview.includes(path));
         // Create the checkbox before the type icon.
         $('<button class="file-complete-checkbox" />')
           .attr('name', name)
           .toggleClass('checked', iteration > 0)
-          .toggleClass('old-review', iteration !== currentPullRequestIteration)
           .insertBefore(typeIcon);
       });
     });
