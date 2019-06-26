@@ -25,6 +25,8 @@ module.exports = {
     "no-use-before-define": ["error", "nofunc"],
     "max-len": 0,
     "no-restricted-syntax": ["error", "ForInStatement", "LabeledStatement", "WithStatement"],
-    "strict": 0
+    "strict": 0,
+    "require-await": "error",
+    "require-yield": "error"
   }
 };
