@@ -114,21 +114,21 @@
       const personalReviewSection = $(this);
 
       addStyleOnce('reviews-list-css', `
-      details.reviews-list {
-        margin: 10px 30px;
-        display: none;
-      }
-      details.reviews-list summary {
-        padding: 10px;
-        cursor: pointer;
-        color: var(--text-secondary-color);
-      }
-      .blocking-review {
-        background: rgba(256, 0, 0, 0.25);
-      }
-      .blocking-review:hover {
-        background: rgba(256, 0, 0, 0.35) !important;
-      }`);
+        details.reviews-list {
+          margin: 10px 30px;
+          display: none;
+        }
+        details.reviews-list summary {
+          padding: 10px;
+          cursor: pointer;
+          color: var(--text-secondary-color);
+        }
+        .blocking-review {
+          background: rgba(256, 0, 0, 0.25);
+        }
+        .blocking-review:hover {
+          background: rgba(256, 0, 0, 0.35) !important;
+        }`);
 
       // Sort the reviews in reverse; aka. show oldest reviews first then newer reviews.
       personalReviewSection.append(personalReviewSection.find("[role='listitem']").get().reverse());
