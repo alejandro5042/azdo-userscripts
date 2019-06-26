@@ -44,7 +44,7 @@
     }
   }
 
-  // The func we'll call to continuously add checkboxes to the PR file listing.
+  // The func we'll call to continuously add checkboxes to the PR file listing, once initialization is over.
   let addCheckboxesToNewFilesFunc = () => { };
 
   // If we're on specific PR, add checkboxes to the file listing.
@@ -161,7 +161,6 @@
           background: var(--callout-background-color);
           color: var(--text-primary-color);
           font-family: Consolas, monospace;
-          white-space: pre;
         }
         .base-selector select option:disabled {
           display: none;
@@ -192,7 +191,7 @@
       // Add the last option to select the merge base as the diff base (essentially update zero).
       $('<option value="0">            === Merge Base ===</option>').appendTo(selector);
 
-      // Replace spaces with non-breaking spaces (char 0xa0) to force the browser to not collapse it so that we can align the dates to the right of the dropdown.
+      // Replace spaces with non-breaking spaces (char 0xa0) to force the browser to not collapse it so that we can align the dates to the right of the dropdown. Apprently even `white-space: pre !important;` doesn't work on `option` element css.
       selector.children('option').each(function () { $(this).text((i, text) => text.replace(/ /g, '\xa0')); });
 
       // Finally add the dropdown to the toolbar.
@@ -200,7 +199,7 @@
     });
   }
 
-  // The func we'll call to continuously sort new PRs into categories.
+  // The func we'll call to continuously sort new PRs into categories, once initialization is over.
   let sortEachPullRequestFunc = () => { };
 
   // If we're on a pull request page, attempt to sort it.
@@ -239,12 +238,23 @@
 
       // Create review sections with counters.
       const sections = {
-        blocked: $("<details class='reviews-list reviews-incomplete-blocked'><summary>Incomplete but blocked (<span class='review-subsection-counter'>0</span>)</summary></details>"),
-        drafts: $("<details class='reviews-list reviews-drafts'><summary>Drafts (<span class='review-subsection-counter'>0</span>)</summary></details>"),
-        waiting: $("<details class='reviews-list reviews-waiting'><summary>Completed as Waiting on Author (<span class='review-subsection-counter'>0</span>)</summary></details>"),
-        rejected: $("<details class='reviews-list reviews-rejected'><summary>Completed as Rejected (<span class='review-subsection-counter'>0</span>)</summary></details>"),
-        approvedButNotable: $(`<details class='reviews-list reviews-approved-notable'><summary>Completed as Approved / Approved with Suggestions (<abbr title="${notableUpdateDescription}">with notable activity</abbr>) (<span class='review-subsection-counter'>0</span>)</summary></details>`),
-        approved: $("<details class='reviews-list reviews-approved'><summary>Completed as Approved / Approved with Suggestions (<span class='review-subsection-counter'>0</span>)</summary></details>"),
+        blocked:
+          $("<details class='reviews-list reviews-incomplete-blocked'><summary>Incomplete but blocked (<span class='review-subsection-counter'>0</span>)</summary></details>"),
+
+        drafts:
+          $("<details class='reviews-list reviews-drafts'><summary>Drafts (<span class='review-subsection-counter'>0</span>)</summary></details>"),
+
+        waiting:
+          $("<details class='reviews-list reviews-waiting'><summary>Completed as Waiting on Author (<span class='review-subsection-counter'>0</span>)</summary></details>"),
+
+        rejected:
+          $("<details class='reviews-list reviews-rejected'><summary>Completed as Rejected (<span class='review-subsection-counter'>0</span>)</summary></details>"),
+
+        approvedButNotable:
+          $(`<details class='reviews-list reviews-approved-notable'><summary>Completed as Approved / Approved with Suggestions (<abbr title="${notableUpdateDescription}">with notable activity</abbr>) (<span class='review-subsection-counter'>0</span>)</summary></details>`),
+
+        approved:
+          $("<details class='reviews-list reviews-approved'><summary>Completed as Approved / Approved with Suggestions (<span class='review-subsection-counter'>0</span>)</summary></details>"),
       };
 
       // Load the subsection open/closed setting if it exists and setup a change handler to save the setting.
@@ -389,7 +399,8 @@
               // Count the number of files we are in the reviewers list.
               if (reviewProperties.version <= 3 && reviewProperties.fileProperties) {
                 for (const file of reviewProperties.fileProperties) {
-                  fileCount += _([file.Owner, file.Alternate, file.Reviewers].flat()).some(reviewer => reviewer.includes(currentUser.uniqueName)) ? 1 : 0;
+                  const allReviewers = [file.Owner, file.Alternate, file.Reviewers].flat();
+                  fileCount += _(allReviewers).some(reviewer => reviewer.includes(currentUser.uniqueName)) ? 1 : 0;
                 }
               }
             }
@@ -401,10 +412,17 @@
             }
 
             const fileCountContent = `<span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}`;
-            row.find('div.vss-DetailsList--titleCellTwoLine').parent().append(`<div style='margin: 0px 15px; width: 3em; text-align: left;'>${fileCountContent}</div>`); // For the overall PR dashboard.
-            row.find('div.vc-pullrequest-entry-col-secondary').after(`<div style='margin: 15px; width: 3.5em; display: flex; align-items: center; text-align: right;'>${fileCountContent}</div>`); // For a repo's PR dashboard.
+
+            // Add the file count on the overall PR dashboard.
+            row.find('div.vss-DetailsList--titleCellTwoLine').parent()
+              .append(`<div style='margin: 0px 15px; width: 3em; text-align: left;'>${fileCountContent}</div>`);
+
+            // Add the file count on a repo's PR dashboard.
+            row.find('div.vc-pullrequest-entry-col-secondary')
+              .after(`<div style='margin: 15px; width: 3.5em; display: flex; align-items: center; text-align: right;'>${fileCountContent}</div>`);
           }
         } finally {
+          // No matter what--e.g. even on error--show the row again.
           row.show(150);
         }
       });
