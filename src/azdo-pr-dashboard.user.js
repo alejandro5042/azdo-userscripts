@@ -100,7 +100,7 @@
         }`);
 
       // Handle clicking on file checkboxes.
-      filesTree.on('click', 'button.file-complete-checkbox', async function (event) {
+      filesTree.on('click', 'button.file-complete-checkbox', function (event) {
         const checkbox = $(this);
 
         // Toggle the look of the checkbox.
@@ -261,8 +261,8 @@
       // Load the subsection open/closed setting if it exists and setup a change handler to save the setting.
       for (const section of Object.values(sections)) {
         const id = `pr-section-open/${section.attr('class')}`;
-        section.prop('open', lscache.get(id))
-        section.on('toggle', function () { lscache.set(id, $(this).prop('open')); })
+        section.prop('open', lscache.get(id));
+        section.on('toggle', function () { lscache.set(id, $(this).prop('open')); });
         section.appendTo(personalReviewSection);
       }
 
