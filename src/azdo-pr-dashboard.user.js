@@ -185,12 +185,15 @@
       for (const iteration of iterations.reverse()) {
         const date = new Date(parseInt(iteration.createdDate.replace(/\D/g, ''), 10));
         const truncatedDescription = iteration.description.length > 60 ? `${iteration.description.substring(0, 58)}...` : iteration.description;
-
-        // Replace spaces with non-breakabing space (char 0xa0) to force the browser to not collapse the whitespace so that we can align the dates to the right of the dropdown.
-        const optionText = `Update ${iteration.id.toString().padEnd(4)} ${truncatedDescription.padEnd(61)} ${dateFns.distanceInWordsToNow(date).padStart(15)} ago`.replace(/ /g, '\xa0');
-
+        const optionText = `Update ${iteration.id.toString().padEnd(4)} ${truncatedDescription.padEnd(61)} ${dateFns.distanceInWordsToNow(date).padStart(15)} ago`;
         $('<option>').attr('value', iteration.id).text(optionText).appendTo(selector);
       }
+
+      // Add the last option to select the merge base as the diff base (essentially update zero).
+      $('<option value="0">            === Merge Base ===</option>').appendTo(selector);
+
+      // Replace spaces with non-breaking spaces (char 0xa0) to force the browser to not collapse it so that we can align the dates to the right of the dropdown.
+      selector.children('option').each(function () { $(this).text((i, text) => text.replace(/ /g, '\xa0')); });
 
       // Finally add the dropdown to the toolbar.
       $('<div class="base-selector" />').append(selector).prependTo(toolbar);
