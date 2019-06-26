@@ -15,7 +15,8 @@ module.exports = {
     "_": "readonly"
   },
   "parserOptions": {
-    "ecmaVersion": 2018
+    "ecmaVersion": 2018,
+    "sourceType": "script"
   },
   "rules": {
     // Tech debt. Remove or reconsider one day:
@@ -23,6 +24,7 @@ module.exports = {
     "func-names": 0,
     "no-use-before-define": ["error", "nofunc"],
     "max-len": 0,
-    "no-restricted-syntax": ["error", "ForInStatement", "LabeledStatement", "WithStatement"]
+    "no-restricted-syntax": ["error", "ForInStatement", "LabeledStatement", "WithStatement"],
+    "strict": 0
   }
 };
