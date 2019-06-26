@@ -54,17 +54,6 @@
 
       const filesTree = $(this);
 
-      // Get the current iteration of the PR.
-      const pageData = await getPageData();
-      const iterations = pageData['ms.vss-code-web.pull-request-detail-data-provider']['TFS.VersionControl.PullRequestDetailProvider.PullRequestIterations'];
-      const currentPullRequestIteration = iterations.length;
-
-      // Get the current checkbox state for the PR at this URL.
-      const checkboxStateId = `pr-file-iteration6/${window.location.pathname}`;
-
-      // Stores the checkbox state for the current page. A map of files => iteration it was checked.
-      const filesToIterationReviewed = lscache.get(checkboxStateId) || {};
-
       addStyleOnce('pr-file-checbox-support-css', `
         button.file-complete-checkbox {
           /* Make a checkbox out of a button. */
@@ -91,6 +80,17 @@
           /* Make a checkbox out of a button. */
           content: "✔";
         }`);
+
+      // Get the current iteration of the PR.
+      const pageData = await getPageData();
+      const iterations = pageData['ms.vss-code-web.pull-request-detail-data-provider']['TFS.VersionControl.PullRequestDetailProvider.PullRequestIterations'];
+      const currentPullRequestIteration = iterations.length;
+
+      // Get the current checkbox state for the PR at this URL.
+      const checkboxStateId = `pr-file-iteration6/${window.location.pathname}`;
+
+      // Stores the checkbox state for the current page. A map of files => iteration it was checked.
+      const filesToIterationReviewed = lscache.get(checkboxStateId) || {};
 
       // Handle clicking on file checkboxes.
       filesTree.on('click', 'button.file-complete-checkbox', function (event) {
@@ -171,8 +171,10 @@
       const iterations = pageData['ms.vss-code-web.pull-request-detail-data-provider']['TFS.VersionControl.PullRequestDetailProvider.PullRequestIterations'];
 
       // Create a dropdown with the first option being the icon we show to users. We use an HTML dropdown since its much easier to code than writing our own with divs/etc or trying to figure out how to use an AzDO dropdown.
-      const selector = $('<select><option value="" disabled selected>↦</option></select>').change(function (event) {
-        // Update the URL to include the selected base update.
+      const selector = $('<select><option value="" disabled selected>↦</option></select>');
+
+      // When an option is selected, update the URL to include the selected base update.
+      selector.on('change', function (event) {
         const currentUrl = new URL(window.location.href);
         currentUrl.searchParams.set('base', $(this).val());
         currentUrl.searchParams.set('iteration', currentUrl.searchParams.get('iteration') || iterations.length); // If we select a base without having an explicit iteration, compare the base to the latest.
