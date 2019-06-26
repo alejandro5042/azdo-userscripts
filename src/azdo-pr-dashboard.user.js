@@ -50,7 +50,7 @@
 
   // If we're on specific PR, add checkboxes to the file listing.
   function addCheckboxesToFiles() {
-    $('.vc-sparse-files-tree').once('add-checkbox-support').each(function () {
+    $('.vc-sparse-files-tree').once('add-checkbox-support').each(async function () {
       addCheckboxesToNewFilesFunc = () => { };
 
       const filesTree = $(this);
@@ -83,7 +83,7 @@
         }`);
 
       // Get the current iteration of the PR.
-      const pageData = getPageData();
+      const pageData = await getPageData(p => p['ms.vss-code-web.pull-request-detail-data-provider']['TFS.VersionControl.PullRequestDetailProvider.PullRequestIterations']);
       const iterations = pageData['ms.vss-code-web.pull-request-detail-data-provider']['TFS.VersionControl.PullRequestDetailProvider.PullRequestIterations'];
       const currentPullRequestIteration = iterations.length;
 
@@ -140,7 +140,7 @@
 
   // If we're on specific PR, add a base update selector.
   function addBaseUpdateSelector() {
-    $('.vc-iteration-selector').once('add-base-selector').each(function () {
+    $('.vc-iteration-selector').once('add-base-selector').each(async function () {
       const toolbar = $(this);
 
       addStyleOnce('base-selector-css', `
@@ -167,7 +167,7 @@
           display: none;
         }`);
 
-      const pageData = getPageData();
+      const pageData = await getPageData(p => p['ms.vss-code-web.pull-request-detail-data-provider']['TFS.VersionControl.PullRequestDetailProvider.PullRequestIterations']);
       const iterations = pageData['ms.vss-code-web.pull-request-detail-data-provider']['TFS.VersionControl.PullRequestDetailProvider.PullRequestIterations'];
 
       // Create a dropdown with the first option being the icon we show to users. We use an HTML dropdown since its much easier to code than writing our own with divs/etc or trying to figure out how to use an AzDO dropdown.
@@ -206,7 +206,7 @@
   // If we're on a pull request page, attempt to sort it.
   function sortPullRequestDashboard() {
     // Find the reviews section for this user. Note the two selectors: 1) a repo dashboard; 2) the overall dashboard (e.g. https://dev.azure.com/*/_pulls).
-    $("[aria-label='Assigned to me'][role='region'], .ms-GroupedList-group:has([aria-label='Assigned to me'])").once('reviews-sorted').each(function () {
+    $("[aria-label='Assigned to me'][role='region'], .ms-GroupedList-group:has([aria-label='Assigned to me'])").once('reviews-sorted').each(async function () {
       sortEachPullRequestFunc = () => { };
 
       const personalReviewSection = $(this);
@@ -267,7 +267,7 @@
       }
 
       // Find the user's name.
-      const pageData = getPageData();
+      const pageData = await getPageData(p => p['ms.vss-web.page-data'].user);
       const currentUser = pageData['ms.vss-web.page-data'].user;
 
       // Because of CORS, we need to make sure we're querying the same hostname for our AzDO APIs.
@@ -440,7 +440,19 @@
   }
 
   // Helper function to parse the page state data provided by AzDO.
-  function getPageData() {
-    return JSON.parse(document.getElementById('dataProviders').innerHTML).data;
+  async function getPageData(validityChecker) {
+    const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+
+    for (let i = 0; i < 10; i += 1) {
+      const pageData = JSON.parse(document.getElementById('dataProviders').innerHTML).data;
+      if (validityChecker(pageData)) {
+        return pageData;
+      }
+
+      // eslint-disable-next-line no-await-in-loop
+      await sleep(500);
+    }
+
+    return undefined;
   }
 }());
