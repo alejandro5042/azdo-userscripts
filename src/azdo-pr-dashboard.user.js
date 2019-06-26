@@ -160,7 +160,7 @@
 
       // Find the user's name.
       const pageData = getPageData();
-      const user = pageData['ms.vss-web.page-data'];
+      const currentUser = pageData['ms.vss-web.page-data'].user;
 
       // Because of CORS, we need to make sure we're querying the same hostname for our AzDO APIs.
       const apiUrlPrefix = `${window.location.origin}${pageData['ms.vss-tfs-web.header-action-data'].suiteHomeUrl}`;
@@ -187,7 +187,7 @@
 
           // Count the number of votes.
           for (const reviewer of pullRequestInfo.reviewers) {
-            if (reviewer.uniqueName === user.uniqueName) {
+            if (reviewer.uniqueName === currentUser.uniqueName) {
               userVote = reviewer.vote;
             }
             if (reviewer.vote === 0) {
@@ -231,7 +231,7 @@
                 if (thread.properties.CodeReviewThreadType.$value === 'VoteUpdate') {
                   // Stop looking at threads once we find the thread that represents our vote.
                   const votingUser = thread.identities[thread.properties.CodeReviewVotedByIdentity.$value];
-                  if (votingUser.uniqueName === user.uniqueName) {
+                  if (votingUser.uniqueName === currentUser.uniqueName) {
                     break;
                   }
 
@@ -293,7 +293,7 @@
               // Count the number of files we are in the reviewers list.
               if (reviewProperties.version <= 3 && reviewProperties.fileProperties) {
                 for (const file of reviewProperties.fileProperties) {
-                  fileCount += _([file.Owner, file.Alternate, file.Reviewers].flat()).some(reviewer => reviewer.includes(user.uniqueName)) ? 1 : 0;
+                  fileCount += _([file.Owner, file.Alternate, file.Reviewers].flat()).some(reviewer => reviewer.includes(currentUser.uniqueName)) ? 1 : 0;
                 }
               }
             }
