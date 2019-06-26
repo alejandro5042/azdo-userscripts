@@ -49,7 +49,7 @@
   }
 
   // If we're on specific PR, add a base update selector.
-  async function addBaseUpdateSelector() {
+  function addBaseUpdateSelector() {
     $('.vc-iteration-selector').once('add-base-selector').each(async function () {
       addStyleOnce('base-selector-css', `
         .base-selector {
@@ -140,23 +140,22 @@
       const notableUpdateDescription = `These are pull requests you've already approved, but since then, any of following events have happened:&#013    1) At least ${peopleToNotApproveToCountAsNotableThread} people voted Rejected or Waiting on Author&#013    2) A thread was posted with at least ${commentsToCountAsNotableThread} comments&#013    3) A thread was posted with at least ${wordsToCountAsNotableThread} words&#013Optional: To remove PRs from this list, simply vote again on the PR (even if it's the same vote).`;
 
       // Create review sections with counters.
-      personalReviewSection.append("<details class='reviews-list reviews-incomplete-blocked'><summary>Incomplete but blocked (<span class='review-subsection-counter'>0</span>)</summary></details>");
-      personalReviewSection.append("<details class='reviews-list reviews-drafts'><summary>Drafts (<span class='review-subsection-counter'>0</span>)</summary></details>");
-      personalReviewSection.append("<details class='reviews-list reviews-waiting'><summary>Completed as Waiting on Author (<span class='review-subsection-counter'>0</span>)</summary></details>");
-      personalReviewSection.append("<details class='reviews-list reviews-rejected'><summary>Completed as Rejected (<span class='review-subsection-counter'>0</span>)</summary></details>");
-      personalReviewSection.append(`<details class='reviews-list reviews-approved-notable'><summary>Completed as Approved / Approved with Suggestions (<abbr title="${notableUpdateDescription}">with notable activity</abbr>) (<span class='review-subsection-counter'>0</span>)</summary></details>`);
-      personalReviewSection.append("<details class='reviews-list reviews-approved'><summary>Completed as Approved / Approved with Suggestions (<span class='review-subsection-counter'>0</span>)</summary></details>");
+      const sections = {
+        blocked: $("<details class='reviews-list reviews-incomplete-blocked'><summary>Incomplete but blocked (<span class='review-subsection-counter'>0</span>)</summary></details>"),
+        drafts: $("<details class='reviews-list reviews-drafts'><summary>Drafts (<span class='review-subsection-counter'>0</span>)</summary></details>"),
+        waiting: $("<details class='reviews-list reviews-waiting'><summary>Completed as Waiting on Author (<span class='review-subsection-counter'>0</span>)</summary></details>"),
+        rejected: $("<details class='reviews-list reviews-rejected'><summary>Completed as Rejected (<span class='review-subsection-counter'>0</span>)</summary></details>"),
+        approvedButNotable: $(`<details class='reviews-list reviews-approved-notable'><summary>Completed as Approved / Approved with Suggestions (<abbr title="${notableUpdateDescription}">with notable activity</abbr>) (<span class='review-subsection-counter'>0</span>)</summary></details>`),
+        approved: $("<details class='reviews-list reviews-approved'><summary>Completed as Approved / Approved with Suggestions (<span class='review-subsection-counter'>0</span>)</summary></details>"),
+      };
 
       // Load the subsection open/closed setting if it exists and setup a change handler to save the setting.
-      personalReviewSection.children('details')
-        .each(function () {
-          if (lscache.get(`pr-section-open/${$(this).attr('class')}`)) {
-            $(this).attr('open', 'open');
-          }
-        })
-        .on('toggle', function (event) {
-          lscache.set(`pr-section-open/${$(this).attr('class')}`, $(this).attr('open') === 'open');
-        });
+      for (const section of Object.values(sections)) {
+        const id = `pr-section-open/${section.attr('class')}`;
+        section.prop('open', lscache.get(id))
+        section.on('toggle', function () { lscache.set(id, $(this).prop('open')); })
+        section.appendTo(personalReviewSection);
+      }
 
       // Find the user's name.
       const pageData = getPageData();
@@ -198,18 +197,18 @@
           }
 
           // See what section this PR should be filed under and style the row, if necessary.
-          let subsection;
+          let section;
           let computeSize = false;
 
           if (pullRequestInfo.isDraft) {
-            subsection = '.reviews-drafts';
+            section = sections.drafts;
             computeSize = true;
           } else if (userVote === -5) {
-            subsection = '.reviews-waiting';
+            section = sections.waiting;
           } else if (userVote < 0) {
-            subsection = '.reviews-rejected';
+            section = sections.rejected;
           } else if (userVote > 0) {
-            subsection = '.reviews-approved';
+            section = sections.approved;
 
             // If the user approved the PR, see if we need to resurface it as a notable PR.
             // See: https://docs.microsoft.com/en-us/rest/api/azure/devops/git/pull%20request%20threads/list?view=azure-devops-rest-5.0
@@ -261,23 +260,22 @@
 
             // See if we've tripped any of attributes that would make this PR notable.
             if (threadsWithLotsOfComments > 0 || threadsWithWordyComments > 0 || newNonApprovedVotes >= peopleToNotApproveToCountAsNotableThread) {
-              subsection = '.reviews-approved-notable';
+              section = sections.approvedButNotable;
             }
           } else {
             computeSize = true;
             if (waitingOrRejectedVotes > 0) {
-              subsection = '.reviews-incomplete-blocked';
+              section = sections.blocked;
             } else if (missingVotes === 1) {
               row.addClass('blocking-review');
             }
           }
 
           // If we identified a section, move the row.
-          if (subsection) {
-            const completedSection = personalReviewSection.children(subsection);
-            completedSection.find('.review-subsection-counter').text((i, value) => +value + 1);
-            completedSection.css('display', 'block');
-            completedSection.append(row);
+          if (section) {
+            section.find('.review-subsection-counter').text((i, value) => +value + 1);
+            section.append(row);
+            section.show();
           }
 
           // Compute the size of certain PRs; e.g. those we haven't reviewed yet. But first, sure we've created a merge commit that we can compute its size.
