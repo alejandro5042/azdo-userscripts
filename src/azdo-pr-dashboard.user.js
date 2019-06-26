@@ -137,11 +137,6 @@
     addCheckboxesToNewFilesFunc();
   }
 
-  // Parse the page state data provided by AzDO.
-  function getPageData() {
-    return JSON.parse(document.getElementById('dataProviders').innerHTML).data;
-  }
-
   // If we're on specific PR, add a base update selector.
   function addBaseUpdateSelector() {
     $('.vc-iteration-selector').once('add-base-selector').each(function () {
@@ -418,5 +413,10 @@
     if ($(`head #${id}`).length === 0) {
       $(document.head).append(`<style id="${id}" type="text/css">${style}</style>`);
     }
+  }
+
+  // Helper function to parse the page state data provided by AzDO.
+  function getPageData() {
+    return JSON.parse(document.getElementById('dataProviders').innerHTML).data;
   }
 }());
