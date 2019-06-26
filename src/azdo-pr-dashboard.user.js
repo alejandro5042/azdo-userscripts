@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.15.0
+// @version      2.15.1
 // @author       National Instruments
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -50,7 +50,7 @@
 
   // If we're on specific PR, add checkboxes to the file listing.
   function addCheckboxesToFiles() {
-    $('.vc-sparse-files-tree').once('add-checkbox-support').each(async function () {
+    $('.vc-sparse-files-tree').once('add-checkbox-support').each(function () {
       addCheckboxesToNewFilesFunc = () => { };
 
       const filesTree = $(this);
@@ -83,7 +83,7 @@
         }`);
 
       // Get the current iteration of the PR.
-      const pageData = await getPageData();
+      const pageData = getPageData();
       const iterations = pageData['ms.vss-code-web.pull-request-detail-data-provider']['TFS.VersionControl.PullRequestDetailProvider.PullRequestIterations'];
       const currentPullRequestIteration = iterations.length;
 
@@ -108,7 +108,7 @@
         }
 
         // Save the current checkbox state to local storage.
-        lscache.set(checkboxStateId, filesToIterationReviewed, 60 * 24 * 45);
+        lscache.set(checkboxStateId, filesToIterationReviewed, 60 * 24 * 21);
 
         // Stop the click event here to avoid the checkbox click from selecting the PR row underneath, which changes the active diff in the right panel.
         event.stopPropagation();
@@ -173,20 +173,12 @@
       // Create a dropdown with the first option being the icon we show to users. We use an HTML dropdown since its much easier to code than writing our own with divs/etc or trying to figure out how to use an AzDO dropdown.
       const selector = $('<select><option value="" disabled selected>↦</option></select>');
 
-      // When an option is selected, update the URL to include the selected base update.
-      selector.on('change', function (event) {
-        const currentUrl = new URL(window.location.href);
-        currentUrl.searchParams.set('base', $(this).val());
-        currentUrl.searchParams.set('iteration', currentUrl.searchParams.get('iteration') || iterations.length); // If we select a base without having an explicit iteration, compare the base to the latest.
-        window.location.href = currentUrl.toString();
-      });
-
       // Add an option for each iteration in the dropdown, looking roughly the same as the AzDO update selector.
       for (const iteration of iterations.reverse()) {
         const date = new Date(parseInt(iteration.createdDate.replace(/\D/g, ''), 10));
         const truncatedDescription = iteration.description.length > 60 ? `${iteration.description.substring(0, 58)}...` : iteration.description;
         const optionText = `Update ${iteration.id.toString().padEnd(4)} ${truncatedDescription.padEnd(61)} ${dateFns.distanceInWordsToNow(date).padStart(15)} ago`;
-        $('<option>').attr('value', iteration.id).text(optionText).appendTo(selector);
+        $('<option>').val(iteration.id).text(optionText).appendTo(selector);
       }
 
       // Add the last option to select the merge base as the diff base (essentially update zero).
@@ -197,6 +189,14 @@
 
       // Finally add the dropdown to the toolbar.
       $('<div class="base-selector" />').append(selector).prependTo(toolbar);
+
+      // When an option is selected, update the URL to include the selected base update.
+      selector.on('change', function (event) {
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.set('base', $(this).val());
+        currentUrl.searchParams.set('iteration', currentUrl.searchParams.get('iteration') || iterations.length); // If we select a base without having an explicit iteration, compare the base to the latest.
+        window.location.href = currentUrl.toString();
+      });
     });
   }
 
@@ -242,6 +242,9 @@
         blocked:
           $("<details class='reviews-list reviews-incomplete-blocked'><summary>Incomplete but blocked (<span class='review-subsection-counter'>0</span>)</summary></details>"),
 
+        approvedButNotable:
+          $(`<details class='reviews-list reviews-approved-notable'><summary>Completed as Approved / Approved with Suggestions (<abbr title="${notableUpdateDescription}">with notable activity</abbr>) (<span class='review-subsection-counter'>0</span>)</summary></details>`),
+
         drafts:
           $("<details class='reviews-list reviews-drafts'><summary>Drafts (<span class='review-subsection-counter'>0</span>)</summary></details>"),
 
@@ -250,9 +253,6 @@
 
         rejected:
           $("<details class='reviews-list reviews-rejected'><summary>Completed as Rejected (<span class='review-subsection-counter'>0</span>)</summary></details>"),
-
-        approvedButNotable:
-          $(`<details class='reviews-list reviews-approved-notable'><summary>Completed as Approved / Approved with Suggestions (<abbr title="${notableUpdateDescription}">with notable activity</abbr>) (<span class='review-subsection-counter'>0</span>)</summary></details>`),
 
         approved:
           $("<details class='reviews-list reviews-approved'><summary>Completed as Approved / Approved with Suggestions (<span class='review-subsection-counter'>0</span>)</summary></details>"),
