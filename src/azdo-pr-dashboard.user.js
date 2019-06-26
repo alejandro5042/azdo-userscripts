@@ -93,7 +93,10 @@
         }
         button.file-complete-checkbox.old-review {
           /* Highlight old checks with blue. */
-          color: var(--communication-foreground);
+          /*
+            DISABLED: This does not take into account whether the file was actually changed in a future iteration!
+            color: var(--communication-foreground);
+          */
         }`);
 
       // Handle clicking on file checkboxes.
