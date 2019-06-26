@@ -1,9 +1,9 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.12.0
+// @version      2.13.0
 // @author       National Instruments
-// @description  Adds sorting and categorization to the PR dashboard.
+// @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector.
 // @license      MIT
 
 // @namespace    https://ni.com
@@ -20,6 +20,7 @@
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js#sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jquery-once/2.2.3/jquery.once.min.js#sha256-HaeXVMzafCQfVtWoLtN3wzhLWNs8cY2cH9OIQ8R9jfM=
 // @require      https://cdnjs.cloudflare.com/ajax/libs/lscache/1.3.0/lscache.js#sha256-QVvX22TtfzD4pclw/4yxR0G1/db2GZMYG9+gxRM9v30=
+// @require      https://cdnjs.cloudflare.com/ajax/libs/date-fns/1.30.1/date_fns.min.js#sha256-wCBClaCr6pJ7sGU5kfb3gQMOOcIZNzaWpWcj/lD9Vfk=
 // @require      https://cdn.jsdelivr.net/npm/lodash@4.17.11/lodash.min.js#sha256-7/yoZS3548fXSRXqc/xYzjsmuW3sFKzuvOCHd06Pmps=
 
 // ==/UserScript==
@@ -35,15 +36,78 @@
 
   // This is "main()" for this script. Runs periodically when the page updates.
   function onPageDOMNodeInserted(event) {
-    if (/\/(_pulls|pullrequests)/i.test(window.location.pathname)) {
-      // If we're on a pull request page, attempt to sort it.
+    if (/\/(pullrequest)\//i.test(window.location.pathname)) {
+      addBaseUpdateSelector();
+    } else if (/\/(_pulls|pullrequests)/i.test(window.location.pathname)) {
       sortPullRequestDashboard();
     }
+  }
+
+  // Parse the page state data provided by AzDO.
+  function getPageData() {
+    return JSON.parse(document.getElementById('dataProviders').innerHTML).data;
+  }
+
+  // If we're on specific PR, add a base update selector.
+  async function addBaseUpdateSelector() {
+    $('.vc-iteration-selector').once('add-base-selector').each(async function () {
+      addStyleOnce('base-selector-css', `
+        .base-selector {
+          color: var(--text-secondary-color);
+          margin: 0px 5px 0px 0px;
+        }
+        .base-selector select {
+          border: 1px solid transparent;
+          padding: 2px 4px;
+          width: 3em;
+          height: 100%;
+          text-align: center;
+        }
+        .base-selector select:hover {
+          border-color: var(--palette-black-alpha-20);
+        }
+        .base-selector select option {
+          background: var(--callout-background-color);
+          color: var(--text-primary-color);
+          font-family: Consolas, monospace;
+          white-space: pre;
+        }
+        .base-selector select option:disabled {
+          display: none;
+        }`);
+
+      const pageData = getPageData();
+      const iterations = pageData['ms.vss-code-web.pull-request-detail-data-provider']['TFS.VersionControl.PullRequestDetailProvider.PullRequestIterations'];
+
+      // Create a dropdown with the first option being the icon we show to users. We use an HTML dropdown since its much easier to code than writing our own with divs/etc or trying to figure out how to use an AzDO dropdown.
+      const selector = $('<select><option value="" disabled selected>↦</option></select>').change(function (event) {
+        // Update the URL to include the selected base update.
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.set('base', $(this).val());
+        currentUrl.searchParams.set('iteration', currentUrl.searchParams.get('iteration') || iterations.length); // If we select a base without having an explicit iteration, compare the base to the latest.
+        window.location.href = currentUrl.toString();
+      });
+
+      // Add an option for each iteration in the dropdown, looking roughly the same as the AzDO update selector.
+      for (const iteration of iterations.reverse()) {
+        const date = new Date(parseInt(iteration.createdDate.replace(/\D/g, ''), 10));
+        const truncatedDescription = iteration.description.length > 60 ? `${iteration.description.substring(0, 58)}...` : iteration.description;
+
+        // Replace spaces with non-breakabing space (char 0xa0) to force the browser to not collapse the whitespace so that we can align the dates to the right of the dropdown.
+        const optionText = `Update ${iteration.id.toString().padEnd(4)} ${truncatedDescription.padEnd(61)} ${dateFns.distanceInWordsToNow(date).padStart(15)} ago`.replace(/ /g, '\xa0');
+
+        $('<option>').attr('value', iteration.id).text(optionText).appendTo(selector);
+      }
+
+      // Finally add the dropdown to the toolbar.
+      $('<div class="base-selector" />').append(selector).prependTo($(this));
+    });
   }
 
   // The func we'll call to continuously sort new PRs into categories.
   let sortEachPullRequestFunc = () => { };
 
+  // If we're on a pull request page, attempt to sort it.
   function sortPullRequestDashboard() {
     // Find the reviews section for this user. Note the two selectors: 1) a repo dashboard; 2) the overall dashboard (e.g. https://dev.azure.com/*/_pulls).
     $("[aria-label='Assigned to me'][role='region'], .ms-GroupedList-group:has([aria-label='Assigned to me'])").once('reviews-sorted').each(function () {
@@ -95,11 +159,11 @@
         });
 
       // Find the user's name.
-      const pageDataProviders = JSON.parse(document.getElementById('dataProviders').innerHTML);
-      const user = pageDataProviders.data['ms.vss-web.page-data'];
+      const pageData = getPageData();
+      const user = pageData['ms.vss-web.page-data'];
 
       // Because of CORS, we need to make sure we're querying the same hostname for our AzDO APIs.
-      const apiUrlPrefix = `${window.location.origin}${pageDataProviders.data['ms.vss-tfs-web.header-action-data'].suiteHomeUrl}`;
+      const apiUrlPrefix = `${window.location.origin}${pageData['ms.vss-tfs-web.header-action-data'].suiteHomeUrl}`;
 
       // Loop through the PRs that we've voted on.
       sortEachPullRequestFunc = () => $(personalReviewSection).find('[role="listitem"]').once('pr-sorted').each(async function () {
