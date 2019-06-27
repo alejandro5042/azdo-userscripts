@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.15.3
+// @version      2.16.0
 // @author       National Instruments
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -83,8 +83,7 @@
         }`);
 
       // Get the current iteration of the PR.
-      const pageData = await getPageData(p => p['ms.vss-code-web.pull-request-detail-data-provider']['TFS.VersionControl.PullRequestDetailProvider.PullRequestIterations']);
-      const iterations = pageData['ms.vss-code-web.pull-request-detail-data-provider']['TFS.VersionControl.PullRequestDetailProvider.PullRequestIterations'];
+      const iterations = await getPullRequestIterations();
       const currentPullRequestIteration = iterations.length;
 
       // Get the current checkbox state for the PR at this URL.
@@ -167,15 +166,14 @@
           display: none;
         }`);
 
-      const pageData = await getPageData(p => p['ms.vss-code-web.pull-request-detail-data-provider']['TFS.VersionControl.PullRequestDetailProvider.PullRequestIterations']);
-      const iterations = pageData['ms.vss-code-web.pull-request-detail-data-provider']['TFS.VersionControl.PullRequestDetailProvider.PullRequestIterations'];
+      const iterations = await getPullRequestIterations();
 
       // Create a dropdown with the first option being the icon we show to users. We use an HTML dropdown since its much easier to code than writing our own with divs/etc or trying to figure out how to use an AzDO dropdown.
       const selector = $('<select><option value="" disabled selected>↦</option></select>');
 
       // Add an option for each iteration in the dropdown, looking roughly the same as the AzDO update selector.
       for (const iteration of iterations.reverse()) {
-        const date = new Date(parseInt(iteration.createdDate.replace(/\D/g, ''), 10));
+        const date = Date.parse(iteration.createdDate);
         const truncatedDescription = iteration.description.length > 60 ? `${iteration.description.substring(0, 58)}...` : iteration.description;
         const optionText = `Update ${iteration.id.toString().padEnd(4)} ${truncatedDescription.padEnd(61)} ${dateFns.distanceInWordsToNow(date).padStart(15)} ago`;
         $('<option>').val(iteration.id).text(optionText).appendTo(selector);
@@ -443,6 +441,7 @@
   async function getPageData(validityChecker) {
     const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 
+    // RE: Looping and validatyChecker stuff: TODO: This is temporary to hotfix an issue. Will refactor.
     for (let i = 0; i < 10; i += 1) {
       try {
         const pageData = JSON.parse(document.getElementById('dataProviders').innerHTML).data;
@@ -458,5 +457,16 @@
     }
 
     return undefined;
+  }
+
+  // Helper function to get the PR iterations at the current page. TODO: This is temporary to hotfix an issue. Will refactor.
+  async function getPullRequestIterations() {
+    const pullRequestUrl = window.location;
+    const pullRequestId = pullRequestUrl.pathname.substring(pullRequestUrl.pathname.lastIndexOf('/') + 1);
+    const pageData = await getPageData(p => p['ms.vss-tfs-web.header-action-data']);
+    const apiUrlPrefix = `${window.location.origin}${pageData['ms.vss-tfs-web.header-action-data'].suiteHomeUrl}`;
+    const pullRequestInfo = await $.get(`${apiUrlPrefix}/_apis/git/pullrequests/${pullRequestId}?api-version=5.0`);
+    const iterations = await $.get(`${pullRequestInfo.url}/iterations?api-version=5.0`);
+    return iterations.value;
   }
 }());
