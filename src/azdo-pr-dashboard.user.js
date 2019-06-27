@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.17.0
+// @version      2.17.1
 // @author       National Instruments
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -16,7 +16,7 @@
 // @include      https://dev.azure.com/*
 // @include      https://*.visualstudio.com/*
 
-// @run-at       document-start
+// @run-at       document-end
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js#sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jquery-once/2.2.3/jquery.once.min.js#sha256-HaeXVMzafCQfVtWoLtN3wzhLWNs8cY2cH9OIQ8R9jfM=
 // @require      https://cdnjs.cloudflare.com/ajax/libs/lscache/1.3.0/lscache.js#sha256-QVvX22TtfzD4pclw/4yxR0G1/db2GZMYG9+gxRM9v30=
@@ -27,6 +27,13 @@
 
 (function () {
   'use strict';
+
+  // Find out who is our current user. In general, we should avoid using pageData because it doesn't always get updated when moving between page-to-page in AzDO's single-page application flow. Instead, rely on the AzDO REST APIs to get information from stuff you find on the page or the URL. Some things are OK to get from pageData; e.g. stuff like the user which is available on all pages.
+  const pageData = JSON.parse(document.getElementById('dataProviders').innerHTML).data;
+  const currentUser = pageData['ms.vss-web.page-data'].user;
+
+  // Because of CORS, we need to make sure we're querying the same hostname for our AzDO APIs.
+  const azdoApiBaseUrl = `${window.location.origin}${pageData['ms.vss-tfs-web.header-action-data'].suiteHomeUrl}`;
 
   // Set a namespace for our local storage items.
   lscache.setBucket('acb-azdo/');
@@ -83,8 +90,8 @@
         }`);
 
       // Get the current iteration of the PR.
-      const iterations = await getPullRequestIterations();
-      const currentPullRequestIteration = iterations.length;
+      const pr = await getPullRequest();
+      const currentPullRequestIteration = (await $.get(`${pr.url}/iterations?api-version=5.0`)).count;
 
       // Get the current checkbox state for the PR at this URL.
       const checkboxStateId = `pr-file-iteration6/${window.location.pathname}`;
@@ -166,7 +173,9 @@
           display: none;
         }`);
 
-      const iterations = await getPullRequestIterations();
+      // Get the PR iterations.
+      const pr = await getPullRequest();
+      const iterations = (await $.get(`${pr.url}/iterations?api-version=5.0`)).value;
 
       // Create a dropdown with the first option being the icon we show to users. We use an HTML dropdown since its much easier to code than writing our own with divs/etc or trying to figure out how to use an AzDO dropdown.
       const selector = $('<select><option value="" disabled selected>↦</option></select>');
@@ -204,7 +213,7 @@
   // If we're on a pull request page, attempt to sort it.
   function sortPullRequestDashboard() {
     // Find the reviews section for this user. Note the two selectors: 1) a repo dashboard; 2) the overall dashboard (e.g. https://dev.azure.com/*/_pulls).
-    $("[aria-label='Assigned to me'][role='region'], .ms-GroupedList-group:has([aria-label='Assigned to me'])").once('reviews-sorted').each(async function () {
+    $("[aria-label='Assigned to me'][role='region'], .ms-GroupedList-group:has([aria-label='Assigned to me'])").once('reviews-sorted').each(function () {
       sortEachPullRequestFunc = () => { };
 
       const personalReviewSection = $(this);
@@ -264,13 +273,6 @@
         section.appendTo(personalReviewSection);
       }
 
-      // Find the user's name.
-      const pageData = await getPageData(p => p['ms.vss-web.page-data'].user);
-      const currentUser = pageData['ms.vss-web.page-data'].user;
-
-      // Because of CORS, we need to make sure we're querying the same hostname for our AzDO APIs.
-      const apiUrlPrefix = `${window.location.origin}${pageData['ms.vss-tfs-web.header-action-data'].suiteHomeUrl}`;
-
       // Loop through the PRs that we've voted on.
       sortEachPullRequestFunc = () => $(personalReviewSection).find('[role="listitem"]').once('pr-sorted').each(async function () {
         const row = $(this);
@@ -284,15 +286,14 @@
           row.hide(150);
 
           // Get complete information about the PR.
-          // See: https://docs.microsoft.com/en-us/rest/api/azure/devops/git/pull%20requests/get%20pull%20request%20by%20id?view=azure-devops-rest-5.0
-          const pullRequestInfo = await $.get(`${apiUrlPrefix}/_apis/git/pullrequests/${pullRequestId}?api-version=5.0`);
+          const pr = await getPullRequest(pullRequestId);
 
           let missingVotes = 0;
           let waitingOrRejectedVotes = 0;
           let userVote = 0;
 
           // Count the number of votes.
-          for (const reviewer of pullRequestInfo.reviewers) {
+          for (const reviewer of pr.reviewers) {
             if (reviewer.uniqueName === currentUser.uniqueName) {
               userVote = reviewer.vote;
             }
@@ -307,7 +308,7 @@
           let section;
           let computeSize = false;
 
-          if (pullRequestInfo.isDraft) {
+          if (pr.isDraft) {
             section = sections.drafts;
             computeSize = true;
           } else if (userVote === -5) {
@@ -318,8 +319,7 @@
             section = sections.approved;
 
             // If the user approved the PR, see if we need to resurface it as a notable PR.
-            // See: https://docs.microsoft.com/en-us/rest/api/azure/devops/git/pull%20request%20threads/list?view=azure-devops-rest-5.0
-            const pullRequestThreads = await $.get(`${pullRequestInfo.url}/threads?api-version=5.0`);
+            const pullRequestThreads = await $.get(`${pr.url}/threads?api-version=5.0`);
 
             let threadsWithLotsOfComments = 0;
             let threadsWithWordyComments = 0;
@@ -386,11 +386,11 @@
           }
 
           // Compute the size of certain PRs; e.g. those we haven't reviewed yet. But first, sure we've created a merge commit that we can compute its size.
-          if (computeSize && pullRequestInfo.lastMergeCommit) {
+          if (computeSize && pr.lastMergeCommit) {
             let fileCount = 0;
 
             // First, try to find NI.ReviewProperties, which contains reviewer info specific to National Instrument workflows (where this script is used the most).
-            const prProperties = await $.get(`${pullRequestInfo.url}/properties?api-version=5.1-preview.1`);
+            const prProperties = await $.get(`${pr.url}/properties?api-version=5.1-preview.1`);
             let reviewProperties = prProperties.value['NI.ReviewProperties'];
             if (reviewProperties) {
               reviewProperties = JSON.parse(reviewProperties.$value);
@@ -406,7 +406,7 @@
 
             // If there is no NI.ReviewProperties or if it returns zero files to review (since we may not be on the review explicitly), then count the number of files in the merge commit.
             if (fileCount === 0) {
-              const mergeCommitInfo = await $.get(`${pullRequestInfo.lastMergeCommit.url}/changes?api-version=5.0`);
+              const mergeCommitInfo = await $.get(`${pr.lastMergeCommit.url}/changes?api-version=5.0`);
               fileCount = _(mergeCommitInfo.changes).filter(item => !item.item.isFolder).size();
             }
 
@@ -437,36 +437,9 @@
     }
   }
 
-  // Helper function to parse the page state data provided by AzDO.
-  async function getPageData(validityChecker) {
-    const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
-
-    // RE: Looping and validatyChecker stuff: TODO: This is temporary to hotfix an issue. Will refactor.
-    for (let i = 0; i < 10; i += 1) {
-      try {
-        const pageData = JSON.parse(document.getElementById('dataProviders').innerHTML).data;
-        if (validityChecker(pageData)) {
-          return pageData;
-        }
-      } catch (e) {
-        // Do nothing. Loop.
-      }
-
-      // eslint-disable-next-line no-await-in-loop
-      await sleep(500);
-    }
-
-    return undefined;
-  }
-
-  // Helper function to get the PR iterations at the current page. TODO: This is temporary to hotfix an issue. Will refactor.
-  async function getPullRequestIterations() {
-    const pullRequestUrl = window.location;
-    const pullRequestId = pullRequestUrl.pathname.substring(pullRequestUrl.pathname.lastIndexOf('/') + 1);
-    const pageData = await getPageData(p => p['ms.vss-tfs-web.header-action-data']);
-    const apiUrlPrefix = `${window.location.origin}${pageData['ms.vss-tfs-web.header-action-data'].suiteHomeUrl}`;
-    const pullRequestInfo = await $.get(`${apiUrlPrefix}/_apis/git/pullrequests/${pullRequestId}?api-version=5.0`);
-    const iterations = await $.get(`${pullRequestInfo.url}/iterations?api-version=5.0`);
-    return iterations.value;
+  // Helper function get info on a single PR. Defaults to the PR that's currently on screen.
+  function getPullRequest(id = 0) {
+    const actualId = id || window.location.pathname.substring(window.location.pathname.lastIndexOf('/') + 1);
+    return $.get(`${azdoApiBaseUrl}/_apis/git/pullrequests/${actualId}?api-version=5.0`);
   }
 }());
