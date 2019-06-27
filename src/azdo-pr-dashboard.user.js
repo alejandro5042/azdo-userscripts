@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.17.1
+// @version      2.17.2
 // @author       National Instruments
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -433,7 +433,7 @@
   // Helper function to avoid adding CSS twice into a document.
   function addStyleOnce(id, style) {
     if ($(`head #${id}`).length === 0) {
-      $(document.head).append(`<style id="${id}" type="text/css">${style}</style>`);
+      $('<style type="text/css" />').attr('id', id).html(style).appendTo(document.head);
     }
   }
 
