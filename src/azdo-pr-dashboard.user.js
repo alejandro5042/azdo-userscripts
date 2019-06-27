@@ -29,7 +29,7 @@
   'use strict';
 
   // Set a namespace for our local storage items.
-  lscache.setBucket('acb-azdo-pr-dashboard/');
+  lscache.setBucket('acb-azdo/');
 
   // Call our event handler if we notice new elements being inserted into the DOM. This happens as the page is loading or updating dynamically based on user activity. We throttle new element events to avoid using up CPU when AzDO is adding a lot of elements during a short time (like on page load).
   document.addEventListener('DOMNodeInserted', _.throttle(onPageDOMNodeInserted, 400));
