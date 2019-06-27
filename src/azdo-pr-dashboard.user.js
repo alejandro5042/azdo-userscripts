@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.18.0
+// @version      2.18.1
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -389,7 +389,7 @@
           if (computeSize && pr.lastMergeCommit) {
             let fileCount = 0;
 
-            // First, try to find NI.ReviewProperties, which contains reviewer info specific to National Instrument workflows (where this script is used the most).
+            // First, try to find NI.ReviewProperties, which contains reviewer info specific to National Instruments workflows (where this script is used the most).
             const prProperties = await $.get(`${pr.url}/properties?api-version=5.1-preview.1`);
             let reviewProperties = prProperties.value['NI.ReviewProperties'];
             if (reviewProperties) {
