@@ -4,9 +4,13 @@ A collection of userscripts to improve the Azure DevOps UI. [(Homepage on GitHub
 
 These userscripts were tested in Chrome and Firefox with the Tampermonkey extension. They may work with other setups.
 
-## 1) PR dashboard improvements
+## Install
 
 [Install PR dashboard improvements](https://github.com/alejandro5042/azdo-userscripts/raw/master/src/azdo-pr-dashboard.user.js) (see prerequisites below)
+
+## Features
+
+### PR dashboard improvements
 
 Sorts the PRs in your dashboard into categories.
 
@@ -25,12 +29,12 @@ Sorts the PRs in your dashboard into categories.
 - Sections remember if they are open/closed
 - PRs show how many files the reviewer needs to review
 
-## 2) PR diff improvements
+### PR diff improvements
 
 - File checkboxes: Mark a file as reviewed (for yourself)
 - Base selector: You can now select the base update to compare against
 
-# Prerequisites
+## Prerequisites
 
 A userscripts extension is required to actually use these scripts; e.g. Tampermonkey, Greasemonkey, etc.
 
@@ -40,16 +44,16 @@ A userscripts extension is required to actually use these scripts; e.g. Tampermo
 - When installing extensions, remember to refresh the affected pages after installing (e.g. the PR dashboard)
 - By default, Tampermonkey will automatically update scripts from the original install location once a day. You can force an update from the extensions menu
 
-# Privacy
+## Privacy
 
 The update URL goes through a URL redirector to get a rough idea of how many people are using this script. To opt-out, change the update URL to the original download URL in the Tampermonkey dashboard (or disable updates). The redirector can also help if the URL needs to change; e.g. if the file is moved or renamed.
 
 No other data is collected. The script is sourced and updated directly from the master branch of this repo.
 
-# Credits
+## Credits
 
 This is the second version of a PR filtering script originally written by Tian Yu, which faded out approved PRs. Further improved by Alejandro Barreto.
 
-# License
+## License
 
 MIT. Pull Requests welcomed!
