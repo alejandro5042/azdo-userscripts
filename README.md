@@ -4,9 +4,14 @@ A collection of userscripts to improve the Azure DevOps UI. [(Homepage on GitHub
 
 These userscripts were tested in Chrome and Firefox with the Tampermonkey extension. They may work with other setups.
 
-## Install
+## Getting Started
 
-[Install PR dashboard improvements](https://github.com/alejandro5042/azdo-userscripts/raw/master/src/azdo-pr-dashboard.user.js) (see prerequisites below)
+- [Install the Tampermonkey extension](https://tampermonkey.net/)
+  - A userscripts extension is required to actually use these scripts; e.g. Tampermonkey, Greasemonkey, etc
+  - If you just installed this extension, **refresh this page** or the download links may not work
+  - When installing extensions, remember to refresh the affected pages after installing (e.g. the PR dashboard)
+  - By default, Tampermonkey will automatically update scripts from the original install location once a day. You can force an update from the extensions menu
+- [Install this userscript](https://github.com/alejandro5042/azdo-userscripts/raw/master/src/azdo-pr-dashboard.user.js)
 
 ## Features
 
@@ -33,16 +38,6 @@ Sorts the PRs in your dashboard into categories.
 
 - File checkboxes: Mark a file as reviewed (for yourself)
 - Base selector: You can now select the base update to compare against
-
-## Prerequisites
-
-A userscripts extension is required to actually use these scripts; e.g. Tampermonkey, Greasemonkey, etc.
-
-[Install the Tampermonkey extension](https://tampermonkey.net/)
-
-- If you just installed this extension, **refresh this page** or the download links may not work
-- When installing extensions, remember to refresh the affected pages after installing (e.g. the PR dashboard)
-- By default, Tampermonkey will automatically update scripts from the original install location once a day. You can force an update from the extensions menu
 
 ## Privacy
 
