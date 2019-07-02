@@ -9,7 +9,7 @@ steps:
   inputs:
     targetType: 'inline'
     script: |
-      $version = if ((cat -Raw src/azdo-pr-dashboard.user.js) -match "@version\s+(?<Version>.*)") { $Matches.Version } else { throw "Version not found." }
+      $version = if ((Get-Content -Raw src/azdo-pr-dashboard.user.js) -match "@version\s+(?<Version>.*)") { $Matches.Version } else { throw "Version not found." }
       Write-Host "##vso[task.setvariable variable=version]$version"
   displayName: 'Parse version from userscript'
 
