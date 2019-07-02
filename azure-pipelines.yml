@@ -36,7 +36,7 @@ steps:
     gitHubConnection: ghalejandro5042
     repositoryName: '$(Build.Repository.Name)'
     target: '$(Build.SourceVersion)'
-    action: 'edit'
+    action: 'create'
     tagSource: 'manual'
     tag: 'v$(Version)'
     addChangeLog: true
