@@ -6,12 +6,11 @@ These userscripts were tested in Chrome and Firefox with the Tampermonkey extens
 
 ## Getting Started
 
-- [Install the Tampermonkey extension](https://tampermonkey.net/)
-  - A userscripts extension is required to actually use these scripts; e.g. Tampermonkey, Greasemonkey, etc
-  - If you just installed this extension, **refresh this page** or the download links may not work
-  - When installing extensions, remember to refresh the affected pages after installing (e.g. the PR dashboard)
-  - By default, Tampermonkey will automatically update scripts from the original install location once a day. You can force an update from the extensions menu
-- [Install this userscript](https://github.com/alejandro5042/azdo-userscripts/raw/master/src/azdo-pr-dashboard.user.js)
+1) [Install the Tampermonkey extension](https://tampermonkey.net/)
+2) Refresh this page if you just installed Tampermonkey (or the download link won't work)
+3) [Install this userscript](https://github.com/alejandro5042/azdo-userscripts/raw/master/src/azdo-pr-dashboard.user.js)
+
+By default, Tampermonkey will automatically update scripts from the original install location once a day. You can force an update from the extensions menu.
 
 ## Features
 
