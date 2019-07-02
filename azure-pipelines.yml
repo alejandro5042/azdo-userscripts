@@ -28,6 +28,7 @@ steps:
   inputs:
     Contents: 'src/**/*'
     TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    flattenFolders: true
   condition: succeeded()
 
 - task: GitHubRelease@0
