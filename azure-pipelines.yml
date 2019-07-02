@@ -4,9 +4,6 @@ trigger:
 pool:
   vmImage: 'ubuntu-latest'
 
-variables:
-  Version = 
-
 steps:
 - task: PowerShell@2
   inputs:
