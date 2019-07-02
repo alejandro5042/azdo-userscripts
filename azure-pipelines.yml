@@ -26,8 +26,9 @@ steps:
 
 - task: CopyFiles@2
   inputs:
-    Contents: '$(Build.SourcesDirectory)/src/azdo-azdo-pr-dashboard.user.js'
+    Contents: 'src/**/*'
     TargetFolder: '$(Build.ArtifactStagingDirectory)'
+  condition: succeeded()
 
 - task: GitHubRelease@0
   inputs:
