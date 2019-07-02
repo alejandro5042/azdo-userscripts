@@ -4,6 +4,9 @@ trigger:
 pool:
   vmImage: 'ubuntu-latest'
 
+variables:
+  Version = 
+
 steps:
 - task: PowerShell@2
   inputs:
@@ -24,13 +27,18 @@ steps:
     npm run build
   displayName: 'npm install and build'
 
+- task: CopyFiles@2
+  inputs:
+    Contents: 'src/azdo-azdo-pr-dashboard.user.js'
+    TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
 - task: GitHubRelease@0
   inputs:
     gitHubConnection: ghalejandro5042
     repositoryName: '$(Build.Repository.Name)'
     action: 'create'
     target: '$(Build.SourceVersion)'
+    tagSource: 'manual'
     tag: 'v$(Version)'
-    tagSource: 'auto'
     isDraft: true
     addChangeLog: true
