@@ -5,6 +5,15 @@ pool:
   vmImage: 'ubuntu-latest'
 
 steps:
+- task: PowerShell@2
+  inputs:
+    targetType: 'inline'
+    script: |
+      $version = if ((Get-Content -Raw src/azdo-pr-dashboard.user.js) -match "@version\s+(?<Version>.*)") { $Matches.Version } else { throw "Version not found." }
+      Write-Host "Version = $version"
+      Write-Host "##vso[task.setvariable variable=version]$version"
+  displayName: 'Parse version from userscript'
+
 - task: NodeTool@0
   inputs:
     versionSpec: '10.x'
@@ -14,3 +23,21 @@ steps:
     npm install
     npm run build
   displayName: 'npm install and build'
+
+- task: CopyFiles@2
+  inputs:
+    Contents: 'src/azdo-azdo-pr-dashboard.user.js'
+    TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+- task: GitHubRelease@0
+  inputs:
+    gitHubConnection: ghalejandro5042
+    repositoryName: '$(Build.Repository.Name)'
+    target: '$(Build.SourceVersion)'
+    action: 'create'
+    tagSource: 'manual'
+    tag: 'v$(Version)'
+    isDraft: true
+    isPreRelease: true
+    addChangeLog: true
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'), in(variables['Build.Reason'], 'IndividualCI', 'BatchedCI'))
