@@ -24,7 +24,7 @@ For each PR, make sure the userscript:
 - Runs in latest stable Chrome and Firefox without Javascript errors
 - Works in both `dev.azure.com/account` and `account.visualstudio.com`
 - Customizations work in both light and dark theme
-- Does not report any issues in `eslint`
+- Does not report any issues in `eslint` (run `npm run build`)
 
 ## Coding conventions
 
