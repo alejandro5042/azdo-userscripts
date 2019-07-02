@@ -24,4 +24,11 @@ steps:
     npm run build
   displayName: 'npm install and build'
 
-  
+- task: GitHubRelease@0
+  inputs:
+    gitHubConnection: ghalejandro5042
+    repositoryName: '$(Build.Repository.Name)'
+    action: 'create'
+    target: '$(Build.SourceVersion)'
+    tagSource: 'auto'
+    isDraft: true
