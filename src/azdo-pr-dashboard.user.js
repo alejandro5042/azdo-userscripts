@@ -26,7 +26,7 @@
 // ==/UserScript==
 
 (function () {
-  'use strict';
+    'use strict';
 
   // Find out who is our current user. In general, we should avoid using pageData because it doesn't always get updated when moving between page-to-page in AzDO's single-page application flow. Instead, rely on the AzDO REST APIs to get information from stuff you find on the page or the URL. Some things are OK to get from pageData; e.g. stuff like the user which is available on all pages.
   const pageData = JSON.parse(document.getElementById('dataProviders').innerHTML).data;
