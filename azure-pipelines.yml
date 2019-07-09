@@ -30,15 +30,3 @@ steps:
     TargetFolder: '$(Build.ArtifactStagingDirectory)'
     flattenFolders: true
   condition: succeeded()
-
-- task: GitHubRelease@0
-  inputs:
-    gitHubConnection: ghalejandro5042
-    repositoryName: '$(Build.Repository.Name)'
-    target: '$(Build.SourceVersion)'
-    action: 'create'
-    tagSource: 'manual'
-    tag: 'v$(Version)'
-    addChangeLog: true
-  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'), in(variables['Build.Reason'], 'IndividualCI', 'BatchedCI'))
-  continueOnError: true
