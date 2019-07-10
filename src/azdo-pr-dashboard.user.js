@@ -62,7 +62,7 @@
 
       const filesTree = $(this);
 
-      addStyleOnce('pr-file-checbox-support-css', `
+      addStyleOnce('pr-file-checbox-support-css', /* css */ `
         button.file-complete-checkbox {
           /* Make a checkbox out of a button. */
           cursor: pointer;
@@ -149,7 +149,7 @@
     $('.vc-iteration-selector').once('add-base-selector').each(async function () {
       const toolbar = $(this);
 
-      addStyleOnce('base-selector-css', `
+      addStyleOnce('base-selector-css', /* css */ `
         .base-selector {
           color: var(--text-secondary-color);
           margin: 0px 5px 0px 0px;
@@ -200,7 +200,7 @@
       // When an option is selected, update the URL to include the selected base update.
       selector.on('change', function (event) {
         const currentUrl = new URL(window.location.href);
-        currentUrl.searchParams.set('base', $(this).val());
+        currentUrl.searchParams.set('base', $(this).first().val());
         currentUrl.searchParams.set('iteration', currentUrl.searchParams.get('iteration') || iterations.length); // If we select a base without having an explicit iteration, compare the base to the latest.
         window.location.href = currentUrl.toString();
       });
@@ -218,7 +218,7 @@
 
       const personalReviewSection = $(this);
 
-      addStyleOnce('reviews-list-css', `
+      addStyleOnce('reviews-list-css', /* css */ `
         details.reviews-list {
           margin: 10px 30px;
           display: none;
@@ -279,7 +279,7 @@
 
         // Get the PR id.
         const pullRequestUrl = new URL(row.find("a[href*='/pullrequest/']").attr('href'), window.location.origin);
-        const pullRequestId = pullRequestUrl.pathname.substring(pullRequestUrl.pathname.lastIndexOf('/') + 1);
+        const pullRequestId = parseInt(pullRequestUrl.pathname.substring(pullRequestUrl.pathname.lastIndexOf('/') + 1), 10);
 
         try {
           // Hide the row while we are updating it.
