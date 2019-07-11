@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.18.2
+// @version      2.19.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -27,6 +27,9 @@
 
 (function () {
   'use strict';
+
+  // All REST API calls should fail after a timeout, instead of going on forever.
+  $.ajaxSetup({ timeout: 5000 });
 
   // Find out who is our current user. In general, we should avoid using pageData because it doesn't always get updated when moving between page-to-page in AzDO's single-page application flow. Instead, rely on the AzDO REST APIs to get information from stuff you find on the page or the URL. Some things are OK to get from pageData; e.g. stuff like the user which is available on all pages.
   const pageData = JSON.parse(document.getElementById('dataProviders').innerHTML).data;
@@ -62,7 +65,7 @@
 
       const filesTree = $(this);
 
-      addStyleOnce('pr-file-checbox-support-css', `
+      addStyleOnce('pr-file-checbox-support-css', /* css */ `
         button.file-complete-checkbox {
           /* Make a checkbox out of a button. */
           cursor: pointer;
@@ -149,7 +152,7 @@
     $('.vc-iteration-selector').once('add-base-selector').each(async function () {
       const toolbar = $(this);
 
-      addStyleOnce('base-selector-css', `
+      addStyleOnce('base-selector-css', /* css */ `
         .base-selector {
           color: var(--text-secondary-color);
           margin: 0px 5px 0px 0px;
@@ -200,7 +203,7 @@
       // When an option is selected, update the URL to include the selected base update.
       selector.on('change', function (event) {
         const currentUrl = new URL(window.location.href);
-        currentUrl.searchParams.set('base', $(this).val());
+        currentUrl.searchParams.set('base', $(this).first().val());
         currentUrl.searchParams.set('iteration', currentUrl.searchParams.get('iteration') || iterations.length); // If we select a base without having an explicit iteration, compare the base to the latest.
         window.location.href = currentUrl.toString();
       });
@@ -218,7 +221,7 @@
 
       const personalReviewSection = $(this);
 
-      addStyleOnce('reviews-list-css', `
+      addStyleOnce('reviews-list-css', /* css */ `
         details.reviews-list {
           margin: 10px 30px;
           display: none;
@@ -228,15 +231,14 @@
           cursor: pointer;
           color: var(--text-secondary-color);
         }
-        .blocking-review {
-          background: rgba(256, 0, 0, 0.25);
-        }
-        .blocking-review:hover {
-          background: rgba(256, 0, 0, 0.35) !important;
+        details.reviews-list > div.flex-container {
+          display: flex;
+          flex-direction: column-reverse;
         }`);
 
-      // Sort the reviews in reverse; aka. show oldest reviews first then newer reviews.
-      personalReviewSection.append(personalReviewSection.find("[role='listitem']").get().reverse());
+
+      // Disable the expanding button if we are on the overall PR dashboard. If enabled and the user hides/shows this section, it causes the AzDO page to re-add all the PRs, leading to duplicates in the sorted list.
+      personalReviewSection.find('button.ms-GroupHeader-expand').prop('disabled', true).attr('title', 'AzDO Pull Request Improvements userscript disabled this button.');
 
       // Define what it means to be a notable PR after you have approved it.
       const peopleToNotApproveToCountAsNotableThread = 2;
@@ -246,44 +248,64 @@
 
       // Create review sections with counters.
       const sections = {
+        blocking:
+          $("<details class='reviews-list reviews-pending'><summary style='color: var(--status-error-foreground); font-weight: bold'>Blocking</summary></details>"),
+
+        pending:
+          $("<details class='reviews-list reviews-pending'><summary>Incomplete</summary></details>"),
+
         blocked:
-          $("<details class='reviews-list reviews-incomplete-blocked'><summary>Incomplete but blocked (<span class='review-subsection-counter'>0</span>)</summary></details>"),
+          $("<details class='reviews-list reviews-incomplete-blocked'><summary>Incomplete but blocked</summary></details>"),
 
         approvedButNotable:
-          $(`<details class='reviews-list reviews-approved-notable'><summary>Completed as Approved / Approved with Suggestions (<abbr title="${notableUpdateDescription}">with notable activity</abbr>) (<span class='review-subsection-counter'>0</span>)</summary></details>`),
+          $(`<details class='reviews-list reviews-approved-notable'><summary>Completed as Approved / Approved with Suggestions (<abbr title="${notableUpdateDescription}">with notable activity</abbr>)</summary></details>`),
 
         drafts:
-          $("<details class='reviews-list reviews-drafts'><summary>Drafts (<span class='review-subsection-counter'>0</span>)</summary></details>"),
+          $("<details class='reviews-list reviews-drafts'><summary>Drafts</summary></details>"),
 
         waiting:
-          $("<details class='reviews-list reviews-waiting'><summary>Completed as Waiting on Author (<span class='review-subsection-counter'>0</span>)</summary></details>"),
+          $("<details class='reviews-list reviews-waiting'><summary>Completed as Waiting on Author</summary></details>"),
 
         rejected:
-          $("<details class='reviews-list reviews-rejected'><summary>Completed as Rejected (<span class='review-subsection-counter'>0</span>)</summary></details>"),
+          $("<details class='reviews-list reviews-rejected'><summary>Completed as Rejected</summary></details>"),
 
         approved:
-          $("<details class='reviews-list reviews-approved'><summary>Completed as Approved / Approved with Suggestions (<span class='review-subsection-counter'>0</span>)</summary></details>"),
+          $("<details class='reviews-list reviews-approved'><summary>Completed as Approved / Approved with Suggestions</summary></details>"),
       };
 
-      // Load the subsection open/closed setting if it exists and setup a change handler to save the setting.
+      // Load the subsection open/closed setting if it exists and setup a change handler to save the setting. We also add common elements to each sections.
       for (const section of Object.values(sections)) {
         const id = `pr-section-open/${section.attr('class')}`;
+        section.children('summary').append(" (<span class='review-subsection-counter'>0</span>)");
+        section.append("<div class='flex-container' />");
         section.prop('open', lscache.get(id));
         section.on('toggle', function () { lscache.set(id, $(this).prop('open')); });
         section.appendTo(personalReviewSection);
       }
 
       // Loop through the PRs that we've voted on.
-      sortEachPullRequestFunc = () => $(personalReviewSection).find('[role="listitem"]').once('pr-sorted').each(async function () {
+      sortEachPullRequestFunc = () => $(personalReviewSection).find('[role="list"] [role="listitem"]').once('pr-sorted').each(async function () {
         const row = $(this);
 
-        // Get the PR id.
-        const pullRequestUrl = new URL(row.find("a[href*='/pullrequest/']").attr('href'), window.location.origin);
-        const pullRequestId = pullRequestUrl.pathname.substring(pullRequestUrl.pathname.lastIndexOf('/') + 1);
+        // Loop until AzDO has added the link to the PR into the row.
+        let pullRequestHref;
+        while (!pullRequestHref) {
+          // Important! Do not remove this sleep, even on the first iteration. We need to give AzDO some time to finish making the row before moving it. If we don't sleep for some time, and we begin moving rows, AzDO may get confused and not create all the PR rows. That would cause some PRs to not be rendered in the list. The best solution is to wait until the list finishes to render via an event handler; except that I don't know how to hook into that without understanding AzDO JS infrastructure. The sleep time was chosen to balance first load time (don't wait too long before sorting) and what appears to be long enough to avoid the missing PR problem when sorting a 50+ PR dashboard, as determined by experimentation (refreshing the page a dozen or so times).
+          // eslint-disable-next-line no-await-in-loop
+          await sleep(300);
+          pullRequestHref = row.find("a[href*='/pullrequest/']").attr('href');
+        }
 
         try {
           // Hide the row while we are updating it.
           row.hide(150);
+
+          // Sort the reviews in reverse; aka. show oldest reviews first then newer reviews. We do this by ordering the rows inside a reversed-order flex container.
+          row.css('order', row.attr('data-list-index'));
+
+          // Get the PR id.
+          const pullRequestUrl = new URL(pullRequestHref, window.location.origin);
+          const pullRequestId = parseInt(pullRequestUrl.pathname.substring(pullRequestUrl.pathname.lastIndexOf('/') + 1), 10);
 
           // Get complete information about the PR.
           const pr = await getPullRequest(pullRequestId);
@@ -374,15 +396,10 @@
             if (waitingOrRejectedVotes > 0) {
               section = sections.blocked;
             } else if (missingVotes === 1) {
-              row.addClass('blocking-review');
+              section = sections.blocking;
+            } else {
+              section = sections.pending;
             }
-          }
-
-          // If we identified a section, move the row.
-          if (section) {
-            section.find('.review-subsection-counter').text((i, value) => +value + 1);
-            section.append(row);
-            section.show();
           }
 
           // Compute the size of certain PRs; e.g. those we haven't reviewed yet. But first, sure we've created a merge commit that we can compute its size.
@@ -420,6 +437,13 @@
             row.find('div.vc-pullrequest-entry-col-secondary')
               .after(`<div style='margin: 15px; width: 3.5em; display: flex; align-items: center; text-align: right;'>${fileCountContent}</div>`);
           }
+
+          // If we identified a section, move the row.
+          if (section) {
+            section.find('.review-subsection-counter').text((i, value) => +value + 1);
+            section.children('div.flex-container').append(row);
+            section.show();
+          }
         } finally {
           // No matter what--e.g. even on error--show the row again.
           row.show(150);
@@ -437,9 +461,14 @@
     }
   }
 
-  // Helper function get info on a single PR. Defaults to the PR that's currently on screen.
+  // Async helper function get info on a single PR. Defaults to the PR that's currently on screen.
   function getPullRequest(id = 0) {
     const actualId = id || window.location.pathname.substring(window.location.pathname.lastIndexOf('/') + 1);
     return $.get(`${azdoApiBaseUrl}/_apis/git/pullrequests/${actualId}?api-version=5.0`);
+  }
+
+  // Async helper function to sleep.
+  function sleep(milliseconds) {
+    return new Promise(resolve => setTimeout(resolve, milliseconds));
   }
 }());

@@ -27,6 +27,7 @@ module.exports = {
     "no-restricted-syntax": ["error", "ForInStatement", "LabeledStatement", "WithStatement"],
     "strict": 0,
     "require-await": "error",
-    "require-yield": "error"
+    "require-yield": "error",
+    "linebreak-style": 0,
   }
 };
