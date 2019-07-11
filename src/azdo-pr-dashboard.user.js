@@ -290,7 +290,7 @@
         // Loop until AzDO has added the link to the PR into the row.
         let pullRequestHref;
         while (!pullRequestHref) {
-          // Important! Do not remove this sleep, even on the first iteration. We need to give AzDO some time to finish making the row before moving it. If we don't sleep for some time, and we begin moving rows, AzDO may get confused and not create all the PR rows. That would cause some PRs to not be rendered in the list.
+          // Important! Do not remove this sleep, even on the first iteration. We need to give AzDO some time to finish making the row before moving it. If we don't sleep for some time, and we begin moving rows, AzDO may get confused and not create all the PR rows. That would cause some PRs to not be rendered in the list. The best solution is to wait until the list finishes to render via an event handler; except that I don't know how to hook into that without understanding AzDO JS infrastructure.
           // eslint-disable-next-line no-await-in-loop
           await sleep(300);
           pullRequestHref = row.find("a[href*='/pullrequest/']").attr('href');
