@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.19.0
+// @version      2.20.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -50,9 +50,33 @@
     if (/\/(pullrequest)\//i.test(window.location.pathname)) {
       addCheckboxesToFiles();
       addBaseUpdateSelector();
+      makePullRequestDiffEasierToScroll();
     } else if (/\/(_pulls|pullrequests)/i.test(window.location.pathname)) {
       sortPullRequestDashboard();
     }
+  }
+
+  function makePullRequestDiffEasierToScroll() {
+    addStyleOnce('base-selector-css', /* css */ `
+      .vc-change-summary-files .file-container {
+        /* Make the divs float but clear them so they get stacked on top of each other. We float so that the divs expand to take up the width of the text in it. Finally, we remove the overflow property so that they don't have scrollbars and also such that we can have sticky elements (apparently, sticky elements don't work if the div has overflow). */
+        float: left;
+        clear: both;
+        min-width: 75%;
+        overflow: initial;
+      }
+      .vc-change-summary-files .file-row {
+        /* Let the file name section of each diff stick to the top of the page if we're scrolling. */
+        position: sticky;
+        top: 0;
+        z-index: 100000;
+        padding-bottom: 10px;
+        background: var(--background-color,rgba(255, 255, 255, 1));
+      }
+      .vc-change-summary-files .vc-diff-viewer {
+        /* We borrowed padding from the diff to give to the bottom of the file row. So adjust accordingly (this value was originally 20px). */
+        padding-top: 10px;
+      }`);
   }
 
   // The func we'll call to continuously add checkboxes to the PR file listing, once initialization is over.
@@ -456,9 +480,9 @@
 
   // Helper function to avoid adding CSS twice into a document.
   function addStyleOnce(id, style) {
-    if ($(`head #${id}`).length === 0) {
-      $('<style type="text/css" />').attr('id', id).html(style).appendTo(document.head);
-    }
+    $(document.head).once(id).each(function () {
+      $('<style type="text/css" />').html(style).appendTo(this);
+    });
   }
 
   // Async helper function get info on a single PR. Defaults to the PR that's currently on screen.
