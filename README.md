@@ -39,6 +39,10 @@ Sorts the PRs in your dashboard into categories.
 
 - File checkboxes: Mark a file as reviewed (for yourself)
 - Base selector: You can now select the base update to compare against
+- Make the file name always visible in the multi-file diff view, even if the user scrolled down the page
+- Make the horizontal scrollbar always visible in the multi-file diff view
+  - Before: ![text cutoff and no scrolling](static/before-pr-diff-scroll-improvements.png)
+  - After: ![scrollbars always visible](static/after-pr-diff-scroll-improvements.png)
 
 ## Privacy
 
