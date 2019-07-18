@@ -1,0 +1,9 @@
+# Configuration for welcome - https://github.com/behaviorbot/welcome
+
+# Comment to be posted to on first time issues
+newIssueWelcomeComment: >
+  Thanks for opening your first issue here! Please refer to our [support and troubleshooting docs](https://github.com/alejandro5042/azdo-userscripts/blob/master/SUPPORT.md).
+
+# Comment to be posted to on PRs from first time contributors in your repository
+newPRWelcomeComment: >
+  Thanks for opening this pull request! Please check out our [contributing guidelines](https://github.com/alejandro5042/azdo-userscripts/blob/master/CONTRIBUTING.md).

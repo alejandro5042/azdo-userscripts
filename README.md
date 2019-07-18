@@ -44,6 +44,11 @@ Sorts the PRs in your dashboard into categories.
   - Before: ![text cutoff and no scrolling](static/before-pr-diff-scroll-improvements.png)
   - After: ![scrollbars always visible](static/after-pr-diff-scroll-improvements.png)
 
+## Documentation
+
+- [Support and troubleshooting](SUPPORT.md)
+- [Contributing to this project](CONTRIBUTING.md)
+
 ## Privacy
 
 The update URL goes through a URL redirector to get a rough idea of how many people are using this script. To opt-out, change the update URL to the original download URL in the Tampermonkey dashboard (or disable updates). The redirector can also help if the URL needs to change; e.g. if the file is moved or renamed.
@@ -56,4 +61,4 @@ This is the second version of a PR filtering script originally written by Tian Y
 
 ## License
 
-MIT. Pull Requests welcomed!
+[MIT](LICENSE). Issues and pull requests welcomed!
