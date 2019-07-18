@@ -29,5 +29,4 @@ For each PR, make sure the userscript:
 ## Coding conventions
 
 - Blocks of code are commented
-- K&R bracing style
-- 2 spaces, not tabs (as specified in `.editorconfig`)
+- Follow the conventions as specified in eslint config (roughly, Airbnb JS style)
