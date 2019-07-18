@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.20.1
+// @version      2.20.2
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -57,7 +57,7 @@
   }
 
   function makePullRequestDiffEasierToScroll() {
-    addStyleOnce('base-selector-css', /* css */ `
+    addStyleOnce('pr-diff-improvements', /* css */ `
       .vc-change-summary-files .file-container {
         /* Make the divs float but clear them so they get stacked on top of each other. We float so that the divs expand to take up the width of the text in it. Finally, we remove the overflow property so that they don't have scrollbars and also such that we can have sticky elements (apparently, sticky elements don't work if the div has overflow). */
         float: left;
