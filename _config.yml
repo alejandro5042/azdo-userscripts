@@ -1,16 +1,1 @@
-remote_theme: mmistakes/so-simple-theme
-description: ""
-logo: https://avatars2.githubusercontent.com/u/3143819
-
-author:
-  name: Alejandro Barreto
-  picture: https://avatars2.githubusercontent.com/u/3143819
-  email:
-  twitter: alejandro5042
-  links:
-    - title: Twitter
-      url: https://twitter.com/alejandro5042
-      icon: fab fa-twitter-square
-    - title: GitHub
-      url: https://github.com/alejandro5042
-      icon: fab fa-github-square
+theme: jekyll-theme-primer
