@@ -1,14 +1,14 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.20.4
+// @version      2.21.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
 
-// @namespace    https://ni.com
-// @homepageURL  https://github.com/alejandro5042/azdo-userscripts
-// @supportURL   https://github.com/alejandro5042/azdo-userscripts
+// @namespace    https://github.com/alejandro5042
+// @homepageURL  https://alejandro5042.github.io/azdo-userscripts/
+// @supportURL   https://alejandro5042.github.io/azdo-userscripts/SUPPORT.html
 // @updateURL    https://rebrand.ly/update-azdo-pr-dashboard-user-js
 
 // @contributionURL  https://github.com/alejandro5042/azdo-userscripts
