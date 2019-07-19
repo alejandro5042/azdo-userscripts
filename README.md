@@ -41,7 +41,7 @@ You can now mark a file as reviewed with a checkbox! The data persists in local 
 
 ![Checkboxes in the PR files tree](static/file-checkboxes.png)
 
-> Note: ni.visualstudio.com checkbox data is separate from dev.azure.com/ni checkbox data
+> Note: awesome.visualstudio.com checkbox data is separate from dev.azure.com/awesome checkbox data.
 
 You can now select the base update to compare against with the base update selector:
 
