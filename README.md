@@ -2,15 +2,15 @@
 
 [![Build Status](https://dev.azure.com/alejandro5042/Public/_apis/build/status/alejandro5042.azdo-userscripts?branchName=master)](https://dev.azure.com/alejandro5042/Public/_build/latest?definitionId=3&branchName=master)
 
-A collection of userscripts to improve the Azure DevOps UI. [(Homepage on GitHub)](https://github.com/alejandro5042/azdo-userscripts)
+A collection of userscripts to improve the Azure DevOps UI.
 
 These userscripts were tested in Chrome and Firefox with the Tampermonkey extension. They may work with other setups.
 
 ## Getting Started
 
-1) [Install the Tampermonkey extension](https://tampermonkey.net/)
-2) Refresh this page if you just installed Tampermonkey (or the download link won't work)
-3) [Install this userscript](https://github.com/alejandro5042/azdo-userscripts/raw/master/src/azdo-pr-dashboard.user.js)
+1. [Install the Tampermonkey extension](https://tampermonkey.net/)
+2. Refresh this page if you just installed Tampermonkey (or the download link won't work)
+3. [Install this userscript](https://github.com/alejandro5042/azdo-userscripts/raw/master/src/azdo-pr-dashboard.user.js)
 
 By default, Tampermonkey will automatically update scripts from the original install location once a day. You can force an update from the extensions menu.
 
@@ -48,6 +48,7 @@ Sorts the PRs in your dashboard into categories.
 
 - [Support and troubleshooting](SUPPORT.md)
 - [Contributing to this project](CONTRIBUTING.md)
+- [GitHub Homepage](https://github.com/alejandro5042/azdo-userscripts)
 
 ## Privacy
 
