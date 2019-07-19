@@ -23,15 +23,15 @@ Sorts the PRs in your dashboard into categories.
 ![(Picture of an example dashboard)](static/azdo-pr-dashboard-example.png)
 
 - Reviews are sorted from oldest to newest (reverse of the default)
-- Reviews are highlighted red if you are the last reviewer and everyone else approved
-- Reviews are further categorized into sections:
-  - Uncategorized: Reviews you need to process
-  - Incomplete but blocked: Reviews you have not completed but are blocked anyways because another reviewer voted Waiting on Author or Rejected. This section is open by default
-  - Drafts
-  - Completed as Waiting on Author
-  - Completed as Rejected
-  - Completed as Approved / Approved with Suggestions
-  - Completed as Approved / Approved with Suggestions (with notable updates): PRs that have had notable activity after you've approved; e.g. lots of comments or non-approval votes
+- Reviews are categorized into sections:
+  - **Blocking:** Reviews where you are the last reviewer and everyone else approved
+  - **Incomplete:** Reviews you need to process
+  - **Incomplete but blocked:** Reviews you have not completed but are blocked anyways because another reviewer voted Waiting on Author or Rejected. This section is open by default
+  - **Drafts**
+  - **Completed as Waiting on Author**
+  - **Completed as Rejected**
+  - **Completed as Approved / Approved with Suggestions**
+  - **Completed as Approved / Approved with Suggestions (with notable updates):** PRs that have had notable activity after you've approved; e.g. lots of comments or non-approval votes
 - Sections remember if they are open/closed
 - PRs show how many files the reviewer needs to review
 
@@ -43,6 +43,26 @@ Sorts the PRs in your dashboard into categories.
 - Make the horizontal scrollbar always visible in the multi-file diff view (but not for side-by-side diffs)
   - Before (long lines are cutoff and the scrollbar may be offscreen): ![text cutoff and no scrolling](static/before-pr-diff-scroll-improvements.png)
   - After (scrollbar is always visible): ![scrollbars always visible](static/after-pr-diff-scroll-improvements.png)
+
+### Better owners review
+
+> These features are currently specific to National Instruments.
+
+The PR file tree will now highlight the files you need to review with a letter to represent your role (Owner, Alternate, Reviewer):
+
+![Files tree highlighting.](static/owners-file-tree.png)
+
+In the multi-file diff view, your files are also highlighted with a blue line on the left:
+
+![Highlighted diffs.](static/owners-diff-highlight.png)
+
+You can also press the new "Toggle other files" button to fade out and collapse the other diffs! (Ideally, I would hide them completely, but if I do, the AzDO interface bugs out.)
+
+![Toggle other files button.](static/owners-toggle-other-files.png)
+
+Hopefully all this makes it very easy to scan for the stuff you care about.
+
+Note: If there is no owner info, or if you are not listed, nothing is highlighted and the button does not appear. It also only works with newer PRs (created or updated since approx. July 2019).
 
 ## Documentation
 
