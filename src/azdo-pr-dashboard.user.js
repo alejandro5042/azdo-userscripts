@@ -225,7 +225,7 @@
             const path = name.replace(/\s\[.*?\]$/i, '').replace(/^\//, '');
             if (ownersInfo.isCurrentUserResponsibleForFile(path)) {
               fileRow.addClass('file-to-review-row');
-              $('<div class="file-owners-role" />').text(`${ownersInfo.filesToRole[path]}:`).prependTo(fileRow);
+              $('<div class="file-owners-role" />').text(`${ownersInfo.currentUserFilesToRole[path]}:`).prependTo(fileRow);
             }
           }
         });
@@ -578,31 +578,35 @@
     }
 
     const ownersInfo = {
-      files: [],
-      filesToRole: {},
+      currentUserFilesToRole: {},
       currentUserFileCount: 0,
       isCurrentUserResponsibleForFile(path) {
-        return Object.prototype.hasOwnProperty.call(this.filesToRole, path);
+        return Object.prototype.hasOwnProperty.call(this.currentUserFilesToRole, path);
       },
     };
 
-    // Go through all the files listed in the PR.
-    for (const file of reviewProperties.fileProperties) {
-      // Get the identities associated with each of the known roles.
-      const owner = reviewProperties.reviewerIdentities[file.Owner - 1] || {};
-      const alternate = reviewProperties.reviewerIdentities[file.Alternate - 1] || {}; // handle nulls everywhere
-      const reviewers = file.Reviewers.map(r => reviewProperties.reviewerIdentities[r - 1]) || [];
+    // See if the current user is listed in this PR.
+    const currentUserListedInThisOwnerReview = _(reviewProperties.reviewerIdentities).some(r => r.email === currentUser.uniqueName);
 
-      // Pick the highest role for the current user on this file, and track it.
-      if (owner.email === currentUser.uniqueName) {
-        ownersInfo.filesToRole[file.Path] = 'O';
-        ownersInfo.currentUserFileCount += 1;
-      } else if (alternate.email === currentUser.uniqueName) {
-        ownersInfo.filesToRole[file.Path] = 'A';
-        ownersInfo.currentUserFileCount += 1;
-      } else if (_(reviewers).some(r => r.email === currentUser.uniqueName)) {
-        ownersInfo.filesToRole[file.Path] = 'R';
-        ownersInfo.currentUserFileCount += 1;
+    // Go through all the files listed in the PR.
+    if (currentUserListedInThisOwnerReview) {
+      for (const file of reviewProperties.fileProperties) {
+        // Get the identities associated with each of the known roles.
+        const owner = reviewProperties.reviewerIdentities[file.Owner - 1] || {};
+        const alternate = reviewProperties.reviewerIdentities[file.Alternate - 1] || {}; // handle nulls everywhere
+        const reviewers = file.Reviewers.map(r => reviewProperties.reviewerIdentities[r - 1]) || [];
+
+        // Pick the highest role for the current user on this file, and track it.
+        if (owner.email === currentUser.uniqueName) {
+          ownersInfo.currentUserFilesToRole[file.Path] = 'O';
+          ownersInfo.currentUserFileCount += 1;
+        } else if (alternate.email === currentUser.uniqueName) {
+          ownersInfo.currentUserFilesToRole[file.Path] = 'A';
+          ownersInfo.currentUserFileCount += 1;
+        } else if (_(reviewers).some(r => r.email === currentUser.uniqueName)) {
+          ownersInfo.currentUserFilesToRole[file.Path] = 'R';
+          ownersInfo.currentUserFileCount += 1;
+        }
       }
     }
 
