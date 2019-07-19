@@ -38,7 +38,13 @@ Sorts the PRs in your dashboard into categories.
 ### PR diff improvements
 
 - File checkboxes: Mark a file as reviewed (for yourself)
+  - The data persists in browser storage so if you come back to the PR later, the checkboxes will still be there! (up to 3 weeks)
+  - ![Checkboxes in the PR files tree](static/file-checkboxes.png)
+  - Note: ni.visualstudio.com checkbox data is separate from dev.azure.com/ni checkbox data
 - Base selector: You can now select the base update to compare against
+  - ![Base update selector](static/base-update-selector.png)
+  - This allows you to diff many updates at once: ![Example: Update 8 to 12](static/diff-many-updates.png)
+  - Note: Looks best in Chrome
 - Make the file name always visible in the multi-file diff view, even if the user scrolled down the page
 - Make the horizontal scrollbar always visible in the multi-file diff view (but not for side-by-side diffs)
   - Before (long lines are cutoff and the scrollbar may be offscreen): ![text cutoff and no scrolling](static/before-pr-diff-scroll-improvements.png)
