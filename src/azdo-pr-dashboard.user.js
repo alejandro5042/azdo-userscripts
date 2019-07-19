@@ -490,8 +490,6 @@
             }
           }
 
-          computeSize = true;
-
           // Compute the size of certain PRs; e.g. those we haven't reviewed yet. But first, sure we've created a merge commit that we can compute its size.
           if (computeSize && pr.lastMergeCommit) {
             let fileCount = 0;
