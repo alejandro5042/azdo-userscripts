@@ -18,7 +18,7 @@ By default, Tampermonkey will automatically update scripts from the original ins
 
 ### PR dashboard improvements
 
-Sorts the PRs in your dashboard into categories.
+Sorts the PRs in your dashboard into categories:
 
 ![(Picture of an example dashboard)](static/azdo-pr-dashboard-example.png)
 
@@ -37,18 +37,34 @@ Sorts the PRs in your dashboard into categories.
 
 ### PR diff improvements
 
-- File checkboxes: Mark a file as reviewed (for yourself)
-  - The data persists in browser storage so if you come back to the PR later, the checkboxes will still be there! (up to 3 weeks)
-  - ![Checkboxes in the PR files tree](static/file-checkboxes.png)
-  - Note: ni.visualstudio.com checkbox data is separate from dev.azure.com/ni checkbox data
-- Base selector: You can now select the base update to compare against
-  - ![Base update selector](static/base-update-selector.png)
-  - This allows you to diff many updates at once: ![Example: Update 8 to 12](static/diff-many-updates.png)
-  - Note: Looks best in Chrome
-- Make the file name always visible in the multi-file diff view, even if the user scrolled down the page
-- Make the horizontal scrollbar always visible in the multi-file diff view (but not for side-by-side diffs)
-  - Before (long lines are cutoff and the scrollbar may be offscreen): ![text cutoff and no scrolling](static/before-pr-diff-scroll-improvements.png)
-  - After (scrollbar is always visible): ![scrollbars always visible](static/after-pr-diff-scroll-improvements.png)
+You can now mark a file as reviewed with a checkbox! The data persists in local browser storage, so if you come back to the PR later, the checkboxes will still be there (up to 3 weeks).
+
+![Checkboxes in the PR files tree](static/file-checkboxes.png)
+
+> Note: ni.visualstudio.com checkbox data is separate from dev.azure.com/ni checkbox data
+
+You can now select the base update to compare against with the base update selector:
+
+![Base update selector](static/base-update-selector.png)
+
+This allows you to diff many updates at once:
+
+![Example: Update 8 to 12](static/diff-many-updates.png)
+
+> Note: The selector looks best in Chrome.
+
+Some improvements to the multi-file diff view:
+
+- The file name is now always visible, even if the user scrolled down the page
+- The horizontal scrollbar is now always visible (but not for side-by-side diffs)
+
+Before (long lines are cutoff and the scrollbar may be offscreen):
+
+![Text cutoff and no scrolling.](static/before-pr-diff-scroll-improvements.png)
+
+After (scrollbar is always visible):
+
+![Scrollbars always visible.](static/after-pr-diff-scroll-improvements.png)
 
 ### Better owners review
 
