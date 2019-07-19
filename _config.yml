@@ -2,4 +2,3 @@ remote_theme: mmistakes/so-simple-theme
 site.author.name: Alejandro Barreto
 site.author.picture: https://avatars2.githubusercontent.com/u/3143819
 site.twitter: alejandro5042
-copyright: &copy; {{ 'now' | date: "%Y" }} Alejandro Barreto
