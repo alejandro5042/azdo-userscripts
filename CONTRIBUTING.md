@@ -20,7 +20,7 @@ Once you're done, copy your script from the dashboard into the actual source fil
 
 For each PR, make sure the userscript:
 
-- Version is rev'ed
+- Version is incremented following semantic versioning
 - Runs in latest stable Chrome and Firefox without Javascript errors
 - Works in both `dev.azure.com/account` and `account.visualstudio.com`
 - Customizations work in both light and dark theme
