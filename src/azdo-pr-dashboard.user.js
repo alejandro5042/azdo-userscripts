@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.21.0
+// @version      2.22.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -90,6 +90,10 @@
       const filesTree = $(this);
 
       addStyleOnce('pr-file-checbox-support-css', /* css */ `
+        :root {
+          /* Set some constants for our CSS. */
+          --file-to-review-color: var(--communication-foreground);
+        }
         button.file-complete-checkbox {
           /* Make a checkbox out of a button. */
           cursor: pointer;
@@ -114,6 +118,32 @@
         button.file-complete-checkbox.checked:after {
           /* Make a checkbox out of a button. */
           content: "✔";
+        }
+        .vc-sparse-files-tree .tree-row.file-to-review-row,
+        .vc-sparse-files-tree .tree-row.file-to-review-row .file-name {
+          /* Highlight files I need to review. */
+          color: var(--file-to-review-color);
+        }
+        .vc-sparse-files-tree .tree-row.file-to-review-row .file-owners-role {
+          /* Style the role of the user in the files table. */
+          font-weight: bold;
+          padding: 7px 10px;
+          position: absolute;
+          z-index: 100;
+          float: right;
+        }
+        .file-to-review-diff {
+          /* Highlight files I need to review. */
+          border-left: 3px solid var(--file-to-review-color) !important;
+          padding-left: 7px;
+        }
+        .files-container.hide-files-not-to-review .file-container:not(.file-to-review-diff) {
+          /* Fade the header for files I don't have to review. */
+          opacity: 0.2;
+        }
+        .files-container.hide-files-not-to-review .file-container:not(.file-to-review-diff) .item-details-body {
+          /* Hide the diff for files I don't have to review. */
+          display: none;
         }`);
 
       // Get the current iteration of the PR.
@@ -147,25 +177,59 @@
         event.stopPropagation();
       });
 
-      addCheckboxesToNewFilesFunc = () => $('.vc-sparse-files-tree .vc-tree-cell').once('add-complete-checkbox').each(function () {
-        const fileCell = $(this);
-        const fileRow = fileCell.closest('.tree-row');
-        const typeIcon = fileRow.find('.type-icon');
+      // Get owners info for this PR.
+      const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(pr.url);
 
-        // Don't put checkboxes on rows that don't represent files.
-        if (!/bowtie-file\b/i.test(typeIcon.attr('class'))) {
-          return;
+      // If we have owners info, add a button to filter out diffs that we don't need to review.
+      if (ownersInfo && ownersInfo.currentUserFileCount > 0) {
+        $('.changed-files-summary-toolbar').once('add-other-files-button').each(function () {
+          $(this)
+            .find('ul')
+            .prepend('<li class="menu-item" role="button"><a href="#">Toggle other files</a></li>')
+            .click((event) => {
+              $('.files-container').toggleClass('hide-files-not-to-review');
+            });
+        });
+      }
+
+      addCheckboxesToNewFilesFunc = function () {
+        // If we have owners info, tag the diffs that we don't need to review.
+        if (ownersInfo && ownersInfo.currentUserFileCount > 0) {
+          $('.file-container .file-path').once('filter-files-to-review').each(function () {
+            const filePathElement = $(this);
+            const path = filePathElement.text().replace(/\//, '');
+            filePathElement.closest('.file-container').toggleClass('file-to-review-diff', ownersInfo.isCurrentUserResponsibleForFile(path));
+          });
         }
+        $('.vc-sparse-files-tree .vc-tree-cell').once('add-complete-checkbox').each(function () {
+          const fileCell = $(this);
+          const fileRow = fileCell.closest('.tree-row');
+          const typeIcon = fileRow.find('.type-icon');
 
-        const name = fileCell.attr('content'); // The 'content' attribute contains the file operation; e.g. "/src/file.cs [edit]".
-        const iteration = filesToIterationReviewed[name] || 0;
+          // Don't put checkboxes on rows that don't represent files.
+          if (!/bowtie-file\b/i.test(typeIcon.attr('class'))) {
+            return;
+          }
 
-        // Create the checkbox before the type icon.
-        $('<button class="file-complete-checkbox" />')
-          .attr('name', name)
-          .toggleClass('checked', iteration > 0)
-          .insertBefore(typeIcon);
-      });
+          const name = fileCell.attr('content'); // The 'content' attribute contains the file operation; e.g. "/src/file.cs [edit]".
+          const iteration = filesToIterationReviewed[name] || 0;
+
+          // Create the checkbox before the type icon.
+          $('<button class="file-complete-checkbox" />')
+            .attr('name', name)
+            .toggleClass('checked', iteration > 0)
+            .insertBefore(typeIcon);
+
+          // If we have owners info, highlight the files we need to review and add role info.
+          if (ownersInfo && ownersInfo.currentUserFileCount > 0) {
+            const path = name.replace(/\s\[.*?\]$/i, '').replace(/^\//, '');
+            if (ownersInfo.isCurrentUserResponsibleForFile(path)) {
+              fileRow.addClass('file-to-review-row');
+              $('<div class="file-owners-role" />').text(`${ownersInfo.filesToRole[path]}:`).prependTo(fileRow);
+            }
+          }
+        });
+      };
     });
 
     addCheckboxesToNewFilesFunc();
@@ -426,26 +490,19 @@
             }
           }
 
+          computeSize = true;
+
           // Compute the size of certain PRs; e.g. those we haven't reviewed yet. But first, sure we've created a merge commit that we can compute its size.
           if (computeSize && pr.lastMergeCommit) {
             let fileCount = 0;
 
-            // First, try to find NI.ReviewProperties, which contains reviewer info specific to National Instruments workflows (where this script is used the most).
-            const prProperties = await $.get(`${pr.url}/properties?api-version=5.1-preview.1`);
-            let reviewProperties = prProperties.value['NI.ReviewProperties'];
-            if (reviewProperties) {
-              reviewProperties = JSON.parse(reviewProperties.$value);
-
-              // Count the number of files we are in the reviewers list.
-              if (reviewProperties.version <= 3 && reviewProperties.fileProperties) {
-                for (const file of reviewProperties.fileProperties) {
-                  const allReviewers = [file.Owner, file.Alternate, file.Reviewers].flat();
-                  fileCount += _(allReviewers).some(reviewer => reviewer.includes(currentUser.uniqueName)) ? 1 : 0;
-                }
-              }
+            // See if this PR has owners info and count the files listed for the current user.
+            const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(pr.url);
+            if (ownersInfo) {
+              fileCount = ownersInfo.currentUserFileCount;
             }
 
-            // If there is no NI.ReviewProperties or if it returns zero files to review (since we may not be on the review explicitly), then count the number of files in the merge commit.
+            // If there is no owner info or if it returns zero files to review (since we may not be on the review explicitly), then count the number of files in the merge commit.
             if (fileCount === 0) {
               const mergeCommitInfo = await $.get(`${pr.lastMergeCommit.url}/changes?api-version=5.0`);
               fileCount = _(mergeCommitInfo.changes).filter(item => !item.item.isFolder).size();
@@ -494,5 +551,63 @@
   // Async helper function to sleep.
   function sleep(milliseconds) {
     return new Promise(resolve => setTimeout(resolve, milliseconds));
+  }
+
+  // Async helper function to get a specific PR property, otherwise return the default value.
+  async function getPullRequestProperty(prUrl, key, defaultValue = null) {
+    const properties = await $.get(`${prUrl}/properties?api-version=5.1-preview.1`);
+    const property = properties.value[key];
+    return property ? JSON.parse(property.$value) : defaultValue;
+  }
+
+  // Async helper function to return reviewer info specific to National Instruments workflows (where this script is used the most).
+  async function getNationalInstrumentsPullRequestOwnersInfo(prUrl) {
+    const reviewProperties = await getPullRequestProperty(prUrl, 'NI.ReviewProperties');
+
+    // Not all repos have NI owner info.
+    if (!reviewProperties) {
+      return null;
+    }
+
+    // Only support the more recent PR owner info version, where full user info is stored in an identities table separate from files.
+    if (reviewProperties.version < 4) {
+      return null;
+    }
+
+    // Some PRs don't have complete owner info if it would be too large to fit in PR property storage.
+    if (!reviewProperties.fileProperties) {
+      return null;
+    }
+
+    const ownersInfo = {
+      files: [],
+      filesToRole: {},
+      currentUserFileCount: 0,
+      isCurrentUserResponsibleForFile(path) {
+        return Object.prototype.hasOwnProperty.call(this.filesToRole, path);
+      },
+    };
+
+    // Go through all the files listed in the PR.
+    for (const file of reviewProperties.fileProperties) {
+      // Get the identities associated with each of the known roles.
+      const owner = reviewProperties.reviewerIdentities[file.Owner - 1] || {};
+      const alternate = reviewProperties.reviewerIdentities[file.Alternate - 1] || {}; // handle nulls everywhere
+      const reviewers = file.Reviewers.map(r => reviewProperties.reviewerIdentities[r - 1]) || [];
+
+      // Pick the highest role for the current user on this file, and track it.
+      if (owner.email === currentUser.uniqueName) {
+        ownersInfo.filesToRole[file.Path] = 'O';
+        ownersInfo.currentUserFileCount += 1;
+      } else if (alternate.email === currentUser.uniqueName) {
+        ownersInfo.filesToRole[file.Path] = 'A';
+        ownersInfo.currentUserFileCount += 1;
+      } else if (_(reviewers).some(r => r.email === currentUser.uniqueName)) {
+        ownersInfo.filesToRole[file.Path] = 'R';
+        ownersInfo.currentUserFileCount += 1;
+      }
+    }
+
+    return ownersInfo;
   }
 }());
