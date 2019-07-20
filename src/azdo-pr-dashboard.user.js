@@ -9,9 +9,6 @@ import * as baseUpdateSelector from './base-update-selector';
   // All REST API calls should fail after a timeout, instead of going on forever.
   $.ajaxSetup({ timeout: 5000 });
 
-  // Because of CORS, we need to make sure we're querying the same hostname for our AzDO APIs.
-  // const azdoApiBaseUrl = `${window.location.origin}${pageData['ms.vss-tfs-web.header-action-data'].suiteHomeUrl}`;
-
   // Set a namespace for our local storage items.
   lscache.setBucket('acb-azdo/');
 
