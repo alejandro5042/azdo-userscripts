@@ -7,28 +7,28 @@ export function addBaseUpdateSelector() {
     const toolbar = $(this);
 
     utils.addStyleOnce('base-selector-css', /* css */ `
-        .base-selector {
-          color: var(--text-secondary-color);
-          margin: 0px 5px 0px 0px;
-        }
-        .base-selector select {
-          border: 1px solid transparent;
-          padding: 2px 4px;
-          width: 3em;
-          height: 100%;
-          text-align: center;
-        }
-        .base-selector select:hover {
-          border-color: var(--palette-black-alpha-20);
-        }
-        .base-selector select option {
-          background: var(--callout-background-color);
-          color: var(--text-primary-color);
-          font-family: Consolas, monospace;
-        }
-        .base-selector select option:disabled {
-          display: none;
-        }`);
+      .base-selector {
+        color: var(--text-secondary-color);
+        margin: 0px 5px 0px 0px;
+      }
+      .base-selector select {
+        border: 1px solid transparent;
+        padding: 2px 4px;
+        width: 3em;
+        height: 100%;
+        text-align: center;
+      }
+      .base-selector select:hover {
+        border-color: var(--palette-black-alpha-20);
+      }
+      .base-selector select option {
+        background: var(--callout-background-color);
+        color: var(--text-primary-color);
+        font-family: Consolas, monospace;
+      }
+      .base-selector select option:disabled {
+        display: none;
+      }`);
 
     // Get the PR iterations.
     const pr = await utils.getPullRequest();

@@ -27,7 +27,6 @@ export function sortPullRequestDashboard() {
           flex-direction: column-reverse;
       }`);
 
-
     // Disable the expanding button if we are on the overall PR dashboard. If enabled and the user hides/shows this section, it causes the AzDO page to re-add all the PRs, leading to duplicates in the sorted list.
     personalReviewSection.find('button.ms-GroupHeader-expand').prop('disabled', true).attr('title', 'AzDO Pull Request Improvements userscript disabled this button.');
 
