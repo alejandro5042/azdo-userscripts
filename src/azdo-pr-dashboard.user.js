@@ -25,6 +25,8 @@
 
 // ==/UserScript==
 
+import * as utils from './utils';
+
 (function () {
   'use strict';
 
@@ -36,7 +38,7 @@
   const currentUser = pageData['ms.vss-web.page-data'].user;
 
   // Because of CORS, we need to make sure we're querying the same hostname for our AzDO APIs.
-  const azdoApiBaseUrl = `${window.location.origin}${pageData['ms.vss-tfs-web.header-action-data'].suiteHomeUrl}`;
+  // const azdoApiBaseUrl = `${window.location.origin}${pageData['ms.vss-tfs-web.header-action-data'].suiteHomeUrl}`;
 
   // Set a namespace for our local storage items.
   lscache.setBucket('acb-azdo/');
@@ -57,7 +59,7 @@
   }
 
   function makePullRequestDiffEasierToScroll() {
-    addStyleOnce('pr-diff-improvements', /* css */ `
+    utils.addStyleOnce('pr-diff-improvements', /* css */ `
       .vc-change-summary-files .file-container {
         /* Make the divs float but clear them so they get stacked on top of each other. We float so that the divs expand to take up the width of the text in it. Finally, we remove the overflow property so that they don't have scrollbars and also such that we can have sticky elements (apparently, sticky elements don't work if the div has overflow). */
         float: left;
@@ -89,7 +91,7 @@
 
       const filesTree = $(this);
 
-      addStyleOnce('pr-file-checbox-support-css', /* css */ `
+      utils.addStyleOnce('pr-file-checbox-support-css', /* css */ `
         :root {
           /* Set some constants for our CSS. */
           --file-to-review-color: var(--communication-foreground);
@@ -147,7 +149,7 @@
         }`);
 
       // Get the current iteration of the PR.
-      const pr = await getPullRequest();
+      const pr = await utils.getPullRequest();
       const currentPullRequestIteration = (await $.get(`${pr.url}/iterations?api-version=5.0`)).count;
 
       // Get the current checkbox state for the PR at this URL.
@@ -178,7 +180,7 @@
       });
 
       // Get owners info for this PR.
-      const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(pr.url);
+      const ownersInfo = await utils.getNationalInstrumentsPullRequestOwnersInfo(pr.url);
 
       // If we have owners info, add a button to filter out diffs that we don't need to review.
       if (ownersInfo && ownersInfo.currentUserFileCount > 0) {
@@ -240,7 +242,7 @@
     $('.vc-iteration-selector').once('add-base-selector').each(async function () {
       const toolbar = $(this);
 
-      addStyleOnce('base-selector-css', /* css */ `
+      utils.addStyleOnce('base-selector-css', /* css */ `
         .base-selector {
           color: var(--text-secondary-color);
           margin: 0px 5px 0px 0px;
@@ -265,7 +267,7 @@
         }`);
 
       // Get the PR iterations.
-      const pr = await getPullRequest();
+      const pr = await utils.getPullRequest();
       const iterations = (await $.get(`${pr.url}/iterations?api-version=5.0`)).value;
 
       // Create a dropdown with the first option being the icon we show to users. We use an HTML dropdown since its much easier to code than writing our own with divs/etc or trying to figure out how to use an AzDO dropdown.
@@ -309,7 +311,7 @@
 
       const personalReviewSection = $(this);
 
-      addStyleOnce('reviews-list-css', /* css */ `
+      utils.addStyleOnce('reviews-list-css', /* css */ `
         details.reviews-list {
           margin: 10px 30px;
           display: none;
@@ -380,7 +382,7 @@
         while (!pullRequestHref) {
           // Important! Do not remove this sleep, even on the first iteration. We need to give AzDO some time to finish making the row before moving it. If we don't sleep for some time, and we begin moving rows, AzDO may get confused and not create all the PR rows. That would cause some PRs to not be rendered in the list. The best solution is to wait until the list finishes to render via an event handler; except that I don't know how to hook into that without understanding AzDO JS infrastructure. The sleep time was chosen to balance first load time (don't wait too long before sorting) and what appears to be long enough to avoid the missing PR problem when sorting a 50+ PR dashboard, as determined by experimentation (refreshing the page a dozen or so times).
           // eslint-disable-next-line no-await-in-loop
-          await sleep(300);
+          await utils.sleep(300);
           pullRequestHref = row.find("a[href*='/pullrequest/']").attr('href');
         }
 
@@ -396,7 +398,7 @@
           const pullRequestId = parseInt(pullRequestUrl.pathname.substring(pullRequestUrl.pathname.lastIndexOf('/') + 1), 10);
 
           // Get complete information about the PR.
-          const pr = await getPullRequest(pullRequestId);
+          const pr = await utils.getPullRequest(pullRequestId);
 
           let missingVotes = 0;
           let waitingOrRejectedVotes = 0;
@@ -495,7 +497,7 @@
             let fileCount = 0;
 
             // See if this PR has owners info and count the files listed for the current user.
-            const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(pr.url);
+            const ownersInfo = await utils.getNationalInstrumentsPullRequestOwnersInfo(pr.url);
             if (ownersInfo) {
               fileCount = ownersInfo.currentUserFileCount;
             }
@@ -531,85 +533,5 @@
     });
 
     sortEachPullRequestFunc();
-  }
-
-  // Helper function to avoid adding CSS twice into a document.
-  function addStyleOnce(id, style) {
-    $(document.head).once(id).each(function () {
-      $('<style type="text/css" />').html(style).appendTo(this);
-    });
-  }
-
-  // Async helper function get info on a single PR. Defaults to the PR that's currently on screen.
-  function getPullRequest(id = 0) {
-    const actualId = id || window.location.pathname.substring(window.location.pathname.lastIndexOf('/') + 1);
-    return $.get(`${azdoApiBaseUrl}/_apis/git/pullrequests/${actualId}?api-version=5.0`);
-  }
-
-  // Async helper function to sleep.
-  function sleep(milliseconds) {
-    return new Promise(resolve => setTimeout(resolve, milliseconds));
-  }
-
-  // Async helper function to get a specific PR property, otherwise return the default value.
-  async function getPullRequestProperty(prUrl, key, defaultValue = null) {
-    const properties = await $.get(`${prUrl}/properties?api-version=5.1-preview.1`);
-    const property = properties.value[key];
-    return property ? JSON.parse(property.$value) : defaultValue;
-  }
-
-  // Async helper function to return reviewer info specific to National Instruments workflows (where this script is used the most).
-  async function getNationalInstrumentsPullRequestOwnersInfo(prUrl) {
-    const reviewProperties = await getPullRequestProperty(prUrl, 'NI.ReviewProperties');
-
-    // Not all repos have NI owner info.
-    if (!reviewProperties) {
-      return null;
-    }
-
-    // Only support the more recent PR owner info version, where full user info is stored in an identities table separate from files.
-    if (reviewProperties.version < 4) {
-      return null;
-    }
-
-    // Some PRs don't have complete owner info if it would be too large to fit in PR property storage.
-    if (!reviewProperties.fileProperties) {
-      return null;
-    }
-
-    const ownersInfo = {
-      currentUserFilesToRole: {},
-      currentUserFileCount: 0,
-      isCurrentUserResponsibleForFile(path) {
-        return Object.prototype.hasOwnProperty.call(this.currentUserFilesToRole, path);
-      },
-    };
-
-    // See if the current user is listed in this PR.
-    const currentUserListedInThisOwnerReview = _(reviewProperties.reviewerIdentities).some(r => r.email === currentUser.uniqueName);
-
-    // Go through all the files listed in the PR.
-    if (currentUserListedInThisOwnerReview) {
-      for (const file of reviewProperties.fileProperties) {
-        // Get the identities associated with each of the known roles.
-        const owner = reviewProperties.reviewerIdentities[file.Owner - 1] || {};
-        const alternate = reviewProperties.reviewerIdentities[file.Alternate - 1] || {}; // handle nulls everywhere
-        const reviewers = file.Reviewers.map(r => reviewProperties.reviewerIdentities[r - 1]) || [];
-
-        // Pick the highest role for the current user on this file, and track it.
-        if (owner.email === currentUser.uniqueName) {
-          ownersInfo.currentUserFilesToRole[file.Path] = 'O';
-          ownersInfo.currentUserFileCount += 1;
-        } else if (alternate.email === currentUser.uniqueName) {
-          ownersInfo.currentUserFilesToRole[file.Path] = 'A';
-          ownersInfo.currentUserFileCount += 1;
-        } else if (_(reviewers).some(r => r.email === currentUser.uniqueName)) {
-          ownersInfo.currentUserFilesToRole[file.Path] = 'R';
-          ownersInfo.currentUserFileCount += 1;
-        }
-      }
-    }
-
-    return ownersInfo;
   }
 }());

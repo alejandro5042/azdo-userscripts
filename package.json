@@ -6,10 +6,20 @@
     "eslint-config-airbnb": "^17.1.0",
     "eslint-plugin-import": "^2.14.0",
     "eslint-plugin-jsx-a11y": "^6.1.1",
-    "eslint-plugin-react": "^7.11.0"
+    "eslint-plugin-react": "^7.11.0",
+    "parcel-bundler": "^1.12.3"
   },
   "scripts": {
     "build": "npm run lint",
-    "lint": "eslint --ignore-path .gitignore ."
+    "lint": "eslint --ignore-path .gitignore .",
+    "start": "parcel src/*.user.js --no-autoinstall --no-hmr"
+  },
+  "browserslist": [
+    "since 2017-06"
+  ],
+  "babel": {
+    "ignore": [
+      "./src"
+    ]
   }
 }

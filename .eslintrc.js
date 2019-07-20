@@ -16,7 +16,7 @@ module.exports = {
   },
   "parserOptions": {
     "ecmaVersion": 2018,
-    "sourceType": "script"
+    "sourceType": "module"
   },
   "rules": {
     // Tech debt. Remove or reconsider one day:
