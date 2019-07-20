@@ -7,7 +7,7 @@ export function addStyleOnce(id, style) {
 
 // Find out who is our current user. In general, we should avoid using pageData because it doesn't always get updated when moving between page-to-page in AzDO's single-page application flow. Instead, rely on the AzDO REST APIs to get information from stuff you find on the page or the URL. Some things are OK to get from pageData; e.g. stuff like the user which is available on all pages.
 const pageData = JSON.parse(document.getElementById('dataProviders').innerHTML).data;
-const currentUser = pageData['ms.vss-web.page-data'].user;
+export const currentUser = pageData['ms.vss-web.page-data'].user;
 
 // Because of CORS, we need to make sure we're querying the same hostname for our AzDO APIs.
 const azdoApiBaseUrl = `${window.location.origin}${pageData['ms.vss-tfs-web.header-action-data'].suiteHomeUrl}`;
