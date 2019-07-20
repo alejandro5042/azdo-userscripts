@@ -26,9 +26,8 @@ steps:
 
 - task: CopyFiles@2
   inputs:
-    Contents: 'src/**/*'
+    Contents: 'dist/**/*'
     TargetFolder: '$(Build.ArtifactStagingDirectory)'
-    flattenFolders: true
   condition: succeeded()
 
 - task: GitHubRelease@0
