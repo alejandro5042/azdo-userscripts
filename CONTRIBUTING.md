@@ -1,7 +1,5 @@
 # How to contribute
 
-Thank you for reading!
-
 ## Submitting changes
 
 Pull requests are welcomed :)
@@ -16,9 +14,9 @@ For significant effort or feature work, it is preferred to start by filing an is
 
 Once you're done, copy your script from the dashboard into the actual source file of a clone of this repo. Then propose a pull request.
 
-## Testing
+## Testing before a PR
 
-For each PR, make sure the userscript:
+For each PR, make sure:
 
 - Version is incremented following semantic versioning
 - Runs in latest stable Chrome and Firefox without Javascript errors
@@ -26,7 +24,7 @@ For each PR, make sure the userscript:
 - Customizations work in both light and dark theme
 - Does not report any issues in `eslint` (run `npm run build`)
 
-## Pull request testing
+## Testing pull request changes
 
 To test the changes in a pull request:
 
