@@ -7,10 +7,12 @@
     "eslint-plugin-import": "^2.14.0",
     "eslint-plugin-jsx-a11y": "^6.1.1",
     "eslint-plugin-react": "^7.11.0",
-    "parcel-bundler": "^1.12.3"
+    "parcel-bundler": "^1.12.3",
+    "parcel-plugin-static-files-copy": "^2.1.2",
+    "parcel-plugin-wrapper": "^0.2.2"
   },
   "scripts": {
-    "build": "npm run lint",
+    "build": "rm -r -f dist && npm run lint && parcel build src/*.user.js --no-minify",
     "lint": "eslint --ignore-path .gitignore .",
     "start": "parcel src/*.user.js --no-autoinstall --no-hmr"
   },
@@ -21,5 +23,9 @@
     "ignore": [
       "./src"
     ]
+  },
+  "staticFiles": {
+      "staticPath": "src/meta",
+      "watcherGlob": "**"
   }
 }
