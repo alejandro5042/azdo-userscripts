@@ -11,7 +11,7 @@ module.exports = async ({name, bundler}) => {
   const metaJs = bundler.mainBundle.entryAsset.name.replace('.user.js', '.meta.js').replace(/[\\/]src[\\/]/i, '/src/meta/');
   if (fs.existsSync(metaJs)) {
     return {
-      header: fs.readFileSync(metaJs, 'utf8'),
+      header: `${fs.readFileSync(metaJs, 'utf8')}\n\n// *** See GitHub repo for original source (URL above). The following source is built with Parcel. ***\n\n`,
       footer: ''
     }
   }
