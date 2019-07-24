@@ -222,7 +222,7 @@
 
           // If we have owners info, highlight the files we need to review and add role info.
           if (ownersInfo && ownersInfo.currentUserFileCount > 0) {
-            const path = name.replace(/\s\[.*?\]$/i, '').replace(/^\//, '');
+            const path = name.replace(/\s\[.*?\][^]*$/i, '').replace(/^\//, '');
             if (ownersInfo.isCurrentUserResponsibleForFile(path)) {
               fileRow.addClass('file-to-review-row');
               $('<div class="file-owners-role" />').text(`${ownersInfo.currentUserFilesToRole[path]}:`).prependTo(fileRow);
