@@ -98,6 +98,14 @@ Note: If there is no owner info, or if you are not listed, nothing is highlighte
 
 Scrollbars site-wide now match the current Azure DevOps color theme.
 
+Before:
+
+![Scrollbars before.](static/scrollbars-before.png)
+
+After:
+
+![Scrollbars now.](static/scrollbars-after.png)
+
 ## Documentation
 
 - [Support and troubleshooting](SUPPORT.md)
