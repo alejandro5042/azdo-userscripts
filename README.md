@@ -66,6 +66,14 @@ After (scrollbar is always visible):
 
 ![Scrollbars always visible.](static/after-pr-diff-scroll-improvements.png)
 
+You can now use keyboard shortcuts to quickly switch between PR tabs (e.g. Overview, Files, etc). In Chrome, it'd be `Alt+1`, `Alt+2`, etc. In FireFox, it is `Alt+Shift+Num`. [See this table for details on your browser.](https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/accesskey)
+
+![PR tab keyboard shortcuts in Chrome.](static/pr-tab-accesskeys.png)
+
+Finally, PR comments that start with `note:` (case insensitive) will appear expanded on page load, even if they are closed. They are also highlighted with a light border:
+
+![Sticky comments are highlighted.](static/sticky-comment-highlighting.png)
+
 ### Better owners review
 
 > These features are currently specific to National Instruments.
@@ -85,6 +93,10 @@ You can also press the new "Toggle other files" button to fade out and collapse 
 Hopefully all this makes it very easy to scan for the stuff you care about.
 
 Note: If there is no owner info, or if you are not listed, nothing is highlighted and the button does not appear. It also only works with newer PRs (created or updated since approx. July 2019).
+
+### Overall
+
+Scrollbars site-wide now match the current Azure DevOps color theme.
 
 ## Documentation
 

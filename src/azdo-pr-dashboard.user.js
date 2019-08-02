@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.22.1
+// @version      2.23.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -51,9 +51,56 @@
       addCheckboxesToFiles();
       addBaseUpdateSelector();
       makePullRequestDiffEasierToScroll();
+      applyStickyPullRequestComments();
+      addAccessKeysToPullRequestTabs();
     } else if (/\/(_pulls|pullrequests)/i.test(window.location.pathname)) {
       sortPullRequestDashboard();
     }
+
+    applyNicerScrollbars();
+  }
+
+  function applyStickyPullRequestComments() {
+    // Comments that start with this string become sticky. Only the first comment of the thread counts.
+    const lowerCasePrefix = 'note:';
+
+    addStyleOnce('sticky-comments', /* css */ `
+        .vc-discussion-thread-box .vc-discussion-thread-comment:first-of-type .vc-discussion-thread-renderparent[content^="${lowerCasePrefix}" i] {
+          border: 2px solid var(--palette-black-alpha-20);
+          aborder: 2px solid rgb(var(--palette-primary-tint-30));
+          border-radius: 5px;
+          margin: 7px 0px;
+          padding: 10px 15px;
+        }`);
+
+    // Expand threads that have the sticky prefix.
+    $('.discussion-thread-host button.ms-Button.expand-button').once('opened-once').each(function () {
+      // jQuery doesn't support case-insensitive string compares, so we need to drop into JS to find the prefix in the button's label.
+      if (this.getAttribute('aria-label').toLowerCase().includes(`: "${lowerCasePrefix}`)) {
+        this.click();
+      }
+    });
+  }
+
+  function addAccessKeysToPullRequestTabs() {
+    // Give all the tabs an access key equal to their numeric position on screen.
+    $('ul.vc-pullrequest-tabs a').once('add-accesskeys').each(function () {
+      $(this).attr('accesskey', $(this).attr('aria-posinset'));
+    });
+  }
+
+  function applyNicerScrollbars() {
+    addStyleOnce('nicer-scrollbars', /* css */ `
+      ::-webkit-scrollbar {
+        width: 15px;
+        height: 15px;
+      }
+      ::-webkit-scrollbar-track, ::-webkit-scrollbar-corner {
+        background: rgb(var(--palette-neutral-4));
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgb(var(--palette-neutral-20));
+      }`);
   }
 
   function makePullRequestDiffEasierToScroll() {
