@@ -70,9 +70,11 @@ You can now use keyboard shortcuts to quickly switch between PR tabs (e.g. Overv
 
 ![PR tab keyboard shortcuts in Chrome.](static/pr-tab-accesskeys.png)
 
-Finally, PR threads that start with `note:` (case insensitive) will appear expanded on page load, even if they are closed. They are also highlighted with a light border:
+Finally, PR threads that start with `note:` (case insensitive) will appear expanded on page load, **even if they are closed**. They are also highlighted with a light border:
 
 ![Sticky comments are highlighted.](static/sticky-comment-highlighting.png)
+
+Use this to mark interesting things for your reviewers in your PR!
 
 ### Better owners review
 
@@ -98,11 +100,11 @@ Note: If there is no owner info, or if you are not listed, nothing is highlighte
 
 Scrollbars site-wide now match the current Azure DevOps color theme.
 
-Before:
+Before :persevere:
 
 ![Scrollbars before.](static/scrollbars-before.png)
 
-After:
+After :smirk:
 
 ![Scrollbars now.](static/scrollbars-after.png)
 
