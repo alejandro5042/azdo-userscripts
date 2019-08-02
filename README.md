@@ -70,7 +70,7 @@ You can now use keyboard shortcuts to quickly switch between PR tabs (e.g. Overv
 
 ![PR tab keyboard shortcuts in Chrome.](static/pr-tab-accesskeys.png)
 
-Finally, PR comments that start with `note:` (case insensitive) will appear expanded on page load, even if they are closed. They are also highlighted with a light border:
+Finally, PR threads that start with `note:` (case insensitive) will appear expanded on page load, even if they are closed. They are also highlighted with a light border:
 
 ![Sticky comments are highlighted.](static/sticky-comment-highlighting.png)
 
