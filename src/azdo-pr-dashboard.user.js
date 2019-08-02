@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.23.0
+// @version      2.23.1
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -67,7 +67,6 @@
     addStyleOnce('sticky-comments', /* css */ `
         .vc-discussion-thread-box .vc-discussion-thread-comment:first-of-type .vc-discussion-thread-renderparent[content^="${lowerCasePrefix}" i] {
           border: 2px solid var(--palette-black-alpha-20);
-          aborder: 2px solid rgb(var(--palette-primary-tint-30));
           border-radius: 5px;
           margin: 7px 0px;
           padding: 10px 15px;
