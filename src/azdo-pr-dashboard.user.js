@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.23.3
+// @version      2.23.4
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -73,10 +73,12 @@
       }`);
 
     // Expand threads that have the sticky prefix.
-    $('.discussion-thread-host button.ms-Button.expand-button').once('expand-sticky-threads-on-load').each(function () {
-      // jQuery doesn't support case-insensitive string compares, so we need to drop into JS to find the prefix in the button's label.
-      if (this.getAttribute('aria-label').toLowerCase().includes(`: "${lowerCasePrefix}`)) {
-        this.click();
+    const lowerCasePrefixCssSelector = CSS.escape(`: "${lowerCasePrefix}`);
+    $('.discussion-thread-host').once('expand-sticky-threads-on-load').each(async function () {
+      await sleep(100);
+      const button = this.querySelector(`button.ms-Button.expand-button[aria-label*="${lowerCasePrefixCssSelector}" i]`);
+      if (button) {
+        button.click();
       }
     });
   }
