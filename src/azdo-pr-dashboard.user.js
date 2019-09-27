@@ -53,7 +53,9 @@
       makePullRequestDiffEasierToScroll();
       applyStickyPullRequestComments();
       addAccessKeysToPullRequestTabs();
-      await addCodeOfDayToggle();
+      if (/\/DevCentral\/_git\/ASW\//i.test(window.location.pathname)) {
+        await addCodeOfDayToggle();
+      }
     } else if (/\/(_pulls|pullrequests)/i.test(window.location.pathname)) {
       sortPullRequestDashboard();
     }
