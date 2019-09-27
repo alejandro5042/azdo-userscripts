@@ -45,7 +45,7 @@
   document.addEventListener('DOMNodeInserted', _.throttle(onPageDOMNodeInserted, 400));
 
   // This is "main()" for this script. Runs periodically when the page updates.
-  function onPageDOMNodeInserted(event) {
+  async function onPageDOMNodeInserted(event) {
     // The page may not have refreshed when moving between URLs--sometimes AzDO acts as a single-page application. So we must always check where we are and act accordingly.
     if (/\/(pullrequest)\//i.test(window.location.pathname)) {
       addCheckboxesToFiles();
@@ -53,6 +53,7 @@
       makePullRequestDiffEasierToScroll();
       applyStickyPullRequestComments();
       addAccessKeysToPullRequestTabs();
+      await addCodeOfDayToggle();
     } else if (/\/(_pulls|pullrequests)/i.test(window.location.pathname)) {
       sortPullRequestDashboard();
     }
@@ -346,6 +347,43 @@
     });
   }
 
+  // Add a button to toggle flagging a PR discussion thread for Cifra's "Code of the Day" blog posts.
+  async function addCodeOfDayToggle() {
+    async function commentThreadIsFlagged(threadId) {
+      const flaggedThreads = await getCodeOfTheDayThreadsAsync();
+      const myFlaggedThreads = flaggedThreads.filter(x => x.flaggedBy === currentUser.displayName);
+      return myFlaggedThreads.find(x => x.threadId == threadId);
+    }
+
+    function getThreadDataFromDOMElement(threadElement) {
+      const propName = getPropertyNameStartingWith(threadElement, '__reactEventHandlers$');
+      return threadElement[propName].children[0].props.thread;
+    }
+
+    $('.vc-discussion-comments').once('add-cod-flag-support').each(async function() {
+      const thread = getThreadDataFromDOMElement(this);
+      const notFlaggedIconClass = 'bowtie-comment-outline';
+      const flaggedIconClass = 'bowtie-comment-add';
+      const iconClass = (await commentThreadIsFlagged(thread.id)) ? flaggedIconClass : notFlaggedIconClass;
+      $(this).find('.vc-discussion-comment-toolbar').each(function() {
+        $(this).prepend(`<button type="button" id="cod-toggle" class="ms-Button vc-discussion-comment-toolbarbutton ms-Button--icon" title="Suggest for 'Code of the Day' blog post"><i class="ms-Button-icon cod-toggle-icon bowtie-icon ${iconClass}" role="presentation"></i></button>`);
+        $(this).children().first().click(async (event) => {
+          await toggleThreadFlaggedForCodeOfTheDay(getPullRequestUrl(), {
+            'flaggedDate': new Date().toISOString(),
+            'flaggedBy': currentUser.displayName,
+            'pullRequestId': getPullRequestId(),
+            'threadId': thread.id,
+            'file': thread.itemPath,
+            'threadAuthor': thread.comments[0].author.displayName,
+            'threadContentShort': thread.comments[0].content.substring(0, 100) + '...'
+          });
+          // Update the button visuals in this thread
+          $(this).parents('.vc-discussion-comments').find('.cod-toggle-icon').toggleClass('bowtie-comment-add').toggleClass('bowtie-comment-outline');
+        });
+      });
+    });
+  }
+
   // The func we'll call to continuously sort new PRs into categories, once initialization is over.
   let sortEachPullRequestFunc = () => { };
 
@@ -588,9 +626,21 @@
     });
   }
 
+  // Helper function to get the id of the PR that's on screen.
+  function getPullRequestId() {
+    return window.location.pathname.substring(window.location.pathname.lastIndexOf('/') + 1);
+  }
+
+  // Helper function to get the url of the PR that's on screen.
+  function getPullRequestUrl() {
+    const prDataProvider = pageData['ms.vss-code-web.pull-request-detail-data-provider'];
+    const propertyName = getPropertyNameStartingWith(prDataProvider, 'TFS.VersionControl.PullRequestDetailProvider.PullRequest.');
+    return prDataProvider[propertyName].url;
+  }
+
   // Async helper function get info on a single PR. Defaults to the PR that's currently on screen.
   function getPullRequest(id = 0) {
-    const actualId = id || window.location.pathname.substring(window.location.pathname.lastIndexOf('/') + 1);
+    const actualId = id || getPullRequestId();
     return $.get(`${azdoApiBaseUrl}/_apis/git/pullrequests/${actualId}?api-version=5.0`);
   }
 
@@ -604,6 +654,65 @@
     const properties = await $.get(`${prUrl}/properties?api-version=5.1-preview.1`);
     const property = properties.value[key];
     return property ? JSON.parse(property.$value) : defaultValue;
+  }
+
+  // Async helper function to flag or unflag a PR discussion thread for "Code of the Day".
+  async function toggleThreadFlaggedForCodeOfTheDay(prUrl, value) {
+    function findIndexOf(toFind, flaggedCommentArray) {
+      for (var i = 0; i < flaggedCommentArray.length; ++i) {
+        if (flaggedCommentArray[i].flaggedBy === toFind.flaggedBy &&
+          flaggedCommentArray[i].threadId == toFind.threadId) {
+          return i;
+        }
+      }
+      return -1;
+    }
+
+    let flaggedComments = await getCodeOfTheDayThreadsAsync();
+    if (flaggedComments) {
+      let index = findIndexOf(value, flaggedComments);
+      if (index >= 0) {
+        flaggedComments.splice(index, 1);
+      } else {
+        flaggedComments.push(value);
+      }
+    }
+
+    let patch = [{
+      "op": flaggedComments.length ? "add" : "remove",
+      "path": "/NI.CodeOfTheDay",
+      "value": flaggedComments.length ? JSON.stringify(flaggedComments) : null
+    }];
+    try {
+      await $.ajax({
+        type: 'PATCH',
+        url: `${prUrl}/properties?api-version=5.1-preview.1`,
+        data: JSON.stringify(patch),
+        dataType: 'json',
+        contentType: 'application/json-patch+json'
+      });
+    } catch(e) {
+      alert(e.responseJSON.message);
+    }
+  }
+
+  // Cached "Code of the Day" thread data.
+  let codeOfTheDayThreadsArray = null;
+
+  // Async helper function to get the discussion threads (in the current PR) that have been flagged for "Code of the Day."
+  async function getCodeOfTheDayThreadsAsync() {
+    if (codeOfTheDayThreadsArray) {
+      return codeOfTheDayThreadsArray;
+    }
+    const properties = await $.get(`${getPullRequestUrl()}/properties?api-version=5.1-preview.1`);
+    const codeOfTheDayProperty = properties.value['NI.CodeOfTheDay'];
+    codeOfTheDayThreadsArray = codeOfTheDayProperty ? JSON.parse(codeOfTheDayProperty.$value) : [];
+    return codeOfTheDayThreadsArray;
+  }
+
+  // Helper function to access an object member, where the exact, full name of the member is not known.
+  function getPropertyNameStartingWith(instance, startOfName) {
+    return Object.getOwnPropertyNames(instance).find(x => x.startsWith(startOfName));
   }
 
   // Async helper function to return reviewer info specific to National Instruments workflows (where this script is used the most).
