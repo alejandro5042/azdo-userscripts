@@ -353,8 +353,8 @@
   function addCodeOfDayToggle() {
     async function commentThreadIsFlagged(threadId) {
       const flaggedThreads = await getCodeOfTheDayThreadsAsync();
-      const myFlaggedThreads = flaggedThreads.filter(x => x.flaggedBy === currentUser.displayName);
-      return myFlaggedThreads.find(x => x.threadId === threadId);
+      const myFlaggedThreads = flaggedThreads.filter((x) => x.flaggedBy === currentUser.displayName);
+      return myFlaggedThreads.find((x) => x.threadId === threadId);
     }
 
     function getThreadDataFromDOMElement(threadElement) {
@@ -601,7 +601,7 @@
             // If there is no owner info or if it returns zero files to review (since we may not be on the review explicitly), then count the number of files in the merge commit.
             if (fileCount === 0) {
               const mergeCommitInfo = await $.get(`${pr.lastMergeCommit.url}/changes?api-version=5.0`);
-              fileCount = _(mergeCommitInfo.changes).filter(item => !item.item.isFolder).size();
+              fileCount = _(mergeCommitInfo.changes).filter((item) => !item.item.isFolder).size();
             }
 
             const fileCountContent = `<span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}`;
@@ -658,7 +658,7 @@
 
   // Async helper function to sleep.
   function sleep(milliseconds) {
-    return new Promise(resolve => setTimeout(resolve, milliseconds));
+    return new Promise((resolve) => setTimeout(resolve, milliseconds));
   }
 
   // Async helper function to get a specific PR property, otherwise return the default value.
@@ -674,7 +674,7 @@
   // Async helper function to flag or unflag a PR discussion thread for "Code of the Day".
   async function toggleThreadFlaggedForCodeOfTheDay(prUrl, value) {
     function findIndexOf(toFind, flaggedCommentArray) {
-      for (var i = 0; i < flaggedCommentArray.length; i += 1) {
+      for (let i = 0; i < flaggedCommentArray.length; i += 1) {
         if (flaggedCommentArray[i].flaggedBy === toFind.flaggedBy
           && flaggedCommentArray[i].threadId === toFind.threadId) {
           return i;
@@ -728,7 +728,7 @@
 
   // Helper function to access an object member, where the exact, full name of the member is not known.
   function getPropertyNameStartingWith(instance, startOfName) {
-    return Object.getOwnPropertyNames(instance).find(x => x.startsWith(startOfName));
+    return Object.getOwnPropertyNames(instance).find((x) => x.startsWith(startOfName));
   }
 
   // Async helper function to return reviewer info specific to National Instruments workflows (where this script is used the most).
@@ -759,7 +759,7 @@
     };
 
     // See if the current user is listed in this PR.
-    const currentUserListedInThisOwnerReview = _(reviewProperties.reviewerIdentities).some(r => r.email === currentUser.uniqueName);
+    const currentUserListedInThisOwnerReview = _(reviewProperties.reviewerIdentities).some((r) => r.email === currentUser.uniqueName);
 
     // Go through all the files listed in the PR.
     if (currentUserListedInThisOwnerReview) {
@@ -767,7 +767,7 @@
         // Get the identities associated with each of the known roles.
         const owner = reviewProperties.reviewerIdentities[file.Owner - 1] || {};
         const alternate = reviewProperties.reviewerIdentities[file.Alternate - 1] || {}; // handle nulls everywhere
-        const reviewers = file.Reviewers.map(r => reviewProperties.reviewerIdentities[r - 1]) || [];
+        const reviewers = file.Reviewers.map((r) => reviewProperties.reviewerIdentities[r - 1]) || [];
 
         // Pick the highest role for the current user on this file, and track it.
         if (owner.email === currentUser.uniqueName) {
@@ -776,7 +776,7 @@
         } else if (alternate.email === currentUser.uniqueName) {
           ownersInfo.currentUserFilesToRole[file.Path] = 'A';
           ownersInfo.currentUserFileCount += 1;
-        } else if (_(reviewers).some(r => r.email === currentUser.uniqueName)) {
+        } else if (_(reviewers).some((r) => r.email === currentUser.uniqueName)) {
           ownersInfo.currentUserFilesToRole[file.Path] = 'R';
           ownersInfo.currentUserFileCount += 1;
         }
