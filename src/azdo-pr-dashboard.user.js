@@ -375,7 +375,7 @@
             'threadId': thread.id,
             'file': thread.itemPath,
             'threadAuthor': thread.comments[0].author.displayName,
-            'threadContentShort': thread.comments[0].content.substring(0, 100) + '...'
+            'threadContentShort': thread.comments[0].content.length > 100 ? thread.comments[0].content.substring(0, 100) + '...' : thread.comments[0].content
           });
           // Update the button visuals in this thread
           $(this).parents('.vc-discussion-comments').find('.cod-toggle-icon').toggleClass('bowtie-comment-add').toggleClass('bowtie-comment-outline');
