@@ -45,7 +45,7 @@
   document.addEventListener('DOMNodeInserted', _.throttle(onPageDOMNodeInserted, 400));
 
   // This is "main()" for this script. Runs periodically when the page updates.
-  async function onPageDOMNodeInserted(event) {
+  function onPageDOMNodeInserted(event) {
     // The page may not have refreshed when moving between URLs--sometimes AzDO acts as a single-page application. So we must always check where we are and act accordingly.
     if (/\/(pullrequest)\//i.test(window.location.pathname)) {
       addCheckboxesToFiles();
@@ -54,7 +54,7 @@
       applyStickyPullRequestComments();
       addAccessKeysToPullRequestTabs();
       if (/\/DevCentral\/_git\/ASW\//i.test(window.location.pathname)) {
-        await addCodeOfDayToggle();
+        addCodeOfDayToggle();
       }
     } else if (/\/(_pulls|pullrequests)/i.test(window.location.pathname)) {
       sortPullRequestDashboard();
@@ -350,11 +350,11 @@
   }
 
   // Add a button to toggle flagging a PR discussion thread for Cifra's "Code of the Day" blog posts.
-  async function addCodeOfDayToggle() {
+  function addCodeOfDayToggle() {
     async function commentThreadIsFlagged(threadId) {
       const flaggedThreads = await getCodeOfTheDayThreadsAsync();
       const myFlaggedThreads = flaggedThreads.filter(x => x.flaggedBy === currentUser.displayName);
-      return myFlaggedThreads.find(x => x.threadId == threadId);
+      return myFlaggedThreads.find(x => x.threadId === threadId);
     }
 
     function getThreadDataFromDOMElement(threadElement) {
@@ -362,7 +362,7 @@
       return threadElement[propName].children[0].props.thread;
     }
 
-    $('.vc-discussion-comments').once('add-cod-flag-support').each(async function() {
+    $('.vc-discussion-comments').once('add-cod-flag-support').each(async function () {
       const thread = getThreadDataFromDOMElement(this);
       const notFlaggedTooltip = 'Suggest for "Code of the Day" blog post';
       const flaggedTooltip = 'Un-suggest for "Code of the Day" blog post';
@@ -371,23 +371,23 @@
       const isFlagged = await commentThreadIsFlagged(thread.id);
       const iconClass = isFlagged ? flaggedIconClass : notFlaggedIconClass;
       const tooltip = isFlagged ? flaggedTooltip : notFlaggedTooltip;
-      $(this).find('.vc-discussion-comment-toolbar').each(function() {
+      $(this).find('.vc-discussion-comment-toolbar').each(function () {
         $(this).prepend(`<button type="button" id="cod-toggle" class="ms-Button vc-discussion-comment-toolbarbutton ms-Button--icon"><i class="ms-Button-icon cod-toggle-icon bowtie-icon ${iconClass}" role="presentation"></i></button>`);
         const button = $(this).children().first();
         button.attr('title', tooltip);
         button.click(async (event) => {
-          let isNowFlagged = await toggleThreadFlaggedForCodeOfTheDay(getPullRequestUrl(), {
-            'flaggedDate': new Date().toISOString(),
-            'flaggedBy': currentUser.displayName,
-            'pullRequestId': getPullRequestId(),
-            'threadId': thread.id,
-            'file': thread.itemPath,
-            'threadAuthor': thread.comments[0].author.displayName,
-            'threadContentShort': thread.comments[0].content.length > 100 ? thread.comments[0].content.substring(0, 100) + '...' : thread.comments[0].content
+          const isNowFlagged = await toggleThreadFlaggedForCodeOfTheDay(getPullRequestUrl(), {
+            flaggedDate: new Date().toISOString(),
+            flaggedBy: currentUser.displayName,
+            pullRequestId: getPullRequestId(),
+            threadId: thread.id,
+            file: thread.itemPath,
+            threadAuthor: thread.comments[0].author.displayName,
+            threadContentShort: thread.comments[0].content.length > 100 ? `${thread.comments[0].content.substring(0, 100)}...` : thread.comments[0].content,
           });
           // Update the button visuals in this thread
           const buttons = $(this).parents('.vc-discussion-comments').find('#cod-toggle');
-          buttons.attr('title', isNowFlagged ? flaggedTooltip : notFlaggedTooltip)
+          buttons.attr('title', isNowFlagged ? flaggedTooltip : notFlaggedTooltip);
           const classToAdd = isNowFlagged ? flaggedIconClass : notFlaggedIconClass;
           const classToRemove = isNowFlagged ? notFlaggedIconClass : flaggedIconClass;
           buttons.find('.cod-toggle-icon').addClass(classToAdd).removeClass(classToRemove);
@@ -668,21 +668,24 @@
     return property ? JSON.parse(property.$value) : defaultValue;
   }
 
+  // Cached "Code of the Day" thread data.
+  let codeOfTheDayThreadsArray = null;
+
   // Async helper function to flag or unflag a PR discussion thread for "Code of the Day".
   async function toggleThreadFlaggedForCodeOfTheDay(prUrl, value) {
     function findIndexOf(toFind, flaggedCommentArray) {
-      for (var i = 0; i < flaggedCommentArray.length; ++i) {
-        if (flaggedCommentArray[i].flaggedBy === toFind.flaggedBy &&
-          flaggedCommentArray[i].threadId == toFind.threadId) {
+      for (var i = 0; i < flaggedCommentArray.length; i += 1) {
+        if (flaggedCommentArray[i].flaggedBy === toFind.flaggedBy
+          && flaggedCommentArray[i].threadId === toFind.threadId) {
           return i;
         }
       }
       return -1;
     }
 
-    let flaggedComments = await getCodeOfTheDayThreadsAsync();
+    const flaggedComments = await getCodeOfTheDayThreadsAsync();
     if (flaggedComments) {
-      let index = findIndexOf(value, flaggedComments);
+      const index = findIndexOf(value, flaggedComments);
       if (index >= 0) {
         flaggedComments.splice(index, 1);
       } else {
@@ -690,10 +693,10 @@
       }
     }
 
-    let patch = [{
-      "op": flaggedComments.length ? "add" : "remove",
-      "path": "/NI.CodeOfTheDay",
-      "value": flaggedComments.length ? JSON.stringify(flaggedComments) : null
+    const patch = [{
+      op: flaggedComments.length ? 'add' : 'remove',
+      path: '/NI.CodeOfTheDay',
+      value: flaggedComments.length ? JSON.stringify(flaggedComments) : null,
     }];
     try {
       await $.ajax({
@@ -701,20 +704,16 @@
         url: `${prUrl}/properties?api-version=5.1-preview.1`,
         data: JSON.stringify(patch),
         dataType: 'json',
-        contentType: 'application/json-patch+json'
+        contentType: 'application/json-patch+json',
       });
-    } catch(e) {
+    } catch (e) {
       // invalidate cached value so we re-fetch
       codeOfTheDayThreadsArray = null;
-      alert(e.responseJSON.message);
     }
 
     // re-query to get the current state of the flagged threads
-    return findIndexOf(value, (await getCodeOfTheDayThreadsAsync())) != -1;
+    return findIndexOf(value, (await getCodeOfTheDayThreadsAsync())) !== -1;
   }
-
-  // Cached "Code of the Day" thread data.
-  let codeOfTheDayThreadsArray = null;
 
   // Async helper function to get the discussion threads (in the current PR) that have been flagged for "Code of the Day."
   async function getCodeOfTheDayThreadsAsync() {
