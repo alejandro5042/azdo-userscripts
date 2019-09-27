@@ -362,13 +362,19 @@
 
     $('.vc-discussion-comments').once('add-cod-flag-support').each(async function() {
       const thread = getThreadDataFromDOMElement(this);
-      const notFlaggedIconClass = 'bowtie-comment-outline';
-      const flaggedIconClass = 'bowtie-comment-add';
-      const iconClass = (await commentThreadIsFlagged(thread.id)) ? flaggedIconClass : notFlaggedIconClass;
+      const notFlaggedTooltip = 'Suggest for "Code of the Day" blog post';
+      const flaggedTooltip = 'Un-suggest for "Code of the Day" blog post';
+      const notFlaggedIconClass = 'bowtie-live-update-feed';
+      const flaggedIconClass = 'bowtie-live-update-feed-off';
+      const isFlagged = await commentThreadIsFlagged(thread.id);
+      const iconClass = isFlagged ? flaggedIconClass : notFlaggedIconClass;
+      const tooltip = isFlagged ? flaggedTooltip : notFlaggedTooltip;
       $(this).find('.vc-discussion-comment-toolbar').each(function() {
-        $(this).prepend(`<button type="button" id="cod-toggle" class="ms-Button vc-discussion-comment-toolbarbutton ms-Button--icon" title="Suggest for 'Code of the Day' blog post"><i class="ms-Button-icon cod-toggle-icon bowtie-icon ${iconClass}" role="presentation"></i></button>`);
-        $(this).children().first().click(async (event) => {
-          await toggleThreadFlaggedForCodeOfTheDay(getPullRequestUrl(), {
+        $(this).prepend(`<button type="button" id="cod-toggle" class="ms-Button vc-discussion-comment-toolbarbutton ms-Button--icon"><i class="ms-Button-icon cod-toggle-icon bowtie-icon ${iconClass}" role="presentation"></i></button>`);
+        const button = $(this).children().first();
+        button.attr('title', tooltip);
+        button.click(async (event) => {
+          let isNowFlagged = await toggleThreadFlaggedForCodeOfTheDay(getPullRequestUrl(), {
             'flaggedDate': new Date().toISOString(),
             'flaggedBy': currentUser.displayName,
             'pullRequestId': getPullRequestId(),
@@ -378,7 +384,11 @@
             'threadContentShort': thread.comments[0].content.length > 100 ? thread.comments[0].content.substring(0, 100) + '...' : thread.comments[0].content
           });
           // Update the button visuals in this thread
-          $(this).parents('.vc-discussion-comments').find('.cod-toggle-icon').toggleClass('bowtie-comment-add').toggleClass('bowtie-comment-outline');
+          const buttons = $(this).parents('.vc-discussion-comments').find('#cod-toggle');
+          buttons.attr('title', isNowFlagged ? flaggedTooltip : notFlaggedTooltip)
+          const classToAdd = isNowFlagged ? flaggedIconClass : notFlaggedIconClass;
+          const classToRemove = isNowFlagged ? notFlaggedIconClass : flaggedIconClass;
+          buttons.find('.cod-toggle-icon').addClass(classToAdd).removeClass(classToRemove);
         });
       });
     });
@@ -692,8 +702,13 @@
         contentType: 'application/json-patch+json'
       });
     } catch(e) {
+      // invalidate cached value so we re-fetch
+      codeOfTheDayThreadsArray = null;
       alert(e.responseJSON.message);
     }
+
+    // re-query to get the current state of the flagged threads
+    return findIndexOf(value, (await getCodeOfTheDayThreadsAsync())) != -1;
   }
 
   // Cached "Code of the Day" thread data.
