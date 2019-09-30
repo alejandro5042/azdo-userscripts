@@ -694,7 +694,7 @@
       await $.ajax({
         type: 'PATCH',
         url: `${prUrl}/properties?api-version=5.1-preview.1`,
-        data: patch,
+        data: JSON.stringify(patch),
         contentType: 'application/json-patch+json',
       });
     } catch (e) {
