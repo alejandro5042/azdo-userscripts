@@ -378,7 +378,7 @@
           const isNowFlagged = await toggleThreadFlaggedForCodeOfTheDay(getPullRequestUrl(), {
             flaggedDate: new Date().toISOString(),
             flaggedBy: currentUser.displayName,
-            pullRequestId: getPullRequestId(),
+            pullRequestId: getCurrentPullRequestId(),
             threadId: thread.id,
             file: thread.itemPath,
             threadAuthor: thread.comments[0].author.displayName,
@@ -638,7 +638,7 @@
   }
 
   // Helper function to get the id of the PR that's on screen.
-  function getPullRequestId() {
+  function getCurrentPullRequestId() {
     return window.location.pathname.substring(window.location.pathname.lastIndexOf('/') + 1);
   }
 
@@ -650,7 +650,7 @@
 
   // Async helper function get info on a single PR. Defaults to the PR that's currently on screen.
   function getPullRequest(id = 0) {
-    const actualId = id || getPullRequestId();
+    const actualId = id || getCurrentPullRequestId();
     return $.get(`${azdoApiBaseUrl}/_apis/git/pullrequests/${actualId}?api-version=5.0`);
   }
 
