@@ -358,8 +358,7 @@
     }
 
     function getThreadDataFromDOMElement(threadElement) {
-      const propName = getPropertyNameStartingWith(threadElement, '__reactEventHandlers$');
-      return threadElement[propName].children[0].props.thread;
+      return getPropertyThatStartsWith(threadElement, '__reactEventHandlers$').children[0].props.thread;
     }
 
     $('.vc-discussion-comments').once('add-cod-flag-support').each(async function () {
@@ -646,8 +645,7 @@
   // Helper function to get the url of the PR that's on screen.
   function getPullRequestUrl() {
     const prDataProvider = pageData['ms.vss-code-web.pull-request-detail-data-provider'];
-    const propertyName = getPropertyNameStartingWith(prDataProvider, 'TFS.VersionControl.PullRequestDetailProvider.PullRequest.');
-    return prDataProvider[propertyName].url;
+    return getPropertyThatStartsWith(prDataProvider, 'TFS.VersionControl.PullRequestDetailProvider.PullRequest.').url;
   }
 
   // Async helper function get info on a single PR. Defaults to the PR that's currently on screen.
@@ -727,8 +725,8 @@
   }
 
   // Helper function to access an object member, where the exact, full name of the member is not known.
-  function getPropertyNameStartingWith(instance, startOfName) {
-    return Object.getOwnPropertyNames(instance).find(x => x.startsWith(startOfName));
+  function getPropertyThatStartsWith(instance, startOfName) {
+    return instance[Object.getOwnPropertyNames(instance).find(x => x.startsWith(startOfName))];
   }
 
   // Async helper function to return reviewer info specific to National Instruments workflows (where this script is used the most).
