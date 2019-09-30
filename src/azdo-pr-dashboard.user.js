@@ -371,7 +371,7 @@
       const iconClass = isFlagged ? flaggedIconClass : notFlaggedIconClass;
       const tooltip = isFlagged ? flaggedTooltip : notFlaggedTooltip;
       $(this).find('.vc-discussion-comment-toolbar').each(function () {
-        const button = $(`<button type="button" id="cod-toggle" class="ms-Button vc-discussion-comment-toolbarbutton ms-Button--icon"><i class="ms-Button-icon cod-toggle-icon bowtie-icon ${iconClass}" role="presentation"></i></button>`);
+        const button = $(`<button type="button" class="ms-Button vc-discussion-comment-toolbarbutton ms-Button--icon cod-toggle"><i class="ms-Button-icon cod-toggle-icon bowtie-icon ${iconClass}" role="presentation"></i></button>`);
         button.prependTo(this);
         button.attr('title', tooltip);
         button.click(async (event) => {
@@ -385,7 +385,7 @@
             threadContentShort: truncate(thread.comments[0].content, 100),
           });
           // Update the button visuals in this thread
-          const buttons = $(this).parents('.vc-discussion-comments').find('#cod-toggle');
+          const buttons = $(this).parents('.vc-discussion-comments').find('.cod-toggle');
           buttons.attr('title', isNowFlagged ? flaggedTooltip : notFlaggedTooltip);
           const classToAdd = isNowFlagged ? flaggedIconClass : notFlaggedIconClass;
           const classToRemove = isNowFlagged ? notFlaggedIconClass : flaggedIconClass;
