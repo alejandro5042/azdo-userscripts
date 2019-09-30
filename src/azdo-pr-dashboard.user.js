@@ -54,7 +54,7 @@
       applyStickyPullRequestComments();
       addAccessKeysToPullRequestTabs();
       if (/\/DevCentral\/_git\/ASW\//i.test(window.location.pathname)) {
-        addCodeOfDayToggle();
+        addNICodeOfDayToggle();
       }
     } else if (/\/(_pulls|pullrequests)/i.test(window.location.pathname)) {
       sortPullRequestDashboard();
@@ -349,8 +349,8 @@
     });
   }
 
-  // Add a button to toggle flagging a PR discussion thread for Cifra's "Code of the Day" blog posts.
-  function addCodeOfDayToggle() {
+  // Add a button to toggle flagging a PR discussion thread for ASW "Code of the Day" blog posts.
+  function addNICodeOfDayToggle() {
     function getThreadDataFromDOMElement(threadElement) {
       return getPropertyThatStartsWith(threadElement, '__reactEventHandlers$').children[0].props.thread;
     }
@@ -366,13 +366,13 @@
 
     $('.vc-discussion-comments').once('add-cod-flag-support').each(async function () {
       const thread = getThreadDataFromDOMElement(this);
-      const isFlagged = findFlaggedThreadArrayIndex(await getCodeOfTheDayThreadsAsync(), thread.id, currentUser.uniqueName) !== -1;
+      const isFlagged = findFlaggedThreadArrayIndex(await getNICodeOfTheDayThreadsAsync(), thread.id, currentUser.uniqueName) !== -1;
       $(this).find('.vc-discussion-comment-toolbar').each(function () {
         const button = $('<button type="button" class="ms-Button vc-discussion-comment-toolbarbutton ms-Button--icon cod-toggle"><i class="ms-Button-icon cod-toggle-icon bowtie-icon" role="presentation"></i></button>');
         updateButtonForCurrentState(button, isFlagged);
         button.prependTo(this);
         button.click(async (event) => {
-          const isNowFlagged = await toggleThreadFlaggedForCodeOfTheDay(getCurrentPullRequestUrl(), {
+          const isNowFlagged = await toggleThreadFlaggedForNICodeOfTheDay(getCurrentPullRequestUrl(), {
             flaggedDate: new Date().toISOString(),
             flaggedBy: currentUser.uniqueName,
             pullRequestId: getCurrentPullRequestId(),
@@ -661,11 +661,11 @@
   }
 
   // Cached "Code of the Day" thread data.
-  let codeOfTheDayThreadsArray = null;
+  let niCodeOfTheDayThreadsArray = null;
 
-  // Async helper function to flag or unflag a PR discussion thread for "Code of the Day".
-  async function toggleThreadFlaggedForCodeOfTheDay(prUrl, value) {
-    const flaggedComments = await getCodeOfTheDayThreadsAsync();
+  // Async helper function to flag or unflag a PR discussion thread for National Instruments "Code of the Day" blog.
+  async function toggleThreadFlaggedForNICodeOfTheDay(prUrl, value) {
+    const flaggedComments = await getNICodeOfTheDayThreadsAsync();
     const index = findFlaggedThreadArrayIndex(flaggedComments, value.threadId, value.flaggedBy);
     if (index >= 0) {
       // found, so unflag it
@@ -689,11 +689,11 @@
       });
     } catch (e) {
       // invalidate cached value so we re-fetch
-      codeOfTheDayThreadsArray = null;
+      niCodeOfTheDayThreadsArray = null;
     }
 
     // re-query to get the current state of the flagged threads
-    return findFlaggedThreadArrayIndex((await getCodeOfTheDayThreadsAsync()), value.threadId, value.flaggedBy) !== -1;
+    return findFlaggedThreadArrayIndex((await getNICodeOfTheDayThreadsAsync()), value.threadId, value.flaggedBy) !== -1;
   }
 
   // Helper function to find the index of a flagged thread record within the provided array.
@@ -702,11 +702,11 @@
   }
 
   // Async helper function to get the discussion threads (in the current PR) that have been flagged for "Code of the Day."
-  async function getCodeOfTheDayThreadsAsync() {
-    if (!codeOfTheDayThreadsArray) {
-      codeOfTheDayThreadsArray = await getPullRequestProperty(getCurrentPullRequestUrl(), 'NI.CodeOfTheDay', []);
+  async function getNICodeOfTheDayThreadsAsync() {
+    if (!niCodeOfTheDayThreadsArray) {
+      niCodeOfTheDayThreadsArray = await getPullRequestProperty(getCurrentPullRequestUrl(), 'NI.CodeOfTheDay', []);
     }
-    return codeOfTheDayThreadsArray;
+    return niCodeOfTheDayThreadsArray;
   }
 
   // Helper function to access an object member, where the exact, full name of the member is not known.
