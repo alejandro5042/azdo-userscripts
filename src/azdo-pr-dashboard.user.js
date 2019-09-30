@@ -709,12 +709,9 @@
 
   // Async helper function to get the discussion threads (in the current PR) that have been flagged for "Code of the Day."
   async function getCodeOfTheDayThreadsAsync() {
-    if (codeOfTheDayThreadsArray) {
-      return codeOfTheDayThreadsArray;
+    if (!codeOfTheDayThreadsArray) {
+      codeOfTheDayThreadsArray = await getPullRequestProperty(getCurrentPullRequestUrl(), 'NI.CodeOfTheDay', []);
     }
-    const properties = await $.get(`${getCurrentPullRequestUrl()}/properties?api-version=5.1-preview.1`);
-    const codeOfTheDayProperty = properties.value['NI.CodeOfTheDay'];
-    codeOfTheDayThreadsArray = codeOfTheDayProperty ? JSON.parse(codeOfTheDayProperty.$value) : [];
     return codeOfTheDayThreadsArray;
   }
 
