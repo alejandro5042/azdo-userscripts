@@ -672,13 +672,7 @@
   // Async helper function to flag or unflag a PR discussion thread for "Code of the Day".
   async function toggleThreadFlaggedForCodeOfTheDay(prUrl, value) {
     function findIndexOf(toFind, flaggedCommentArray) {
-      for (let i = 0; i < flaggedCommentArray.length; i += 1) {
-        if (flaggedCommentArray[i].flaggedBy === toFind.flaggedBy
-          && flaggedCommentArray[i].threadId === toFind.threadId) {
-          return i;
-        }
-      }
-      return -1;
+      return _.findIndex(flaggedCommentArray, x => x.threadId === toFind.threadId && x.flaggedBy === toFind.flaggedBy);
     }
 
     const flaggedComments = await getCodeOfTheDayThreadsAsync();
