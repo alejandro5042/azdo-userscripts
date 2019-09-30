@@ -325,7 +325,7 @@
       // Add an option for each iteration in the dropdown, looking roughly the same as the AzDO update selector.
       for (const iteration of iterations.reverse()) {
         const date = Date.parse(iteration.createdDate);
-        const truncatedDescription = iteration.description.length > 60 ? `${iteration.description.substring(0, 58)}...` : iteration.description;
+        const truncatedDescription = truncate(iteration.description);
         const optionText = `Update ${iteration.id.toString().padEnd(4)} ${truncatedDescription.padEnd(61)} ${dateFns.distanceInWordsToNow(date).padStart(15)} ago`;
         $('<option>').val(iteration.id).text(optionText).appendTo(selector);
       }
@@ -353,7 +353,7 @@
   function addCodeOfDayToggle() {
     async function commentThreadIsFlagged(threadId) {
       const flaggedThreads = await getCodeOfTheDayThreadsAsync();
-      const myFlaggedThreads = flaggedThreads.filter(x => x.flaggedBy === currentUser.displayName);
+      const myFlaggedThreads = flaggedThreads.filter(x => x.flaggedBy === currentUser.uniqueName);
       return myFlaggedThreads.find(x => x.threadId === threadId);
     }
 
@@ -377,12 +377,12 @@
         button.click(async (event) => {
           const isNowFlagged = await toggleThreadFlaggedForCodeOfTheDay(getCurrentPullRequestUrl(), {
             flaggedDate: new Date().toISOString(),
-            flaggedBy: currentUser.displayName,
+            flaggedBy: currentUser.uniqueName,
             pullRequestId: getCurrentPullRequestId(),
             threadId: thread.id,
             file: thread.itemPath,
             threadAuthor: thread.comments[0].author.displayName,
-            threadContentShort: thread.comments[0].content.length > 100 ? `${thread.comments[0].content.substring(0, 100)}...` : thread.comments[0].content,
+            threadContentShort: truncate(thread.comments[0].content, 100),
           });
           // Update the button visuals in this thread
           const buttons = $(this).parents('.vc-discussion-comments').find('#cod-toggle');
@@ -727,6 +727,11 @@
   // Helper function to access an object member, where the exact, full name of the member is not known.
   function getPropertyThatStartsWith(instance, startOfName) {
     return instance[Object.getOwnPropertyNames(instance).find(x => x.startsWith(startOfName))];
+  }
+
+  // Helper function to limit a string to a certain length, adding an ellipsis if necessary.
+  function truncate(text, maxLength) {
+    return text.length > maxLength ? `${text.substring(0, maxLength - 3)}...` : text;
   }
 
   // Async helper function to return reviewer info specific to National Instruments workflows (where this script is used the most).
