@@ -361,19 +361,22 @@
       return getPropertyThatStartsWith(threadElement, '__reactEventHandlers$').children[0].props.thread;
     }
 
+    function updateButtonForCurrentState(jqElements, isFlagged) {
+      const flaggedIconClass = 'bowtie-live-update-feed-off';
+      const notFlaggedIconClass = 'bowtie-live-update-feed';
+      const classToAdd = isFlagged ? flaggedIconClass : notFlaggedIconClass;
+      const classToRemove = isFlagged ? notFlaggedIconClass : flaggedIconClass;
+      jqElements.find('.cod-toggle-icon').addClass(classToAdd).removeClass(classToRemove);
+      jqElements.attr('title', isFlagged ? 'Un-suggest for "Code of the Day" blog post' : 'Suggest for "Code of the Day" blog post');
+    }
+
     $('.vc-discussion-comments').once('add-cod-flag-support').each(async function () {
       const thread = getThreadDataFromDOMElement(this);
-      const notFlaggedTooltip = 'Suggest for "Code of the Day" blog post';
-      const flaggedTooltip = 'Un-suggest for "Code of the Day" blog post';
-      const notFlaggedIconClass = 'bowtie-live-update-feed';
-      const flaggedIconClass = 'bowtie-live-update-feed-off';
       const isFlagged = await commentThreadIsFlagged(thread.id);
-      const iconClass = isFlagged ? flaggedIconClass : notFlaggedIconClass;
-      const tooltip = isFlagged ? flaggedTooltip : notFlaggedTooltip;
       $(this).find('.vc-discussion-comment-toolbar').each(function () {
-        const button = $(`<button type="button" class="ms-Button vc-discussion-comment-toolbarbutton ms-Button--icon cod-toggle"><i class="ms-Button-icon cod-toggle-icon bowtie-icon ${iconClass}" role="presentation"></i></button>`);
+        const button = $('<button type="button" class="ms-Button vc-discussion-comment-toolbarbutton ms-Button--icon cod-toggle"><i class="ms-Button-icon cod-toggle-icon bowtie-icon" role="presentation"></i></button>');
+        updateButtonForCurrentState(button, isFlagged);
         button.prependTo(this);
-        button.attr('title', tooltip);
         button.click(async (event) => {
           const isNowFlagged = await toggleThreadFlaggedForCodeOfTheDay(getCurrentPullRequestUrl(), {
             flaggedDate: new Date().toISOString(),
@@ -384,12 +387,9 @@
             threadAuthor: thread.comments[0].author.displayName,
             threadContentShort: truncate(thread.comments[0].content, 100),
           });
+
           // Update the button visuals in this thread
-          const buttons = $(this).parents('.vc-discussion-comments').find('.cod-toggle');
-          buttons.attr('title', isNowFlagged ? flaggedTooltip : notFlaggedTooltip);
-          const classToAdd = isNowFlagged ? flaggedIconClass : notFlaggedIconClass;
-          const classToRemove = isNowFlagged ? notFlaggedIconClass : flaggedIconClass;
-          buttons.find('.cod-toggle-icon').addClass(classToAdd).removeClass(classToRemove);
+          updateButtonForCurrentState($(this).parents('.vc-discussion-comments').find('.cod-toggle'), isNowFlagged);
         });
       });
     });
