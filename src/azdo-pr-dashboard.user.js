@@ -371,8 +371,8 @@
       const iconClass = isFlagged ? flaggedIconClass : notFlaggedIconClass;
       const tooltip = isFlagged ? flaggedTooltip : notFlaggedTooltip;
       $(this).find('.vc-discussion-comment-toolbar').each(function () {
-        $(this).prepend(`<button type="button" id="cod-toggle" class="ms-Button vc-discussion-comment-toolbarbutton ms-Button--icon"><i class="ms-Button-icon cod-toggle-icon bowtie-icon ${iconClass}" role="presentation"></i></button>`);
-        const button = $(this).children().first();
+        const button = $(`<button type="button" id="cod-toggle" class="ms-Button vc-discussion-comment-toolbarbutton ms-Button--icon"><i class="ms-Button-icon cod-toggle-icon bowtie-icon ${iconClass}" role="presentation"></i></button>`);
+        button.prependTo(this);
         button.attr('title', tooltip);
         button.click(async (event) => {
           const isNowFlagged = await toggleThreadFlaggedForCodeOfTheDay(getCurrentPullRequestUrl(), {
