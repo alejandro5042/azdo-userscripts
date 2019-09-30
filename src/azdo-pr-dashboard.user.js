@@ -753,7 +753,7 @@
     };
 
     // See if the current user is listed in this PR.
-    const currentUserListedInThisOwnerReview = (reviewProperties.reviewerIdentities).some(r => r.email === currentUser.uniqueName);
+    const currentUserListedInThisOwnerReview = _(reviewProperties.reviewerIdentities).some(r => r.email === currentUser.uniqueName);
 
     // Go through all the files listed in the PR.
     if (currentUserListedInThisOwnerReview) {
