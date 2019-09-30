@@ -375,7 +375,7 @@
         const button = $(this).children().first();
         button.attr('title', tooltip);
         button.click(async (event) => {
-          const isNowFlagged = await toggleThreadFlaggedForCodeOfTheDay(getPullRequestUrl(), {
+          const isNowFlagged = await toggleThreadFlaggedForCodeOfTheDay(getCurrentPullRequestUrl(), {
             flaggedDate: new Date().toISOString(),
             flaggedBy: currentUser.displayName,
             pullRequestId: getCurrentPullRequestId(),
@@ -643,7 +643,7 @@
   }
 
   // Helper function to get the url of the PR that's on screen.
-  function getPullRequestUrl() {
+  function getCurrentPullRequestUrl() {
     const prDataProvider = pageData['ms.vss-code-web.pull-request-detail-data-provider'];
     return getPropertyThatStartsWith(prDataProvider, 'TFS.VersionControl.PullRequestDetailProvider.PullRequest.').url;
   }
@@ -718,7 +718,7 @@
     if (codeOfTheDayThreadsArray) {
       return codeOfTheDayThreadsArray;
     }
-    const properties = await $.get(`${getPullRequestUrl()}/properties?api-version=5.1-preview.1`);
+    const properties = await $.get(`${getCurrentPullRequestUrl()}/properties?api-version=5.1-preview.1`);
     const codeOfTheDayProperty = properties.value['NI.CodeOfTheDay'];
     codeOfTheDayThreadsArray = codeOfTheDayProperty ? JSON.parse(codeOfTheDayProperty.$value) : [];
     return codeOfTheDayThreadsArray;
