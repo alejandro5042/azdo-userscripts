@@ -351,12 +351,6 @@
 
   // Add a button to toggle flagging a PR discussion thread for Cifra's "Code of the Day" blog posts.
   function addCodeOfDayToggle() {
-    async function commentThreadIsFlagged(threadId) {
-      const flaggedThreads = await getCodeOfTheDayThreadsAsync();
-      const myFlaggedThreads = flaggedThreads.filter(x => x.flaggedBy === currentUser.uniqueName);
-      return myFlaggedThreads.find(x => x.threadId === threadId);
-    }
-
     function getThreadDataFromDOMElement(threadElement) {
       return getPropertyThatStartsWith(threadElement, '__reactEventHandlers$').children[0].props.thread;
     }
@@ -372,7 +366,7 @@
 
     $('.vc-discussion-comments').once('add-cod-flag-support').each(async function () {
       const thread = getThreadDataFromDOMElement(this);
-      const isFlagged = await commentThreadIsFlagged(thread.id);
+      const isFlagged = findFlaggedThreadArrayIndex(await getCodeOfTheDayThreadsAsync(), thread.id, currentUser.uniqueName) !== -1;
       $(this).find('.vc-discussion-comment-toolbar').each(function () {
         const button = $('<button type="button" class="ms-Button vc-discussion-comment-toolbarbutton ms-Button--icon cod-toggle"><i class="ms-Button-icon cod-toggle-icon bowtie-icon" role="presentation"></i></button>');
         updateButtonForCurrentState(button, isFlagged);
@@ -671,12 +665,8 @@
 
   // Async helper function to flag or unflag a PR discussion thread for "Code of the Day".
   async function toggleThreadFlaggedForCodeOfTheDay(prUrl, value) {
-    function findIndexOf(toFind, flaggedCommentArray) {
-      return _.findIndex(flaggedCommentArray, x => x.threadId === toFind.threadId && x.flaggedBy === toFind.flaggedBy);
-    }
-
     const flaggedComments = await getCodeOfTheDayThreadsAsync();
-    const index = findIndexOf(value, flaggedComments);
+    const index = findFlaggedThreadArrayIndex(flaggedComments, value.threadId, value.flaggedBy);
     if (index >= 0) {
       // found, so unflag it
       flaggedComments.splice(index, 1);
@@ -703,7 +693,12 @@
     }
 
     // re-query to get the current state of the flagged threads
-    return findIndexOf(value, (await getCodeOfTheDayThreadsAsync())) !== -1;
+    return findFlaggedThreadArrayIndex((await getCodeOfTheDayThreadsAsync()), value.threadId, value.flaggedBy) !== -1;
+  }
+
+  // Helper function to find the index of a flagged thread record within the provided array.
+  function findFlaggedThreadArrayIndex(flaggedCommentArray, threadId, flaggedBy) {
+    return _.findIndex(flaggedCommentArray, x => x.threadId === threadId && x.flaggedBy === flaggedBy);
   }
 
   // Async helper function to get the discussion threads (in the current PR) that have been flagged for "Code of the Day."
