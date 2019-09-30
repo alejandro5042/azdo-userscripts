@@ -676,13 +676,13 @@
     }
 
     const flaggedComments = await getCodeOfTheDayThreadsAsync();
-    if (flaggedComments) {
-      const index = findIndexOf(value, flaggedComments);
-      if (index >= 0) {
-        flaggedComments.splice(index, 1);
-      } else {
-        flaggedComments.push(value);
-      }
+    const index = findIndexOf(value, flaggedComments);
+    if (index >= 0) {
+      // found, so unflag it
+      flaggedComments.splice(index, 1);
+    } else {
+      // not found, so flag it
+      flaggedComments.push(value);
     }
 
     const patch = [{
