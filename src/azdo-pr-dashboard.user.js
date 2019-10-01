@@ -198,8 +198,8 @@
         }`);
 
       // Get the current iteration of the PR.
-      const pr = await getPullRequest();
-      const currentPullRequestIteration = (await $.get(`${pr.url}/iterations?api-version=5.0`)).count;
+      const prUrl = await getCurrentPullRequestUrlAsync();
+      const currentPullRequestIteration = (await $.get(`${prUrl}/iterations?api-version=5.0`)).count;
 
       // Get the current checkbox state for the PR at this URL.
       const checkboxStateId = `pr-file-iteration6/${window.location.pathname}`;
@@ -229,7 +229,7 @@
       });
 
       // Get owners info for this PR.
-      const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(pr.url);
+      const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(prUrl);
 
       // If we have owners info, add a button to filter out diffs that we don't need to review.
       if (ownersInfo && ownersInfo.currentUserFileCount > 0) {
@@ -316,8 +316,8 @@
         }`);
 
       // Get the PR iterations.
-      const pr = await getPullRequest();
-      const iterations = (await $.get(`${pr.url}/iterations?api-version=5.0`)).value;
+      const prUrl = await getCurrentPullRequestUrlAsync();
+      const iterations = (await $.get(`${prUrl}/iterations?api-version=5.0`)).value;
 
       // Create a dropdown with the first option being the icon we show to users. We use an HTML dropdown since its much easier to code than writing our own with divs/etc or trying to figure out how to use an AzDO dropdown.
       const selector = $('<select><option value="" disabled selected>↦</option></select>');
@@ -371,8 +371,8 @@
         const button = $('<button type="button" class="ms-Button vc-discussion-comment-toolbarbutton ms-Button--icon cod-toggle"><i class="ms-Button-icon cod-toggle-icon bowtie-icon" role="presentation"></i></button>');
         updateButtonForCurrentState(button, isFlagged);
         button.prependTo(this);
-        button.click(async (event) => {
-          const isNowFlagged = await toggleThreadFlaggedForNICodeOfTheDay(getCurrentPullRequestUrl(), {
+        button.click(async function (event) {
+          const isNowFlagged = await toggleThreadFlaggedForNICodeOfTheDay(await getCurrentPullRequestUrlAsync(), {
             flaggedDate: new Date().toISOString(),
             flaggedBy: currentUser.uniqueName,
             pullRequestId: getCurrentPullRequestId(),
@@ -487,7 +487,7 @@
           const pullRequestId = parseInt(pullRequestUrl.pathname.substring(pullRequestUrl.pathname.lastIndexOf('/') + 1), 10);
 
           // Get complete information about the PR.
-          const pr = await getPullRequest(pullRequestId);
+          const pr = await getPullRequestAsync(pullRequestId);
 
           let missingVotes = 0;
           let waitingOrRejectedVotes = 0;
@@ -636,14 +636,18 @@
     return window.location.pathname.substring(window.location.pathname.lastIndexOf('/') + 1);
   }
 
-  // Helper function to get the url of the PR that's on screen.
-  function getCurrentPullRequestUrl() {
-    const prDataProvider = pageData['ms.vss-code-web.pull-request-detail-data-provider'];
-    return getPropertyThatStartsWith(prDataProvider, 'TFS.VersionControl.PullRequestDetailProvider.PullRequest.').url;
+  let currentPullRequest = null;
+
+  // Helper function to get the url of the PR that's currently on screen.
+  async function getCurrentPullRequestUrlAsync() {
+    if (!currentPullRequest || currentPullRequest.pullRequestId !== getCurrentPullRequestId()) {
+      currentPullRequest = await getPullRequestAsync();
+    }
+    return currentPullRequest.url;
   }
 
   // Async helper function get info on a single PR. Defaults to the PR that's currently on screen.
-  function getPullRequest(id = 0) {
+  function getPullRequestAsync(id = 0) {
     const actualId = id || getCurrentPullRequestId();
     return $.get(`${azdoApiBaseUrl}/_apis/git/pullrequests/${actualId}?api-version=5.0`);
   }
@@ -704,7 +708,7 @@
   // Async helper function to get the discussion threads (in the current PR) that have been flagged for "Code of the Day."
   async function getNICodeOfTheDayThreadsAsync() {
     if (!niCodeOfTheDayThreadsArray) {
-      niCodeOfTheDayThreadsArray = await getPullRequestProperty(getCurrentPullRequestUrl(), 'NI.CodeOfTheDay', []);
+      niCodeOfTheDayThreadsArray = await getPullRequestProperty(await getCurrentPullRequestUrlAsync(), 'NI.CodeOfTheDay', []);
     }
     return niCodeOfTheDayThreadsArray;
   }
