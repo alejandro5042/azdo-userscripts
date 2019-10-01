@@ -29,5 +29,6 @@ module.exports = {
     "require-await": "error",
     "require-yield": "error",
     "linebreak-style": 0,
+    "arrow-parens": 0,
   }
 };

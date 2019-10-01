@@ -53,6 +53,9 @@
       makePullRequestDiffEasierToScroll();
       applyStickyPullRequestComments();
       addAccessKeysToPullRequestTabs();
+      if (/\/DevCentral\/_git\/ASW\//i.test(window.location.pathname)) {
+        addNICodeOfDayToggle();
+      }
     } else if (/\/(_pulls|pullrequests)/i.test(window.location.pathname)) {
       sortPullRequestDashboard();
     }
@@ -195,8 +198,8 @@
         }`);
 
       // Get the current iteration of the PR.
-      const pr = await getPullRequest();
-      const currentPullRequestIteration = (await $.get(`${pr.url}/iterations?api-version=5.0`)).count;
+      const prUrl = await getCurrentPullRequestUrlAsync();
+      const currentPullRequestIteration = (await $.get(`${prUrl}/iterations?api-version=5.0`)).count;
 
       // Get the current checkbox state for the PR at this URL.
       const checkboxStateId = `pr-file-iteration6/${window.location.pathname}`;
@@ -226,7 +229,7 @@
       });
 
       // Get owners info for this PR.
-      const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(pr.url);
+      const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(prUrl);
 
       // If we have owners info, add a button to filter out diffs that we don't need to review.
       if (ownersInfo && ownersInfo.currentUserFileCount > 0) {
@@ -234,7 +237,7 @@
           $(this)
             .find('ul')
             .prepend('<li class="menu-item" role="button"><a href="#">Toggle other files</a></li>')
-            .click((event) => {
+            .click(event => {
               $('.files-container').toggleClass('hide-files-not-to-review');
             });
         });
@@ -313,8 +316,8 @@
         }`);
 
       // Get the PR iterations.
-      const pr = await getPullRequest();
-      const iterations = (await $.get(`${pr.url}/iterations?api-version=5.0`)).value;
+      const prUrl = await getCurrentPullRequestUrlAsync();
+      const iterations = (await $.get(`${prUrl}/iterations?api-version=5.0`)).value;
 
       // Create a dropdown with the first option being the icon we show to users. We use an HTML dropdown since its much easier to code than writing our own with divs/etc or trying to figure out how to use an AzDO dropdown.
       const selector = $('<select><option value="" disabled selected>↦</option></select>');
@@ -322,7 +325,7 @@
       // Add an option for each iteration in the dropdown, looking roughly the same as the AzDO update selector.
       for (const iteration of iterations.reverse()) {
         const date = Date.parse(iteration.createdDate);
-        const truncatedDescription = iteration.description.length > 60 ? `${iteration.description.substring(0, 58)}...` : iteration.description;
+        const truncatedDescription = truncate(iteration.description);
         const optionText = `Update ${iteration.id.toString().padEnd(4)} ${truncatedDescription.padEnd(61)} ${dateFns.distanceInWordsToNow(date).padStart(15)} ago`;
         $('<option>').val(iteration.id).text(optionText).appendTo(selector);
       }
@@ -342,6 +345,46 @@
         currentUrl.searchParams.set('base', $(this).first().val());
         currentUrl.searchParams.set('iteration', currentUrl.searchParams.get('iteration') || iterations.length); // If we select a base without having an explicit iteration, compare the base to the latest.
         window.location.href = currentUrl.toString();
+      });
+    });
+  }
+
+  // Add a button to toggle flagging a PR discussion thread for ASW "Code of the Day" blog posts.
+  function addNICodeOfDayToggle() {
+    function getThreadDataFromDOMElement(threadElement) {
+      return getPropertyThatStartsWith(threadElement, '__reactEventHandlers$').children[0].props.thread;
+    }
+
+    function updateButtonForCurrentState(jqElements, isFlagged) {
+      const flaggedIconClass = 'bowtie-live-update-feed-off';
+      const notFlaggedIconClass = 'bowtie-live-update-feed';
+      const classToAdd = isFlagged ? flaggedIconClass : notFlaggedIconClass;
+      const classToRemove = isFlagged ? notFlaggedIconClass : flaggedIconClass;
+      jqElements.find('.cod-toggle-icon').addClass(classToAdd).removeClass(classToRemove);
+      jqElements.attr('title', isFlagged ? 'Un-suggest for "Code of the Day" blog post' : 'Suggest for "Code of the Day" blog post');
+    }
+
+    $('.vc-discussion-comments').once('add-cod-flag-support').each(async function () {
+      const thread = getThreadDataFromDOMElement(this);
+      const isFlagged = findFlaggedThreadArrayIndex(await getNICodeOfTheDayThreadsAsync(), thread.id, currentUser.uniqueName) !== -1;
+      $(this).find('.vc-discussion-comment-toolbar').each(function () {
+        const button = $('<button type="button" class="ms-Button vc-discussion-comment-toolbarbutton ms-Button--icon cod-toggle"><i class="ms-Button-icon cod-toggle-icon bowtie-icon" role="presentation"></i></button>');
+        updateButtonForCurrentState(button, isFlagged);
+        button.prependTo(this);
+        button.click(async function (event) {
+          const isNowFlagged = await toggleThreadFlaggedForNICodeOfTheDay(await getCurrentPullRequestUrlAsync(), {
+            flaggedDate: new Date().toISOString(),
+            flaggedBy: currentUser.uniqueName,
+            pullRequestId: getCurrentPullRequestId(),
+            threadId: thread.id,
+            file: thread.itemPath,
+            threadAuthor: thread.comments[0].author.displayName,
+            threadContentShort: truncate(thread.comments[0].content, 100),
+          });
+
+          // Update the button visuals in this thread
+          updateButtonForCurrentState($(this).parents('.vc-discussion-comments').find('.cod-toggle'), isNowFlagged);
+        });
       });
     });
   }
@@ -444,7 +487,7 @@
           const pullRequestId = parseInt(pullRequestUrl.pathname.substring(pullRequestUrl.pathname.lastIndexOf('/') + 1), 10);
 
           // Get complete information about the PR.
-          const pr = await getPullRequest(pullRequestId);
+          const pr = await getPullRequestAsync(pullRequestId);
 
           let missingVotes = 0;
           let waitingOrRejectedVotes = 0;
@@ -588,9 +631,24 @@
     });
   }
 
+  // Helper function to get the id of the PR that's on screen.
+  function getCurrentPullRequestId() {
+    return window.location.pathname.substring(window.location.pathname.lastIndexOf('/') + 1);
+  }
+
+  let currentPullRequest = null;
+
+  // Helper function to get the url of the PR that's currently on screen.
+  async function getCurrentPullRequestUrlAsync() {
+    if (!currentPullRequest || currentPullRequest.pullRequestId !== getCurrentPullRequestId()) {
+      currentPullRequest = await getPullRequestAsync();
+    }
+    return currentPullRequest.url;
+  }
+
   // Async helper function get info on a single PR. Defaults to the PR that's currently on screen.
-  function getPullRequest(id = 0) {
-    const actualId = id || window.location.pathname.substring(window.location.pathname.lastIndexOf('/') + 1);
+  function getPullRequestAsync(id = 0) {
+    const actualId = id || getCurrentPullRequestId();
     return $.get(`${azdoApiBaseUrl}/_apis/git/pullrequests/${actualId}?api-version=5.0`);
   }
 
@@ -604,6 +662,65 @@
     const properties = await $.get(`${prUrl}/properties?api-version=5.1-preview.1`);
     const property = properties.value[key];
     return property ? JSON.parse(property.$value) : defaultValue;
+  }
+
+  // Cached "Code of the Day" thread data.
+  let niCodeOfTheDayThreadsArray = null;
+
+  // Async helper function to flag or unflag a PR discussion thread for National Instruments "Code of the Day" blog.
+  async function toggleThreadFlaggedForNICodeOfTheDay(prUrl, value) {
+    const flaggedComments = await getNICodeOfTheDayThreadsAsync();
+    const index = findFlaggedThreadArrayIndex(flaggedComments, value.threadId, value.flaggedBy);
+    if (index >= 0) {
+      // found, so unflag it
+      flaggedComments.splice(index, 1);
+    } else {
+      // not found, so flag it
+      flaggedComments.push(value);
+    }
+
+    const patch = [{
+      op: flaggedComments.length ? 'add' : 'remove',
+      path: '/NI.CodeOfTheDay',
+      value: flaggedComments.length ? JSON.stringify(flaggedComments) : null,
+    }];
+    try {
+      await $.ajax({
+        type: 'PATCH',
+        url: `${prUrl}/properties?api-version=5.1-preview.1`,
+        data: JSON.stringify(patch),
+        contentType: 'application/json-patch+json',
+      });
+    } catch (e) {
+      // invalidate cached value so we re-fetch
+      niCodeOfTheDayThreadsArray = null;
+    }
+
+    // re-query to get the current state of the flagged threads
+    return findFlaggedThreadArrayIndex((await getNICodeOfTheDayThreadsAsync()), value.threadId, value.flaggedBy) !== -1;
+  }
+
+  // Helper function to find the index of a flagged thread record within the provided array.
+  function findFlaggedThreadArrayIndex(flaggedCommentArray, threadId, flaggedBy) {
+    return _.findIndex(flaggedCommentArray, x => x.threadId === threadId && x.flaggedBy === flaggedBy);
+  }
+
+  // Async helper function to get the discussion threads (in the current PR) that have been flagged for "Code of the Day."
+  async function getNICodeOfTheDayThreadsAsync() {
+    if (!niCodeOfTheDayThreadsArray) {
+      niCodeOfTheDayThreadsArray = await getPullRequestProperty(await getCurrentPullRequestUrlAsync(), 'NI.CodeOfTheDay', []);
+    }
+    return niCodeOfTheDayThreadsArray;
+  }
+
+  // Helper function to access an object member, where the exact, full name of the member is not known.
+  function getPropertyThatStartsWith(instance, startOfName) {
+    return instance[Object.getOwnPropertyNames(instance).find(x => x.startsWith(startOfName))];
+  }
+
+  // Helper function to limit a string to a certain length, adding an ellipsis if necessary.
+  function truncate(text, maxLength) {
+    return text.length > maxLength ? `${text.substring(0, maxLength - 3)}...` : text;
   }
 
   // Async helper function to return reviewer info specific to National Instruments workflows (where this script is used the most).
