@@ -517,59 +517,9 @@
           } else if (userVote < 0) {
             section = sections.rejected;
           } else if (userVote > 0) {
-            section = sections.approved;
-
-            // If the user approved the PR, see if we need to resurface it as a notable PR.
-            const pullRequestThreads = await $.get(`${pr.url}/threads?api-version=5.0`);
-
-            let threadsWithLotsOfComments = 0;
-            let threadsWithWordyComments = 0;
-            let newNonApprovedVotes = 0;
-
-            // Loop through the threads in reverse time order (newest first).
-            for (const thread of pullRequestThreads.value.reverse()) {
-              // If the thread is deleted, let's ignore it and move on to the next thread.
-              if (thread.isDeleted) {
-                break;
-              }
-
-              // See if this thread represents a non-approved vote.
-              if (Object.prototype.hasOwnProperty.call(thread.properties, 'CodeReviewThreadType')) {
-                if (thread.properties.CodeReviewThreadType.$value === 'VoteUpdate') {
-                  // Stop looking at threads once we find the thread that represents our vote.
-                  const votingUser = thread.identities[thread.properties.CodeReviewVotedByIdentity.$value];
-                  if (votingUser.uniqueName === currentUser.uniqueName) {
-                    break;
-                  }
-
-                  if (thread.properties.CodeReviewVoteResult.$value < 0) {
-                    newNonApprovedVotes += 1;
-                  }
-                }
-              }
-
-              // Count the number of comments and words in the thread.
-              let wordCount = 0;
-              let commentCount = 0;
-              for (const comment of thread.comments) {
-                if (comment.commentType !== 'system' && !comment.isDeleted && comment.content) {
-                  commentCount += 1;
-                  wordCount += comment.content.trim().split(/\s+/).length;
-                }
-              }
-
-              if (commentCount >= commentsToCountAsNotableThread) {
-                threadsWithLotsOfComments += 1;
-              }
-              if (wordCount >= wordsToCountAsNotableThread) {
-                threadsWithWordyComments += 1;
-              }
-            }
-
-            // See if we've tripped any of attributes that would make this PR notable.
-            if (threadsWithLotsOfComments > 0 || threadsWithWordyComments > 0 || newNonApprovedVotes >= peopleToNotApproveToCountAsNotableThread) {
-              section = sections.approvedButNotable;
-            }
+            section = prHadNotableActivitySinceCurrentUserVotedAsync(pr.url, peopleToNotApproveToCountAsNotableThread, commentsToCountAsNotableThread, wordsToCountAsNotableThread)
+              ? sections.approvedButNotable
+              : sections.approved;
           } else {
             computeSize = true;
             if (waitingOrRejectedVotes > 0) {
@@ -622,6 +572,47 @@
     });
 
     sortEachPullRequestFunc();
+  }
+
+  async function prHadNotableActivitySinceCurrentUserVotedAsync(prUrl, newNonApprovingVoteLimit, newThreadCommentCountLimit, newThreadWordCountLimit) {
+    let newNonApprovedVotes = 0;
+
+    // Loop through the threads in reverse time order (newest first).
+    for (const thread of (await $.get(`${prUrl}/threads?api-version=5.0`)).value.reverse().filter(x => !x.isDeleted)) {
+      // See if this thread represents a non-approved vote.
+      if (Object.prototype.hasOwnProperty.call(thread.properties, 'CodeReviewThreadType')) {
+        if (thread.properties.CodeReviewThreadType.$value === 'VoteUpdate') {
+          // Stop looking at threads once we find the thread that represents our vote.
+          const votingUser = thread.identities[thread.properties.CodeReviewVotedByIdentity.$value];
+          if (votingUser.uniqueName === currentUser.uniqueName) {
+            break;
+          }
+
+          if (thread.properties.CodeReviewVoteResult.$value < 0) {
+            newNonApprovedVotes += 1;
+            if (newNonApprovedVotes >= newNonApprovingVoteLimit) {
+              return true;
+            }
+          }
+        }
+      }
+
+      // Count the number of comments and words in the thread.
+      let wordCount = 0;
+      let commentCount = 0;
+      for (const comment of thread.comments) {
+        if (comment.commentType !== 'system' && !comment.isDeleted && comment.content) {
+          commentCount += 1;
+          wordCount += comment.content.trim().split(/\s+/).length;
+        }
+      }
+
+      if (commentCount >= newThreadCommentCountLimit || wordCount >= newThreadWordCountLimit) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   // Helper function to avoid adding CSS twice into a document.
