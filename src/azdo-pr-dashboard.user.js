@@ -479,15 +479,22 @@
           // Hide the row while we are updating it.
           row.hide(150);
 
-          // Sort the reviews in reverse; aka. show oldest reviews first then newer reviews. We do this by ordering the rows inside a reversed-order flex container.
-          row.css('order', row.attr('data-list-index'));
-
           // Get the PR id.
           const pullRequestUrl = new URL(pullRequestHref, window.location.origin);
           const pullRequestId = parseInt(pullRequestUrl.pathname.substring(pullRequestUrl.pathname.lastIndexOf('/') + 1), 10);
 
           // Get complete information about the PR.
           const pr = await getPullRequestAsync(pullRequestId);
+
+          // Get non-deleted pr threads, ordered from newest to oldest.
+          const prThreads = (await $.get(`${pr.url}/threads?api-version=5.0`)).value.filter(x => !x.isDeleted).reverse();
+          const userAddedTimestamp = getReviewerAddedTimestamp(prThreads, currentUser.uniqueName);
+
+          // Order the reviews by when the current user was added (reviews that the user was added to most recently are listed last). We do this by ordering the rows inside a reversed-order flex container.
+          // The order property is a 32-bit integer. If treat it as number of seconds, that allows a range of 68 years (2147483647 / (60 * 60 * 24 * 365)) in the positive values alone.
+          // Dates values are number of milliseconds since 1970, so we wouldn't overflow until 2038. Still, we might as well subtract a more recent reference date, i.e. 2019.
+          const secondsSince2019 = Math.trunc((Date.parse(userAddedTimestamp) - Date.parse('2019-01-01')) / 1000);
+          row.css('order', secondsSince2019);
 
           let missingVotes = 0;
           let waitingOrRejectedVotes = 0;
@@ -517,7 +524,7 @@
           } else if (userVote < 0) {
             section = sections.rejected;
           } else if (userVote > 0) {
-            section = prHadNotableActivitySinceCurrentUserVotedAsync(pr.url, peopleToNotApproveToCountAsNotableThread, commentsToCountAsNotableThread, wordsToCountAsNotableThread)
+            section = prHadNotableActivitySinceCurrentUserVoted(prThreads, peopleToNotApproveToCountAsNotableThread, commentsToCountAsNotableThread, wordsToCountAsNotableThread)
               ? sections.approvedButNotable
               : sections.approved;
           } else {
@@ -574,11 +581,19 @@
     sortEachPullRequestFunc();
   }
 
-  async function prHadNotableActivitySinceCurrentUserVotedAsync(prUrl, newNonApprovingVoteLimit, newThreadCommentCountLimit, newThreadWordCountLimit) {
-    let newNonApprovedVotes = 0;
+  function getReviewerAddedTimestamp(prThreadsNewestFirst, reviewerUniqueName) {
+    for (const thread of prThreadsNewestFirst.filter(x => Object.prototype.hasOwnProperty.call(x.properties, 'CodeReviewReviewersUpdatedAddedIdentity'))) {
+      const addedReviewer = thread.identities[thread.properties.CodeReviewReviewersUpdatedAddedIdentity.$value];
+      if (addedReviewer.uniqueName === reviewerUniqueName) {
+        return thread.publishedDate;
+      }
+    }
+    return null;
+  }
 
-    // Loop through the threads in reverse time order (newest first).
-    for (const thread of (await $.get(`${prUrl}/threads?api-version=5.0`)).value.reverse().filter(x => !x.isDeleted)) {
+  function prHadNotableActivitySinceCurrentUserVoted(prThreadsNewestFirst, newNonApprovingVoteLimit, newThreadCommentCountLimit, newThreadWordCountLimit) {
+    let newNonApprovedVotes = 0;
+    for (const thread of prThreadsNewestFirst) {
       // See if this thread represents a non-approved vote.
       if (Object.prototype.hasOwnProperty.call(thread.properties, 'CodeReviewThreadType')) {
         if (thread.properties.CodeReviewThreadType.$value === 'VoteUpdate') {
