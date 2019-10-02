@@ -534,7 +534,7 @@
               }
 
               // See if this thread represents a non-approved vote.
-              if (Object.prototype.hasOwnProperty.call(thread, 'CodeReviewThreadType')) {
+              if (Object.prototype.hasOwnProperty.call(thread.properties, 'CodeReviewThreadType')) {
                 if (thread.properties.CodeReviewThreadType.$value === 'VoteUpdate') {
                   // Stop looking at threads once we find the thread that represents our vote.
                   const votingUser = thread.identities[thread.properties.CodeReviewVotedByIdentity.$value];
