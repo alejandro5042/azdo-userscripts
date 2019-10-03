@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.24.0
+// @version      2.25.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -534,7 +534,7 @@
               }
 
               // See if this thread represents a non-approved vote.
-              if (Object.prototype.hasOwnProperty.call(thread, 'CodeReviewThreadType')) {
+              if (Object.prototype.hasOwnProperty.call(thread.properties, 'CodeReviewThreadType')) {
                 if (thread.properties.CodeReviewThreadType.$value === 'VoteUpdate') {
                   // Stop looking at threads once we find the thread that represents our vote.
                   const votingUser = thread.identities[thread.properties.CodeReviewVotedByIdentity.$value];
