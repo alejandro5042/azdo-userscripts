@@ -488,7 +488,7 @@
 
           // Get non-deleted pr threads, ordered from newest to oldest.
           const prThreads = (await $.get(`${pr.url}/threads?api-version=5.0`)).value.filter(x => !x.isDeleted).reverse();
-          const userAddedTimestamp = getReviewerAddedTimestamp(prThreads, currentUser.uniqueName);
+          const userAddedTimestamp = getReviewerAddedOrResetTimestamp(prThreads, currentUser.uniqueName);
 
           // Order the reviews by when the current user was added (reviews that the user was added to most recently are listed last). We do this by ordering the rows inside a reversed-order flex container.
           // The order property is a 32-bit integer. If treat it as number of seconds, that allows a range of 68 years (2147483647 / (60 * 60 * 24 * 365)) in the positive values alone.
@@ -581,11 +581,17 @@
     sortEachPullRequestFunc();
   }
 
-  function getReviewerAddedTimestamp(prThreadsNewestFirst, reviewerUniqueName) {
-    for (const thread of prThreadsNewestFirst.filter(x => Object.prototype.hasOwnProperty.call(x.properties, 'CodeReviewReviewersUpdatedAddedIdentity'))) {
-      const addedReviewer = thread.identities[thread.properties.CodeReviewReviewersUpdatedAddedIdentity.$value];
-      if (addedReviewer.uniqueName === reviewerUniqueName) {
-        return thread.publishedDate;
+  function getReviewerAddedOrResetTimestamp(prThreadsNewestFirst, reviewerUniqueName) {
+    for (const thread of prThreadsNewestFirst) {
+      if (Object.prototype.hasOwnProperty.call(thread.properties, 'CodeReviewReviewersUpdatedAddedIdentity')) {
+        const addedReviewer = thread.identities[thread.properties.CodeReviewReviewersUpdatedAddedIdentity.$value];
+        if (addedReviewer.uniqueName === reviewerUniqueName) {
+          return thread.publishedDate;
+        }
+      } else if (Object.prototype.hasOwnProperty.call(thread.properties, 'CodeReviewResetMultipleVotesExampleVoterIdentities')) {
+        if (Object.keys(thread.identities).filter(x => thread.identities[x].uniqueName === reviewerUniqueName)) {
+          return thread.publishedDate;
+        }
       }
     }
     return null;
