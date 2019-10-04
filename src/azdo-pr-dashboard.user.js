@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.25.0
+// @version      2.26.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -479,15 +479,25 @@
           // Hide the row while we are updating it.
           row.hide(150);
 
-          // Sort the reviews in reverse; aka. show oldest reviews first then newer reviews. We do this by ordering the rows inside a reversed-order flex container.
-          row.css('order', row.attr('data-list-index'));
-
           // Get the PR id.
           const pullRequestUrl = new URL(pullRequestHref, window.location.origin);
           const pullRequestId = parseInt(pullRequestUrl.pathname.substring(pullRequestUrl.pathname.lastIndexOf('/') + 1), 10);
 
           // Get complete information about the PR.
           const pr = await getPullRequestAsync(pullRequestId);
+
+          // Get non-deleted pr threads, ordered from newest to oldest.
+          const prThreads = (await $.get(`${pr.url}/threads?api-version=5.0`)).value.filter(x => !x.isDeleted).reverse();
+          let userAddedTimestamp = getReviewerAddedOrResetTimestamp(prThreads, currentUser.uniqueName);
+          if (!userAddedTimestamp) {
+            userAddedTimestamp = pr.creationDate;
+          }
+
+          // Order the reviews by when the current user was added (reviews that the user was added to most recently are listed last). We do this by ordering the rows inside a reversed-order flex container.
+          // The order property is a 32-bit integer. If treat it as number of seconds, that allows a range of 68 years (2147483647 / (60 * 60 * 24 * 365)) in the positive values alone.
+          // Dates values are number of milliseconds since 1970, so we wouldn't overflow until 2038. Still, we might as well subtract a more recent reference date, i.e. 2019.
+          const secondsSince2019 = Math.trunc((Date.parse(userAddedTimestamp) - Date.parse('2019-01-01')) / 1000);
+          row.css('order', secondsSince2019);
 
           let missingVotes = 0;
           let waitingOrRejectedVotes = 0;
@@ -517,59 +527,9 @@
           } else if (userVote < 0) {
             section = sections.rejected;
           } else if (userVote > 0) {
-            section = sections.approved;
-
-            // If the user approved the PR, see if we need to resurface it as a notable PR.
-            const pullRequestThreads = await $.get(`${pr.url}/threads?api-version=5.0`);
-
-            let threadsWithLotsOfComments = 0;
-            let threadsWithWordyComments = 0;
-            let newNonApprovedVotes = 0;
-
-            // Loop through the threads in reverse time order (newest first).
-            for (const thread of pullRequestThreads.value.reverse()) {
-              // If the thread is deleted, let's ignore it and move on to the next thread.
-              if (thread.isDeleted) {
-                break;
-              }
-
-              // See if this thread represents a non-approved vote.
-              if (Object.prototype.hasOwnProperty.call(thread.properties, 'CodeReviewThreadType')) {
-                if (thread.properties.CodeReviewThreadType.$value === 'VoteUpdate') {
-                  // Stop looking at threads once we find the thread that represents our vote.
-                  const votingUser = thread.identities[thread.properties.CodeReviewVotedByIdentity.$value];
-                  if (votingUser.uniqueName === currentUser.uniqueName) {
-                    break;
-                  }
-
-                  if (thread.properties.CodeReviewVoteResult.$value < 0) {
-                    newNonApprovedVotes += 1;
-                  }
-                }
-              }
-
-              // Count the number of comments and words in the thread.
-              let wordCount = 0;
-              let commentCount = 0;
-              for (const comment of thread.comments) {
-                if (comment.commentType !== 'system' && !comment.isDeleted && comment.content) {
-                  commentCount += 1;
-                  wordCount += comment.content.trim().split(/\s+/).length;
-                }
-              }
-
-              if (commentCount >= commentsToCountAsNotableThread) {
-                threadsWithLotsOfComments += 1;
-              }
-              if (wordCount >= wordsToCountAsNotableThread) {
-                threadsWithWordyComments += 1;
-              }
-            }
-
-            // See if we've tripped any of attributes that would make this PR notable.
-            if (threadsWithLotsOfComments > 0 || threadsWithWordyComments > 0 || newNonApprovedVotes >= peopleToNotApproveToCountAsNotableThread) {
-              section = sections.approvedButNotable;
-            }
+            section = prHadNotableActivitySinceCurrentUserVoted(prThreads, peopleToNotApproveToCountAsNotableThread, commentsToCountAsNotableThread, wordsToCountAsNotableThread)
+              ? sections.approvedButNotable
+              : sections.approved;
           } else {
             computeSize = true;
             if (waitingOrRejectedVotes > 0) {
@@ -622,6 +582,61 @@
     });
 
     sortEachPullRequestFunc();
+  }
+
+  function getReviewerAddedOrResetTimestamp(prThreadsNewestFirst, reviewerUniqueName) {
+    for (const thread of prThreadsNewestFirst) {
+      if (Object.prototype.hasOwnProperty.call(thread.properties, 'CodeReviewReviewersUpdatedAddedIdentity')) {
+        const addedReviewer = thread.identities[thread.properties.CodeReviewReviewersUpdatedAddedIdentity.$value];
+        if (addedReviewer.uniqueName === reviewerUniqueName) {
+          return thread.publishedDate;
+        }
+      } else if (Object.prototype.hasOwnProperty.call(thread.properties, 'CodeReviewResetMultipleVotesExampleVoterIdentities')) {
+        if (Object.keys(thread.identities).filter(x => thread.identities[x].uniqueName === reviewerUniqueName)) {
+          return thread.publishedDate;
+        }
+      }
+    }
+    return null;
+  }
+
+  function prHadNotableActivitySinceCurrentUserVoted(prThreadsNewestFirst, newNonApprovingVoteLimit, newThreadCommentCountLimit, newThreadWordCountLimit) {
+    let newNonApprovedVotes = 0;
+    for (const thread of prThreadsNewestFirst) {
+      // See if this thread represents a non-approved vote.
+      if (Object.prototype.hasOwnProperty.call(thread.properties, 'CodeReviewThreadType')) {
+        if (thread.properties.CodeReviewThreadType.$value === 'VoteUpdate') {
+          // Stop looking at threads once we find the thread that represents our vote.
+          const votingUser = thread.identities[thread.properties.CodeReviewVotedByIdentity.$value];
+          if (votingUser.uniqueName === currentUser.uniqueName) {
+            break;
+          }
+
+          if (thread.properties.CodeReviewVoteResult.$value < 0) {
+            newNonApprovedVotes += 1;
+            if (newNonApprovedVotes >= newNonApprovingVoteLimit) {
+              return true;
+            }
+          }
+        }
+      }
+
+      // Count the number of comments and words in the thread.
+      let wordCount = 0;
+      let commentCount = 0;
+      for (const comment of thread.comments) {
+        if (comment.commentType !== 'system' && !comment.isDeleted && comment.content) {
+          commentCount += 1;
+          wordCount += comment.content.trim().split(/\s+/).length;
+        }
+      }
+
+      if (commentCount >= newThreadCommentCountLimit || wordCount >= newThreadWordCountLimit) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   // Helper function to avoid adding CSS twice into a document.
