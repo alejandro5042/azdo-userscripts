@@ -488,7 +488,10 @@
 
           // Get non-deleted pr threads, ordered from newest to oldest.
           const prThreads = (await $.get(`${pr.url}/threads?api-version=5.0`)).value.filter(x => !x.isDeleted).reverse();
-          const userAddedTimestamp = getReviewerAddedOrResetTimestamp(prThreads, currentUser.uniqueName);
+          let userAddedTimestamp = getReviewerAddedOrResetTimestamp(prThreads, currentUser.uniqueName);
+          if (!userAddedTimestamp) {
+            userAddedTimestamp = pr.creationDate;
+          }
 
           // Order the reviews by when the current user was added (reviews that the user was added to most recently are listed last). We do this by ordering the rows inside a reversed-order flex container.
           // The order property is a 32-bit integer. If treat it as number of seconds, that allows a range of 68 years (2147483647 / (60 * 60 * 24 * 365)) in the positive values alone.
