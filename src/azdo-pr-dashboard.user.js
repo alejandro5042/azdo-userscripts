@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.26.0
+// @version      2.26.1
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -586,14 +586,16 @@
 
   function getReviewerAddedOrResetTimestamp(prThreadsNewestFirst, reviewerUniqueName) {
     for (const thread of prThreadsNewestFirst) {
-      if (Object.prototype.hasOwnProperty.call(thread.properties, 'CodeReviewReviewersUpdatedAddedIdentity')) {
-        const addedReviewer = thread.identities[thread.properties.CodeReviewReviewersUpdatedAddedIdentity.$value];
-        if (addedReviewer.uniqueName === reviewerUniqueName) {
-          return thread.publishedDate;
-        }
-      } else if (Object.prototype.hasOwnProperty.call(thread.properties, 'CodeReviewResetMultipleVotesExampleVoterIdentities')) {
-        if (Object.keys(thread.identities).filter(x => thread.identities[x].uniqueName === reviewerUniqueName)) {
-          return thread.publishedDate;
+      if (thread.properties) {
+        if (Object.prototype.hasOwnProperty.call(thread.properties, 'CodeReviewReviewersUpdatedAddedIdentity')) {
+          const addedReviewer = thread.identities[thread.properties.CodeReviewReviewersUpdatedAddedIdentity.$value];
+          if (addedReviewer.uniqueName === reviewerUniqueName) {
+            return thread.publishedDate;
+          }
+        } else if (Object.prototype.hasOwnProperty.call(thread.properties, 'CodeReviewResetMultipleVotesExampleVoterIdentities')) {
+          if (Object.keys(thread.identities).filter(x => thread.identities[x].uniqueName === reviewerUniqueName)) {
+            return thread.publishedDate;
+          }
         }
       }
     }
@@ -604,7 +606,7 @@
     let newNonApprovedVotes = 0;
     for (const thread of prThreadsNewestFirst) {
       // See if this thread represents a non-approved vote.
-      if (Object.prototype.hasOwnProperty.call(thread.properties, 'CodeReviewThreadType')) {
+      if (thread.properties && Object.prototype.hasOwnProperty.call(thread.properties, 'CodeReviewThreadType')) {
         if (thread.properties.CodeReviewThreadType.$value === 'VoteUpdate') {
           // Stop looking at threads once we find the thread that represents our vote.
           const votingUser = thread.identities[thread.properties.CodeReviewVotedByIdentity.$value];
