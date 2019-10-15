@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.26.1
+// @version      2.26.2
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -364,27 +364,25 @@
       jqElements.attr('title', isFlagged ? 'Un-suggest for "Code of the Day" blog post' : 'Suggest for "Code of the Day" blog post');
     }
 
-    $('.vc-discussion-comments').once('add-cod-flag-support').each(async function () {
-      const thread = getThreadDataFromDOMElement(this);
+    $('.vc-discussion-comment-toolbar').once('add-cod-flag-support').each(async function () {
+      const thread = getThreadDataFromDOMElement($(this).closest('.vc-discussion-comments')[0]);
       const isFlagged = findFlaggedThreadArrayIndex(await getNICodeOfTheDayThreadsAsync(), thread.id, currentUser.uniqueName) !== -1;
-      $(this).find('.vc-discussion-comment-toolbar').each(function () {
-        const button = $('<button type="button" class="ms-Button vc-discussion-comment-toolbarbutton ms-Button--icon cod-toggle"><i class="ms-Button-icon cod-toggle-icon bowtie-icon" role="presentation"></i></button>');
-        updateButtonForCurrentState(button, isFlagged);
-        button.prependTo(this);
-        button.click(async function (event) {
-          const isNowFlagged = await toggleThreadFlaggedForNICodeOfTheDay(await getCurrentPullRequestUrlAsync(), {
-            flaggedDate: new Date().toISOString(),
-            flaggedBy: currentUser.uniqueName,
-            pullRequestId: getCurrentPullRequestId(),
-            threadId: thread.id,
-            file: thread.itemPath,
-            threadAuthor: thread.comments[0].author.displayName,
-            threadContentShort: truncate(thread.comments[0].content, 100),
-          });
-
-          // Update the button visuals in this thread
-          updateButtonForCurrentState($(this).parents('.vc-discussion-comments').find('.cod-toggle'), isNowFlagged);
+      const button = $('<button type="button" class="ms-Button vc-discussion-comment-toolbarbutton ms-Button--icon cod-toggle"><i class="ms-Button-icon cod-toggle-icon bowtie-icon" role="presentation"></i></button>');
+      updateButtonForCurrentState(button, isFlagged);
+      button.prependTo(this);
+      button.click(async function (event) {
+        const isNowFlagged = await toggleThreadFlaggedForNICodeOfTheDay(await getCurrentPullRequestUrlAsync(), {
+          flaggedDate: new Date().toISOString(),
+          flaggedBy: currentUser.uniqueName,
+          pullRequestId: getCurrentPullRequestId(),
+          threadId: thread.id,
+          file: thread.itemPath,
+          threadAuthor: thread.comments[0].author.displayName,
+          threadContentShort: truncate(thread.comments[0].content || thread.comments[0].newContent, 100),
         });
+
+        // Update the button visuals in this thread
+        updateButtonForCurrentState($(this).parents('.vc-discussion-comments').find('.cod-toggle'), isNowFlagged);
       });
     });
   }
