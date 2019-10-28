@@ -31,3 +31,8 @@ jobs:
         npm test
       env:
         CI: true
+    - name: publish artifacts
+      uses: actions/upload-artifact@master
+      with:
+        name: userscript
+        path: src/
