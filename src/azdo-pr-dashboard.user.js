@@ -780,7 +780,7 @@
         return Object.prototype.hasOwnProperty.call(this.currentUserFilesToRole, path);
       },
       isCurrentUserResponsibleForFileInFolderPath(folderPath) {
-        return Object.keys(this.currentUserFilesToRole).filter(path => path.startsWith(folderPath)).length !== 0;
+        return Object.keys(this.currentUserFilesToRole).some(path => path.startsWith(folderPath));
       },
     };
 
