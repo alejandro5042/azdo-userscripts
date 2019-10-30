@@ -176,11 +176,13 @@
         .vc-sparse-files-tree .tree-row.file-to-review-row .file-name {
           /* Highlight files I need to review. */
           color: var(--file-to-review-color);
+          transition-duration: 0.2s;
         }
         .vc-sparse-files-tree .tree-row.folder-to-review-row[aria-expanded='false'],
         .vc-sparse-files-tree .tree-row.folder-to-review-row[aria-expanded='false'] .file-name {
           /* Highlight folders that have files I need to review, but only when files are hidden cause the folder is collapsed. */
           color: var(--file-to-review-color);
+          transition-duration: 0.2s;
         }
         .vc-sparse-files-tree .tree-row.file-to-review-row .file-owners-role {
           /* Style the role of the user in the files table. */
