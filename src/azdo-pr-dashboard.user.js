@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.28.0
+// @version      2.29.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -204,6 +204,19 @@
         .files-container.hide-files-not-to-review .file-container:not(.file-to-review-diff) .item-details-body {
           /* Hide the diff for files I don't have to review. */
           display: none;
+        }
+        .toolbar-button {
+          background: transparent;
+          color: var(--text-primary-color);
+          border: 1px solid transparent;
+          border-radius: 3px;
+          margin: 0px 2px;
+        }
+        .toolbar-button:hover {
+          border: 1px solid var(--palette-black-alpha-20);
+        }
+        .toolbar-button.active {
+          color: var(--communication-foreground);
         }`);
 
       // Get the current iteration of the PR.
@@ -253,6 +266,15 @@
         });
       }
 
+      // If the user presses this button, it will auto-collapse folders in the files tree. Useful for large reviews.
+      let collapseFolderButtonClicks = 0;
+      const collapseFoldersButton = $('<button class="toolbar-button" />').text('⇐').insertAfter($('.vc-iteration-selector')).on('click', (event) => {
+        collapseFoldersButton.toggleClass('active');
+        collapseFolderButtonClicks += 1;
+        addCheckboxesToNewFilesFunc(); // Kick off the first collapsing, cause this function only runs if something changes in the DOM.
+        event.stopPropagation();
+      });
+
       addCheckboxesToNewFilesFunc = function () {
         // If we have owners info, tag the diffs that we don't need to review.
         if (hasOwnersInfo) {
@@ -262,14 +284,33 @@
             filePathElement.closest('.file-container').toggleClass('file-to-review-diff', ownersInfo.isCurrentUserResponsibleForFile(path));
           });
         }
+        if (collapseFoldersButton.hasClass('active')) {
+          // The toggle folder collapsible button is active. Let's collapse folders that we've marked as collapsible.
+          $('.collapsible-folder').once(`collapse-${collapseFolderButtonClicks}`).each(function () {
+            const row = $(this);
+            if (row.attr('aria-expanded') === 'true') {
+              row.find('.expand-icon').click();
+            }
+          });
+        }
         $('.vc-sparse-files-tree .vc-tree-cell').once('add-complete-checkbox').each(function () {
           const fileCell = $(this);
           const fileRow = fileCell.closest('.tree-row');
           const listItem = fileRow.parent()[0];
           const typeIcon = fileRow.find('.type-icon');
 
-          const { fullName: pathWithLeadingSlash, isFolder } = getPropertyThatStartsWith(listItem, '__reactEventHandlers$').children.props.item;
+          const { fullName: pathWithLeadingSlash, isFolder, depth } = getPropertyThatStartsWith(listItem, '__reactEventHandlers$').children.props.item;
           const path = pathWithLeadingSlash.substring(1); // Remove leading slash.
+
+          // Don't do anything at the root.
+          if (depth === 0) {
+            return;
+          }
+
+          // Every other folder level is collapsible, if the user has pressed the collapse folders button.
+          if (isFolder && depth % 2 === 0) {
+            fileRow.addClass('collapsible-folder');
+          }
 
           // If we have owners info, highlight the files we need to review and add role info.
           if (hasOwnersInfo && isFolder && ownersInfo.isCurrentUserResponsibleForFileInFolderPath(`${path}/`)) {
