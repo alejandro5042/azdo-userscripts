@@ -84,6 +84,10 @@ The PR file tree will now highlight the files you need to review with a letter t
 
 ![Files tree highlighting.](static/owners-file-tree.png)
 
+Collapsed files are highlighted if they contain files you need to review:
+
+![Highlighted folder.](static/owners-collapsed-folders.png)
+
 In the multi-file diff view, your files are also highlighted with a blue line on the left:
 
 ![Highlighted diffs.](static/owners-diff-highlight.png)

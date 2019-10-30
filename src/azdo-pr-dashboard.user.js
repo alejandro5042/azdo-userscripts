@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.27.3
+// @version      2.28.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -142,7 +142,7 @@
 
       const filesTree = $(this);
 
-      addStyleOnce('pr-file-checbox-support-css', /* css */ `
+      addStyleOnce('pr-file-checkbox-support-css', /* css */ `
         :root {
           /* Set some constants for our CSS. */
           --file-to-review-color: var(--communication-foreground);
@@ -176,6 +176,13 @@
         .vc-sparse-files-tree .tree-row.file-to-review-row .file-name {
           /* Highlight files I need to review. */
           color: var(--file-to-review-color);
+          transition-duration: 0.2s;
+        }
+        .vc-sparse-files-tree .tree-row.folder-to-review-row[aria-expanded='false'],
+        .vc-sparse-files-tree .tree-row.folder-to-review-row[aria-expanded='false'] .file-name {
+          /* Highlight folders that have files I need to review, but only when files are hidden cause the folder is collapsed. */
+          color: var(--file-to-review-color);
+          transition-duration: 0.2s;
         }
         .vc-sparse-files-tree .tree-row.file-to-review-row .file-owners-role {
           /* Style the role of the user in the files table. */
@@ -232,9 +239,10 @@
 
       // Get owners info for this PR.
       const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(prUrl);
+      const hasOwnersInfo = ownersInfo && ownersInfo.currentUserFileCount > 0;
 
       // If we have owners info, add a button to filter out diffs that we don't need to review.
-      if (ownersInfo && ownersInfo.currentUserFileCount > 0) {
+      if (hasOwnersInfo) {
         $('.changed-files-summary-toolbar').once('add-other-files-button').each(function () {
           $(this)
             .find('ul')
@@ -247,7 +255,7 @@
 
       addCheckboxesToNewFilesFunc = function () {
         // If we have owners info, tag the diffs that we don't need to review.
-        if (ownersInfo && ownersInfo.currentUserFileCount > 0) {
+        if (hasOwnersInfo) {
           $('.file-container .file-path').once('filter-files-to-review').each(function () {
             const filePathElement = $(this);
             const path = filePathElement.text().replace(/\//, '');
@@ -257,17 +265,26 @@
         $('.vc-sparse-files-tree .vc-tree-cell').once('add-complete-checkbox').each(function () {
           const fileCell = $(this);
           const fileRow = fileCell.closest('.tree-row');
+          const listItem = fileRow.parent()[0];
           const typeIcon = fileRow.find('.type-icon');
+
+          const { fullName: pathWithLeadingSlash, isFolder } = getPropertyThatStartsWith(listItem, '__reactEventHandlers$').children.props.item;
+          const path = pathWithLeadingSlash.substring(1); // Remove leading slash.
+
+          // If we have owners info, highlight the files we need to review and add role info.
+          if (hasOwnersInfo && isFolder && ownersInfo.isCurrentUserResponsibleForFileInFolderPath(`${path}/`)) {
+            fileRow.addClass('folder-to-review-row');
+          }
 
           // Don't put checkboxes on rows that don't represent files.
           if (!/bowtie-file\b/i.test(typeIcon.attr('class'))) {
             return;
           }
 
-          const name = fileCell.attr('content'); // The 'content' attribute contains the file operation; e.g. "/src/file.cs [edit]".
-          const iteration = filesToIterationReviewed[name] || 0;
-
           if (!hasBuiltInCheckboxes) {
+            const name = fileCell.attr('content'); // The 'content' attribute contains the file operation; e.g. "/src/file.cs [edit]".
+            const iteration = filesToIterationReviewed[name] || 0;
+
             // Create the checkbox before the type icon.
             $('<button class="file-complete-checkbox" />')
               .attr('name', name)
@@ -276,12 +293,9 @@
           }
 
           // If we have owners info, highlight the files we need to review and add role info.
-          if (ownersInfo && ownersInfo.currentUserFileCount > 0) {
-            const path = name.replace(/\s\[.*?\][^]*$/i, '').replace(/^\//, '');
-            if (ownersInfo.isCurrentUserResponsibleForFile(path)) {
-              fileRow.addClass('file-to-review-row');
-              $('<div class="file-owners-role" />').text(`${ownersInfo.currentUserFilesToRole[path]}:`).prependTo(fileRow);
-            }
+          if (hasOwnersInfo && ownersInfo.isCurrentUserResponsibleForFile(path)) {
+            fileRow.addClass('file-to-review-row');
+            $('<div class="file-owners-role" />').text(`${ownersInfo.currentUserFilesToRole[path]}:`).prependTo(fileRow);
           }
         });
       };
@@ -766,6 +780,9 @@
       currentUserFileCount: 0,
       isCurrentUserResponsibleForFile(path) {
         return Object.prototype.hasOwnProperty.call(this.currentUserFilesToRole, path);
+      },
+      isCurrentUserResponsibleForFileInFolderPath(folderPath) {
+        return Object.keys(this.currentUserFilesToRole).some(path => path.startsWith(folderPath));
       },
     };
 
