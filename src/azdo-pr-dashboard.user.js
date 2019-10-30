@@ -268,12 +268,16 @@
 
       // If the user presses this button, it will auto-collapse folders in the files tree. Useful for large reviews.
       let collapseFolderButtonClicks = 0;
-      const collapseFoldersButton = $('<button class="toolbar-button" />').text('⇐').insertAfter($('.vc-iteration-selector')).on('click', (event) => {
-        collapseFoldersButton.toggleClass('active');
-        collapseFolderButtonClicks += 1;
-        addCheckboxesToNewFilesFunc(); // Kick off the first collapsing, cause this function only runs if something changes in the DOM.
-        event.stopPropagation();
-      });
+      const collapseFoldersButton = $('<button class="toolbar-button" />')
+        .text('⇐')
+        .attr('title', 'Toggle auto-collapsing folders.')
+        .insertAfter($('.vc-iteration-selector'))
+        .on('click', (event) => {
+          collapseFoldersButton.toggleClass('active');
+          collapseFolderButtonClicks += 1;
+          addCheckboxesToNewFilesFunc(); // Kick off the first collapsing, cause this function only runs if something changes in the DOM.
+          event.stopPropagation();
+        });
 
       addCheckboxesToNewFilesFunc = function () {
         // If we have owners info, tag the diffs that we don't need to review.
@@ -286,7 +290,7 @@
         }
         if (collapseFoldersButton.hasClass('active')) {
           // The toggle folder collapsible button is active. Let's collapse folders that we've marked as collapsible.
-          $('.collapsible-folder').once(`collapse-${collapseFolderButtonClicks}`).each(function () {
+          $('.auto-collapsible-folder').once(`collapse-${collapseFolderButtonClicks}`).each(function () {
             const row = $(this);
             if (row.attr('aria-expanded') === 'true') {
               row.find('.expand-icon').click();
@@ -307,15 +311,10 @@
             return;
           }
 
-          // Every other folder level is collapsible, if the user has pressed the collapse folders button.
-          if (isFolder && depth % 2 === 0) {
-            fileRow.addClass('collapsible-folder');
-          }
-
-          // If we have owners info, highlight the files we need to review and add role info.
-          if (hasOwnersInfo && isFolder && ownersInfo.isCurrentUserResponsibleForFileInFolderPath(`${path}/`)) {
-            fileRow.addClass('folder-to-review-row');
-          }
+          // If we have owners info, mark folders that have files we need to review. This will allow us to highlight them if they are collapsed.
+          const folderContainsFilesToReview = hasOwnersInfo && isFolder && ownersInfo.isCurrentUserResponsibleForFileInFolderPath(`${path}/`);
+          fileRow.toggleClass('folder-to-review-row', folderContainsFilesToReview);
+          fileRow.toggleClass('auto-collapsible-folder', !folderContainsFilesToReview);
 
           // Don't put checkboxes on rows that don't represent files.
           if (!/bowtie-file\b/i.test(typeIcon.attr('class'))) {
