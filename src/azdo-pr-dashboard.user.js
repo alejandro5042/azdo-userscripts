@@ -290,10 +290,14 @@
         }
         if (collapseFoldersButton.hasClass('active')) {
           // The toggle folder collapsible button is active. Let's collapse folders that we've marked as collapsible.
-          $('.auto-collapsible-folder').once(`collapse-${collapseFolderButtonClicks}`).each(function () {
+          $('.auto-collapsible-folder').once(`collapse-${collapseFolderButtonClicks}`).each(async function () {
             const row = $(this);
-            if (row.attr('aria-expanded') === 'true') {
+            let attemptsLeft = 3; // This is gross, but sometimes the folder doesn't actually collapse. So let's wait a bit and check again.
+            while (attemptsLeft > 0 && row.attr('aria-expanded') === 'true') {
               row.find('.expand-icon').click();
+              // eslint-disable-next-line no-await-in-loop
+              await sleep(300);
+              attemptsLeft -= 1;
             }
           });
         }
