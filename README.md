@@ -70,6 +70,10 @@ You can now use keyboard shortcuts to quickly switch between PR tabs (e.g. Overv
 
 ![PR tab keyboard shortcuts in Chrome.](static/pr-tab-accesskeys.png)
 
+Reviewing a large PR? Press the auto-collapse button to make your tree manageable! (National Instruments: If you have an owners review, the button will keep folders open if they contain files you need to review.)
+
+![Collapse folders.](static/collapse-folders.png)
+
 Finally, PR threads that start with `note:` (case insensitive) will appear expanded on page load, **even if they are closed**. They are also highlighted with a light border:
 
 ![Sticky comments are highlighted.](static/sticky-comment-highlighting.png)
