@@ -93,7 +93,8 @@
     });
   }
 
-  function applyNicerScrollbars() {
+  function applyNicerScrollbars()
+  {
     addStyleOnce('nicer-scrollbars', /* css */ `
       ::-webkit-scrollbar {
         width: 15px;
@@ -412,7 +413,7 @@
   }
 
   // Add a button to toggle flagging a PR discussion thread for ASW "Code of the Day" blog posts.
-  function addNICodeOfDayToggle() {
+  function addNICodeOfDayToggle( ) {
     function getThreadDataFromDOMElement(threadElement) {
       return getPropertyThatStartsWith(threadElement, '__reactEventHandlers$').children[0].props.thread;
     }
