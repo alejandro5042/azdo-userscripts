@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.30.0
+// @version      2.30.1
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -137,10 +137,10 @@
   function addCheckboxesToFiles() {
     const hasBuiltInCheckboxes = $('.viewed-icon').length > 0 || window.location.href.match(/\/ni[/.]/);
 
-    $('.vc-sparse-files-tree').once('add-checkbox-support').each(async function () {
+    $('.vc-pullrequest-leftpane-section.files-tab').once('add-checkbox-support').each(async function () {
       addCheckboxesToNewFilesFunc = () => { };
 
-      const filesTree = $(this);
+      const filesTree = $(this).find('.vc-sparse-files-tree');
 
       addStyleOnce('pr-file-checkbox-support-css', /* css */ `
         :root {
