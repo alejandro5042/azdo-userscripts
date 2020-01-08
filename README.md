@@ -80,7 +80,7 @@ PR threads that start with `note:` (case insensitive) will appear expanded on pa
 
 PR comments that start with `await:` (case insensitive) will appear highlighted. Use this to help developers focus their attention on the comments that you want to see again (e.g. the reason why you voted Waiting on Author or Rejected).
 
-![Sticky comments are highlighted.](static/await-comments.png)
+![Await comments are highlighted.](static/await-comments.png)
 
 ### Better owners review
 
