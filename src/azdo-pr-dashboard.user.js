@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.30.1
+// @version      2.31.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -52,6 +52,7 @@
       addBaseUpdateSelector();
       makePullRequestDiffEasierToScroll();
       applyStickyPullRequestComments();
+      highlightAwaitComments();
       addAccessKeysToPullRequestTabs();
       if (/\/DevCentral\/_git\/ASW\//i.test(window.location.pathname)) {
         addNICodeOfDayToggle();
@@ -61,6 +62,19 @@
     }
 
     applyNicerScrollbars();
+  }
+
+  function highlightAwaitComments() {
+    // Comments that start with this string are highlighted. No other behavior is given to them.
+    const lowerCasePrefix = 'await:';
+
+    addStyleOnce('highlight-await-comments', /* css */ `
+      .vc-discussion-thread-box .vc-discussion-thread-comment .vc-discussion-thread-renderparent[content^="${lowerCasePrefix}" i] {
+        border: 2px solid rgb(var(--palette-accent3));
+        border-radius: 5px;
+        margin: 7px 0px;
+        padding: 10px 15px;
+      }`);
   }
 
   function applyStickyPullRequestComments() {

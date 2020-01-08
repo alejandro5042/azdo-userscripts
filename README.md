@@ -74,11 +74,13 @@ Reviewing a large PR? Press the auto-collapse button to make your tree manageabl
 
 ![Collapse folders.](static/collapse-folders.png)
 
-Finally, PR threads that start with `note:` (case insensitive) will appear expanded on page load, **even if they are closed**. They are also highlighted with a light border:
+PR threads that start with `note:` (case insensitive) will appear expanded on page load, **even if they are closed**. They are also highlighted with a light border. Use this to mark interesting things for your reviewers in your PR!
 
 ![Sticky comments are highlighted.](static/sticky-comment-highlighting.png)
 
-Use this to mark interesting things for your reviewers in your PR!
+PR comments that start with `await:` (case insensitive) will appear highlighted. Use this to help developers focus their attention on the comments that you want to see again (e.g. the reason why you voted Waiting on Author or Rejected).
+
+![Await comments are highlighted.](static/await-comments.png)
 
 ### Better owners review
 
