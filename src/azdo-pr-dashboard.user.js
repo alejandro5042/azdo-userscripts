@@ -52,6 +52,7 @@
       addBaseUpdateSelector();
       makePullRequestDiffEasierToScroll();
       applyStickyPullRequestComments();
+      highlightAwaitComments();
       addAccessKeysToPullRequestTabs();
       if (/\/DevCentral\/_git\/ASW\//i.test(window.location.pathname)) {
         addNICodeOfDayToggle();
@@ -61,6 +62,19 @@
     }
 
     applyNicerScrollbars();
+  }
+
+  function highlightAwaitComments() {
+    // Comments that start with this string are highlighted. No other behavior is given to them.
+    const lowerCasePrefix = 'await:';
+
+    addStyleOnce('highlighted-await-comments', /* css */ `
+      .vc-discussion-thread-box .vc-discussion-thread-comment .vc-discussion-thread-renderparent[content^="${lowerCasePrefix}" i] {
+        border: 2px solid rgb(var(--palette-accent3));
+        border-radius: 5px;
+        margin: 7px 0px;
+        padding: 10px 15px;
+      }`);
   }
 
   function applyStickyPullRequestComments() {
