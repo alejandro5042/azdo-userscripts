@@ -58,7 +58,7 @@
         addNICodeOfDayToggle();
       }
     } else if (/\/(_pulls|pullrequests)/i.test(window.location.pathname)) {
-      sortPullRequestDashboard();
+      enhancePullRequestDashboard();
     }
 
     applyNicerScrollbars();
@@ -467,9 +467,9 @@
   let sortEachPullRequestFunc = () => { };
 
   // If we're on a pull request page, attempt to sort it.
-  function sortPullRequestDashboard() {
+  function enhancePullRequestDashboard() {
     // Find the reviews section for this user. Note the two selectors: 1) a repo dashboard; 2) the overall dashboard (e.g. https://dev.azure.com/*/_pulls).
-    $("[aria-label='Assigned to me'][role='region'], .ms-GroupedList-group:has([aria-label*='Assigned to me'])").once('reviews-sorted').each(function () {
+    $("[aria-label='Assigned to me'][role='region'], .ms-GroupedList-group:has([aria-label*='Assigned to me'])").once('prs-enhanced').each(function () {
       sortEachPullRequestFunc = () => { };
 
       const personalReviewSection = $(this);
@@ -536,7 +536,7 @@
       }
 
       // Loop through the PRs that we've voted on.
-      sortEachPullRequestFunc = () => $("[role='region'], .ms-GroupedList-group").find('[role="list"] [role="listitem"]').once('pr-sorted').each(async function () {
+      sortEachPullRequestFunc = () => $("[role='region'], .ms-GroupedList-group").find('[role="list"] [role="listitem"]').once('pr-enhanced').each(async function () {
         const row = $(this);
         const isAssignedToMe = $(personalReviewSection).has(row).length !== 0;
 
