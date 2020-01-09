@@ -489,7 +489,6 @@
           flex-direction: column-reverse;
         }`);
 
-
       // Disable the expanding button if we are on the overall PR dashboard. If enabled and the user hides/shows this section, it causes the AzDO page to re-add all the PRs, leading to duplicates in the sorted list.
       personalReviewSection.find('button.ms-GroupHeader-expand').prop('disabled', true).attr('title', 'AzDO Pull Request Improvements userscript disabled this button.');
 
@@ -537,8 +536,9 @@
       }
 
       // Loop through the PRs that we've voted on.
-      sortEachPullRequestFunc = () => $(personalReviewSection).find('[role="list"] [role="listitem"]').once('pr-sorted').each(async function () {
+      sortEachPullRequestFunc = () => $("[role='region'], .ms-GroupedList-group").find('[role="list"] [role="listitem"]').once('pr-sorted').each(async function () {
         const row = $(this);
+        const isAssignedToMe = $(personalReviewSection).has(row).length !== 0;
 
         // Loop until AzDO has added the link to the PR into the row.
         let pullRequestHref;
@@ -559,6 +559,10 @@
 
           // Get complete information about the PR.
           const pr = await getPullRequestAsync(pullRequestId);
+
+          if (!isAssignedToMe) {
+            return;
+          }
 
           // Get non-deleted pr threads, ordered from newest to oldest.
           const prThreads = (await $.get(`${pr.url}/threads?api-version=5.0`)).value.filter(x => !x.isDeleted).reverse();
