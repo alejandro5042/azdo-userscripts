@@ -47,7 +47,11 @@
   // This is "main()" for this script. Runs periodically when the page updates.
   function onPageDOMNodeInserted(event) {
     // The page may not have refreshed when moving between URLs--sometimes AzDO acts as a single-page application. So we must always check where we are and act accordingly.
-    if (/\/(pullrequest)\//i.test(window.location.pathname)) {
+    if (/\/(pullrequestcreate)/i.test(window.location.pathname)) {
+      if (/\/DevCentral\/_git\/ASW\//i.test(window.location.pathname)) {
+        colorNIPullRequestLabels();
+      }
+    } else if (/\/(pullrequest)\//i.test(window.location.pathname)) {
       addCheckboxesToFiles();
       addBaseUpdateSelector();
       makePullRequestDiffEasierToScroll();
@@ -56,12 +60,55 @@
       addAccessKeysToPullRequestTabs();
       if (/\/DevCentral\/_git\/ASW\//i.test(window.location.pathname)) {
         addNICodeOfDayToggle();
+        colorNIPullRequestLabels();
       }
     } else if (/\/(_pulls|pullrequests)/i.test(window.location.pathname)) {
       sortPullRequestDashboard();
+      if (/\/DevCentral\/_git\/ASW\//i.test(window.location.pathname)) {
+        addNICodeOfDayToggle();
+        colorNIPullRequestLabels();
+      }
     }
 
     applyNicerScrollbars();
+  }
+
+  const knownNIPullRequestLabels = {
+    owners: {
+      color: '#fff2',
+      description: 'blah blah blah',
+    },
+    draft: {
+      color: '#0a08',
+      description: 'haha haha',
+    },
+    tiny: {
+      color: '#0a08',
+      description: 'haha haha',
+    },
+    'bypass owners': {
+      color: '#a008',
+      description: 'haha haha',
+    },
+  };
+
+  function colorNIPullRequestLabels() {
+    $('.tag-box').once('color-pr-label').each(function () {
+      const label = $(this);
+      const knownLabel = knownNIPullRequestLabels[label.text().toLowerCase()];
+      if (knownLabel) {
+        label.css('background', knownLabel.color).css('title', knownLabel.description);
+      }
+    });
+    $('.pullrequest-labels-section').once('common-labels').each(function () {
+      const section = $(this);
+      const labels = $('<div style="margin: 5px 0px; font-size: 0.7em; color: var(--text-secondary-color);" />').appendTo(section);
+      for (const label of Object.keys(knownNIPullRequestLabels)) {
+        $('<button style="margin: 0px 3px; border: none;" />').text("+ " + label).css('background', knownNIPullRequestLabels[label].color).appendTo(labels).click(() => {
+          $('.tags-input').show().focus().val(label).hide();
+        });
+      }
+    });
   }
 
   function highlightAwaitComments() {
