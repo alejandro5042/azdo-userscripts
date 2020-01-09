@@ -473,6 +473,7 @@
       sortEachPullRequestFunc = () => { };
 
       const personalReviewSection = $(this);
+      const createdByMeSection = $("[aria-label='Created by me'][role='region'], .ms-GroupedList-group:has([aria-label*='Created by me'])");
 
       addStyleOnce('reviews-list-css', /* css */ `
         details.reviews-list {
@@ -490,7 +491,8 @@
         }`);
 
       // Disable the expanding button if we are on the overall PR dashboard. If enabled and the user hides/shows this section, it causes the AzDO page to re-add all the PRs, leading to duplicates in the sorted list.
-      personalReviewSection.find('button.ms-GroupHeader-expand').prop('disabled', true).attr('title', 'AzDO Pull Request Improvements userscript disabled this button.');
+      personalReviewSection.find('.collapsible-group-header button').hide();
+      createdByMeSection.find('.collapsible-group-header button').hide();
 
       // Define what it means to be a notable PR after you have approved it.
       const peopleToNotApproveToCountAsNotableThread = 2;
@@ -501,28 +503,31 @@
       // Create review sections with counters.
       const sections = {
         blocking:
-          $("<details class='reviews-list reviews-pending'><summary style='color: var(--status-error-foreground); font-weight: bold'>Blocking</summary></details>"),
+          $("<details class='reviews-list reviews-pending'><summary style='color: var(--status-error-foreground); font-weight: bold'>Blocking</summary></details>").appendTo(personalReviewSection),
 
         pending:
-          $("<details class='reviews-list reviews-pending'><summary>Incomplete</summary></details>"),
+          $("<details class='reviews-list reviews-pending'><summary>Incomplete</summary></details>").appendTo(personalReviewSection),
 
         blocked:
-          $("<details class='reviews-list reviews-incomplete-blocked'><summary>Incomplete but blocked</summary></details>"),
+          $("<details class='reviews-list reviews-incomplete-blocked'><summary>Incomplete but blocked</summary></details>").appendTo(personalReviewSection),
 
         approvedButNotable:
-          $(`<details class='reviews-list reviews-approved-notable'><summary>Completed as Approved / Approved with Suggestions (<abbr title="${notableUpdateDescription}">with notable activity</abbr>)</summary></details>`),
+          $(`<details class='reviews-list reviews-approved-notable'><summary>Completed as Approved / Approved with Suggestions (<abbr title="${notableUpdateDescription}">with notable activity</abbr>)</summary></details>`).appendTo(personalReviewSection),
 
         drafts:
-          $("<details class='reviews-list reviews-drafts'><summary>Drafts</summary></details>"),
+          $("<details class='reviews-list reviews-drafts'><summary>Drafts</summary></details>").appendTo(personalReviewSection),
 
         waiting:
-          $("<details class='reviews-list reviews-waiting'><summary>Completed as Waiting on Author</summary></details>"),
+          $("<details class='reviews-list reviews-waiting'><summary>Completed as Waiting on Author</summary></details>").appendTo(personalReviewSection),
 
         rejected:
-          $("<details class='reviews-list reviews-rejected'><summary>Completed as Rejected</summary></details>"),
+          $("<details class='reviews-list reviews-rejected'><summary>Completed as Rejected</summary></details>").appendTo(personalReviewSection),
 
         approved:
-          $("<details class='reviews-list reviews-approved'><summary>Completed as Approved / Approved with Suggestions</summary></details>"),
+          $("<details class='reviews-list reviews-approved'><summary>Completed as Approved / Approved with Suggestions</summary></details>").appendTo(personalReviewSection),
+
+        createdByMe:
+          $("<details class='reviews-list reviews-approved'><summary>Created by me</summary></details>").appendTo(createdByMeSection),
       };
 
       // Load the subsection open/closed setting if it exists and setup a change handler to save the setting. We also add common elements to each sections.
@@ -532,13 +537,13 @@
         section.append("<div class='flex-container' />");
         section.prop('open', lscache.get(id));
         section.on('toggle', function () { lscache.set(id, $(this).prop('open')); });
-        section.appendTo(personalReviewSection);
       }
 
       // Loop through the PRs that we've voted on.
       sortEachPullRequestFunc = () => $("[role='region'], .ms-GroupedList-group").find('[role="list"] [role="listitem"]').once('pr-enhanced').each(async function () {
         const row = $(this);
         const isAssignedToMe = $(personalReviewSection).has(row).length !== 0;
+        const isCreatedByMe = $(createdByMeSection).has(row).length !== 0;
 
         // Loop until AzDO has added the link to the PR into the row.
         let pullRequestHref;
@@ -608,6 +613,8 @@
                 movePullRequestIntoSection(row, sections.pending);
               }
             }
+          } else if (isCreatedByMe) {
+            movePullRequestIntoSection(row, sections.createdByMe);
           }
 
           // Order the reviews by when the current user was added (reviews that the user was added to most recently are listed last). We do this by ordering the rows inside a reversed-order flex container.
