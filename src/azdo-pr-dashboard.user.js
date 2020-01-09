@@ -116,7 +116,8 @@
       const labels = $('<div class="add-common-labels" />').appendTo(section);
       for (const label of Object.keys(knownNIPullRequestLabels)) {
         $('<button style="margin: 0px 3px; border: none;" />').text("+ " + label).css('background', knownNIPullRequestLabels[label].color).appendTo(labels).click(() => {
-          $('.tags-input').show().focus().val(label).hide();
+          $('.tags-add-button').click();
+          $('.tags-input').val(label);
         });
       }
     });
