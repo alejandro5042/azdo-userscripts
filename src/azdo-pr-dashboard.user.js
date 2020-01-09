@@ -560,20 +560,13 @@
           // Get complete information about the PR.
           const pr = await getPullRequestAsync(pullRequestId);
 
-          let computeSize = false;
+          let computeSize = true;
+          let sortingTimestampAscending = pr.createdDate;
+
           if (isAssignedToMe) {
             // Get non-deleted pr threads, ordered from newest to oldest.
             const prThreads = (await $.get(`${pr.url}/threads?api-version=5.0`)).value.filter(x => !x.isDeleted).reverse();
-            let userAddedTimestamp = getReviewerAddedOrResetTimestamp(prThreads, currentUser.uniqueName);
-            if (!userAddedTimestamp) {
-              userAddedTimestamp = pr.creationDate;
-            }
-
-            // Order the reviews by when the current user was added (reviews that the user was added to most recently are listed last). We do this by ordering the rows inside a reversed-order flex container.
-            // The order property is a 32-bit integer. If treat it as number of seconds, that allows a range of 68 years (2147483647 / (60 * 60 * 24 * 365)) in the positive values alone.
-            // Dates values are number of milliseconds since 1970, so we wouldn't overflow until 2038. Still, we might as well subtract a more recent reference date, i.e. 2019.
-            const secondsSince2019 = Math.trunc((Date.parse(userAddedTimestamp) - Date.parse('2019-01-01')) / 1000);
-            row.css('order', secondsSince2019);
+            sortingTimestampAscending = getReviewerAddedOrResetTimestamp(prThreads, currentUser.uniqueName) || sortingTimestampAscending;
 
             let missingVotes = 0;
             let waitingOrRejectedVotes = 0;
@@ -616,6 +609,12 @@
               }
             }
           }
+
+          // Order the reviews by when the current user was added (reviews that the user was added to most recently are listed last). We do this by ordering the rows inside a reversed-order flex container.
+          // The order property is a 32-bit integer. If treat it as number of seconds, that allows a range of 68 years (2147483647 / (60 * 60 * 24 * 365)) in the positive values alone.
+          // Dates values are number of milliseconds since 1970, so we wouldn't overflow until 2038. Still, we might as well subtract a more recent reference date, i.e. 2019.
+          const secondsSince2019 = Math.trunc((Date.parse(sortingTimestampAscending) - Date.parse('2019-01-01')) / 1000);
+          row.css('order', secondsSince2019);
 
           // Compute the size of certain PRs; e.g. those we haven't reviewed yet. But first, sure we've created a merge commit that we can compute its size.
           if (computeSize && pr.lastMergeCommit) {
