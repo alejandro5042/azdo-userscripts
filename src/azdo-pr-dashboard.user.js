@@ -635,15 +635,7 @@
               fileCount = _(mergeCommitInfo.changes).filter(item => !item.item.isFolder).size();
             }
 
-            const fileCountContent = `<span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}`;
-
-            // Add the file count on the overall PR dashboard.
-            row.find('div.vss-DetailsList--titleCellTwoLine').parent()
-              .append(`<div style='margin: 0px 15px; width: 3em; text-align: left;'>${fileCountContent}</div>`);
-
-            // Add the file count on a repo's PR dashboard.
-            row.find('div.vc-pullrequest-entry-col-secondary')
-              .after(`<div style='margin: 15px; width: 3.5em; display: flex; align-items: center; text-align: right;'>${fileCountContent}</div>`);
+            annotatePullRequestRow(row, $(`<span><span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}</span>`));
           }
         } finally {
           // No matter what--e.g. even on error--show the row again.
@@ -659,6 +651,18 @@
     section.find('.review-subsection-counter').text((i, value) => +value + 1);
     section.children('div.flex-container').append(pullRequestRow);
     section.show();
+  }
+
+  function annotatePullRequestRow(pullRequestRow, element) {
+    if ($('.prlist').length > 0) {
+      // Add the file count on the overall PR dashboard.
+      pullRequestRow.find('div.vss-DetailsList--titleCellTwoLine').parent()
+        .append($('<div style="margin: 0px 15px; width: 3em; text-align: left;" />').append(element));
+    } else {
+      // Add the file count on a repo's PR dashboard.
+      pullRequestRow.find('div.vc-pullrequest-entry-col-secondary')
+        .after($('<div style="margin: 15px; width: 3.5em; display: flex; align-items: center; text-align: right;" />').append(element));
+    }
   }
 
   function getReviewerAddedOrResetTimestamp(prThreadsNewestFirst, reviewerUniqueName) {
