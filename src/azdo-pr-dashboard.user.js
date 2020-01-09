@@ -100,9 +100,20 @@
         label.css('background', knownLabel.color).css('title', knownLabel.description);
       }
     });
+
+    addStyleOnce('hover-labels', /* css */ `
+      .pullrequest-labels-section .add-common-labels {
+        display: none;
+      }
+      .pullrequest-labels-section:hover .add-common-labels {
+        display: block;
+        margin: 5px 0px;
+        afont-size: 0.7em;
+        acolor: var(--text-secondary-color);
+      }`);
     $('.pullrequest-labels-section').once('common-labels').each(function () {
       const section = $(this);
-      const labels = $('<div style="margin: 5px 0px; font-size: 0.7em; color: var(--text-secondary-color);" />').appendTo(section);
+      const labels = $('<div class="add-common-labels" />').appendTo(section);
       for (const label of Object.keys(knownNIPullRequestLabels)) {
         $('<button style="margin: 0px 3px; border: none;" />').text("+ " + label).css('background', knownNIPullRequestLabels[label].color).appendTo(labels).click(() => {
           $('.tags-input').show().focus().val(label).hide();
