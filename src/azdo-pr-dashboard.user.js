@@ -560,62 +560,60 @@
           // Get complete information about the PR.
           const pr = await getPullRequestAsync(pullRequestId);
 
-          if (!isAssignedToMe) {
-            return;
-          }
-
-          // Get non-deleted pr threads, ordered from newest to oldest.
-          const prThreads = (await $.get(`${pr.url}/threads?api-version=5.0`)).value.filter(x => !x.isDeleted).reverse();
-          let userAddedTimestamp = getReviewerAddedOrResetTimestamp(prThreads, currentUser.uniqueName);
-          if (!userAddedTimestamp) {
-            userAddedTimestamp = pr.creationDate;
-          }
-
-          // Order the reviews by when the current user was added (reviews that the user was added to most recently are listed last). We do this by ordering the rows inside a reversed-order flex container.
-          // The order property is a 32-bit integer. If treat it as number of seconds, that allows a range of 68 years (2147483647 / (60 * 60 * 24 * 365)) in the positive values alone.
-          // Dates values are number of milliseconds since 1970, so we wouldn't overflow until 2038. Still, we might as well subtract a more recent reference date, i.e. 2019.
-          const secondsSince2019 = Math.trunc((Date.parse(userAddedTimestamp) - Date.parse('2019-01-01')) / 1000);
-          row.css('order', secondsSince2019);
-
-          let missingVotes = 0;
-          let waitingOrRejectedVotes = 0;
-          let userVote = 0;
-
-          // Count the number of votes.
-          for (const reviewer of pr.reviewers) {
-            if (reviewer.uniqueName === currentUser.uniqueName) {
-              userVote = reviewer.vote;
-            }
-            if (reviewer.vote === 0) {
-              missingVotes += 1;
-            } else if (reviewer.vote < 0) {
-              waitingOrRejectedVotes += 1;
-            }
-          }
-
-          // See what section this PR should be filed under and style the row, if necessary.
           let computeSize = false;
+          if (isAssignedToMe) {
+            // Get non-deleted pr threads, ordered from newest to oldest.
+            const prThreads = (await $.get(`${pr.url}/threads?api-version=5.0`)).value.filter(x => !x.isDeleted).reverse();
+            let userAddedTimestamp = getReviewerAddedOrResetTimestamp(prThreads, currentUser.uniqueName);
+            if (!userAddedTimestamp) {
+              userAddedTimestamp = pr.creationDate;
+            }
 
-          if (pr.isDraft) {
-            movePullRequestIntoSection(row, sections.drafts);
-            computeSize = true;
-          } else if (userVote === -5) {
-            movePullRequestIntoSection(row, sections.waiting);
-          } else if (userVote < 0) {
-            movePullRequestIntoSection(row, sections.rejected);
-          } else if (userVote > 0) {
-            movePullRequestIntoSection(row,
-              prHadNotableActivitySinceCurrentUserVoted(prThreads, peopleToNotApproveToCountAsNotableThread, commentsToCountAsNotableThread, wordsToCountAsNotableThread)
-                ? sections.approvedButNotable
-                : sections.approved);
-          } else {
-            computeSize = true;
-            if (waitingOrRejectedVotes > 0) {
-              movePullRequestIntoSection(row, sections.blocked);
-            } else if (missingVotes === 1) {
-              movePullRequestIntoSection(row, sections.blocking);
+            // Order the reviews by when the current user was added (reviews that the user was added to most recently are listed last). We do this by ordering the rows inside a reversed-order flex container.
+            // The order property is a 32-bit integer. If treat it as number of seconds, that allows a range of 68 years (2147483647 / (60 * 60 * 24 * 365)) in the positive values alone.
+            // Dates values are number of milliseconds since 1970, so we wouldn't overflow until 2038. Still, we might as well subtract a more recent reference date, i.e. 2019.
+            const secondsSince2019 = Math.trunc((Date.parse(userAddedTimestamp) - Date.parse('2019-01-01')) / 1000);
+            row.css('order', secondsSince2019);
+
+            let missingVotes = 0;
+            let waitingOrRejectedVotes = 0;
+            let userVote = 0;
+
+            // Count the number of votes.
+            for (const reviewer of pr.reviewers) {
+              if (reviewer.uniqueName === currentUser.uniqueName) {
+                userVote = reviewer.vote;
+              }
+              if (reviewer.vote === 0) {
+                missingVotes += 1;
+              } else if (reviewer.vote < 0) {
+                waitingOrRejectedVotes += 1;
+              }
+            }
+
+            // See what section this PR should be filed under and style the row, if necessary.
+
+            if (pr.isDraft) {
+              movePullRequestIntoSection(row, sections.drafts);
+              computeSize = true;
+            } else if (userVote === -5) {
+              movePullRequestIntoSection(row, sections.waiting);
+            } else if (userVote < 0) {
+              movePullRequestIntoSection(row, sections.rejected);
+            } else if (userVote > 0) {
+              movePullRequestIntoSection(row,
+                prHadNotableActivitySinceCurrentUserVoted(prThreads, peopleToNotApproveToCountAsNotableThread, commentsToCountAsNotableThread, wordsToCountAsNotableThread)
+                  ? sections.approvedButNotable
+                  : sections.approved);
             } else {
-              movePullRequestIntoSection(row, sections.pending);
+              computeSize = true;
+              if (waitingOrRejectedVotes > 0) {
+                movePullRequestIntoSection(row, sections.blocked);
+              } else if (missingVotes === 1) {
+                movePullRequestIntoSection(row, sections.blocking);
+              } else {
+                movePullRequestIntoSection(row, sections.pending);
+              }
             }
           }
 
@@ -624,9 +622,11 @@
             let fileCount = 0;
 
             // See if this PR has owners info and count the files listed for the current user.
-            const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(pr.url);
-            if (ownersInfo) {
-              fileCount = ownersInfo.currentUserFileCount;
+            if (isAssignedToMe) {
+              const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(pr.url);
+              if (ownersInfo) {
+                fileCount = ownersInfo.currentUserFileCount;
+              }
             }
 
             // If there is no owner info or if it returns zero files to review (since we may not be on the review explicitly), then count the number of files in the merge commit.
