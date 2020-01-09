@@ -594,28 +594,28 @@
           }
 
           // See what section this PR should be filed under and style the row, if necessary.
-          let section;
           let computeSize = false;
 
           if (pr.isDraft) {
-            section = sections.drafts;
+            movePullRequestIntoSection(row, sections.drafts);
             computeSize = true;
           } else if (userVote === -5) {
-            section = sections.waiting;
+            movePullRequestIntoSection(row, sections.waiting);
           } else if (userVote < 0) {
-            section = sections.rejected;
+            movePullRequestIntoSection(row, sections.rejected);
           } else if (userVote > 0) {
-            section = prHadNotableActivitySinceCurrentUserVoted(prThreads, peopleToNotApproveToCountAsNotableThread, commentsToCountAsNotableThread, wordsToCountAsNotableThread)
-              ? sections.approvedButNotable
-              : sections.approved;
+            movePullRequestIntoSection(row,
+              prHadNotableActivitySinceCurrentUserVoted(prThreads, peopleToNotApproveToCountAsNotableThread, commentsToCountAsNotableThread, wordsToCountAsNotableThread)
+                ? sections.approvedButNotable
+                : sections.approved);
           } else {
             computeSize = true;
             if (waitingOrRejectedVotes > 0) {
-              section = sections.blocked;
+              movePullRequestIntoSection(row, sections.blocked);
             } else if (missingVotes === 1) {
-              section = sections.blocking;
+              movePullRequestIntoSection(row, sections.blocking);
             } else {
-              section = sections.pending;
+              movePullRequestIntoSection(row, sections.pending);
             }
           }
 
@@ -645,13 +645,6 @@
             row.find('div.vc-pullrequest-entry-col-secondary')
               .after(`<div style='margin: 15px; width: 3.5em; display: flex; align-items: center; text-align: right;'>${fileCountContent}</div>`);
           }
-
-          // If we identified a section, move the row.
-          if (section) {
-            section.find('.review-subsection-counter').text((i, value) => +value + 1);
-            section.children('div.flex-container').append(row);
-            section.show();
-          }
         } finally {
           // No matter what--e.g. even on error--show the row again.
           row.show(150);
@@ -660,6 +653,12 @@
     });
 
     sortEachPullRequestFunc();
+  }
+
+  function movePullRequestIntoSection(pullRequestRow, section) {
+    section.find('.review-subsection-counter').text((i, value) => +value + 1);
+    section.children('div.flex-container').append(pullRequestRow);
+    section.show();
   }
 
   function getReviewerAddedOrResetTimestamp(prThreadsNewestFirst, reviewerUniqueName) {
