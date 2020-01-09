@@ -568,7 +568,6 @@
           // Get complete information about the PR.
           const pr = await getPullRequestAsync(pullRequestId);
 
-          let computeSize = true;
           let sortingTimestampAscending = pr.createdDate;
 
           if (isAssignedToMe) {
@@ -593,7 +592,6 @@
 
             if (pr.isDraft) {
               movePullRequestIntoSection(row, sections.drafts);
-              computeSize = true;
             } else if (userVote === -5) {
               movePullRequestIntoSection(row, sections.waiting);
             } else if (userVote < 0) {
@@ -601,15 +599,12 @@
             } else if (userVote > 0) {
               const hasNotableActivity = prHadNotableActivitySinceCurrentUserVoted(prThreads, peopleToNotApproveToCountAsNotableThread, commentsToCountAsNotableThread, wordsToCountAsNotableThread);
               movePullRequestIntoSection(row, hasNotableActivity ? sections.approvedButNotable : sections.approved);
+            } else if (waitingOrRejectedVotes > 0) {
+              movePullRequestIntoSection(row, sections.blocked);
+            } else if (missingVotes === 1) {
+              movePullRequestIntoSection(row, sections.blocking);
             } else {
-              computeSize = true;
-              if (waitingOrRejectedVotes > 0) {
-                movePullRequestIntoSection(row, sections.blocked);
-              } else if (missingVotes === 1) {
-                movePullRequestIntoSection(row, sections.blocking);
-              } else {
-                movePullRequestIntoSection(row, sections.pending);
-              }
+              movePullRequestIntoSection(row, sections.pending);
             }
           } else if (isCreatedByMe) {
             if (pr.isDraft) {
@@ -626,7 +621,7 @@
           row.css('order', secondsSince2019);
 
           // Compute the size of certain PRs; e.g. those we haven't reviewed yet. But first, sure we've created a merge commit that we can compute its size.
-          if (computeSize && pr.lastMergeCommit) {
+          if (pr.lastMergeCommit) {
             let fileCount = 0;
 
             // See if this PR has owners info and count the files listed for the current user.
