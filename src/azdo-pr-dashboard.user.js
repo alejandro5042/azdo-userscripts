@@ -463,6 +463,12 @@
     });
   }
 
+  // Define what it means to be a notable PR after you have approved it.
+  const peopleToNotApproveToCountAsNotableThread = 2;
+  const commentsToCountAsNotableThread = 4;
+  const wordsToCountAsNotableThread = 300;
+  const notableUpdateDescription = `These are pull requests you've already approved, but since then, any of following events have happened:&#013    1) At least ${peopleToNotApproveToCountAsNotableThread} people voted Rejected or Waiting on Author&#013    2) A thread was posted with at least ${commentsToCountAsNotableThread} comments&#013    3) A thread was posted with at least ${wordsToCountAsNotableThread} words&#013Optional: To remove PRs from this list, simply vote again on the PR (even if it's the same vote).`;
+
   // The func we'll call to continuously sort new PRs into categories, once initialization is over.
   let sortEachPullRequestFunc = () => { };
 
@@ -474,6 +480,10 @@
 
       const personalReviewSection = $(this);
       const createdByMeSection = $("[aria-label='Created by me'][role='region'], .ms-GroupedList-group:has([aria-label*='Created by me'])");
+
+      // Disable the expanding button if we are on the overall PR dashboard. If enabled and the user hides/shows this section, it causes the AzDO page to re-add all the PRs, leading to duplicates in the sorted list.
+      personalReviewSection.find('.collapsible-group-header button').hide();
+      createdByMeSection.find('.collapsible-group-header button').hide();
 
       addStyleOnce('reviews-list-css', /* css */ `
         details.reviews-list {
@@ -489,16 +499,6 @@
           display: flex;
           flex-direction: column-reverse;
         }`);
-
-      // Disable the expanding button if we are on the overall PR dashboard. If enabled and the user hides/shows this section, it causes the AzDO page to re-add all the PRs, leading to duplicates in the sorted list.
-      personalReviewSection.find('.collapsible-group-header button').hide();
-      createdByMeSection.find('.collapsible-group-header button').hide();
-
-      // Define what it means to be a notable PR after you have approved it.
-      const peopleToNotApproveToCountAsNotableThread = 2;
-      const commentsToCountAsNotableThread = 4;
-      const wordsToCountAsNotableThread = 300;
-      const notableUpdateDescription = `These are pull requests you've already approved, but since then, any of following events have happened:&#013    1) At least ${peopleToNotApproveToCountAsNotableThread} people voted Rejected or Waiting on Author&#013    2) A thread was posted with at least ${commentsToCountAsNotableThread} comments&#013    3) A thread was posted with at least ${wordsToCountAsNotableThread} words&#013Optional: To remove PRs from this list, simply vote again on the PR (even if it's the same vote).`;
 
       // Create review sections with counters.
       const sections = {
@@ -573,11 +573,10 @@
             const prThreads = (await $.get(`${pr.url}/threads?api-version=5.0`)).value.filter(x => !x.isDeleted).reverse();
             sortingTimestampAscending = getReviewerAddedOrResetTimestamp(prThreads, currentUser.uniqueName) || sortingTimestampAscending;
 
+            // Count the number of votes.
             let missingVotes = 0;
             let waitingOrRejectedVotes = 0;
             let userVote = 0;
-
-            // Count the number of votes.
             for (const reviewer of pr.reviewers) {
               if (reviewer.uniqueName === currentUser.uniqueName) {
                 userVote = reviewer.vote;
@@ -589,8 +588,6 @@
               }
             }
 
-            // See what section this PR should be filed under and style the row, if necessary.
-
             if (pr.isDraft) {
               movePullRequestIntoSection(row, sections.drafts);
               computeSize = true;
@@ -599,10 +596,8 @@
             } else if (userVote < 0) {
               movePullRequestIntoSection(row, sections.rejected);
             } else if (userVote > 0) {
-              movePullRequestIntoSection(row,
-                prHadNotableActivitySinceCurrentUserVoted(prThreads, peopleToNotApproveToCountAsNotableThread, commentsToCountAsNotableThread, wordsToCountAsNotableThread)
-                  ? sections.approvedButNotable
-                  : sections.approved);
+              const hasNotableActivity = prHadNotableActivitySinceCurrentUserVoted(prThreads, peopleToNotApproveToCountAsNotableThread, commentsToCountAsNotableThread, wordsToCountAsNotableThread);
+              movePullRequestIntoSection(row, hasNotableActivity ? sections.approvedButNotable : sections.approved);
             } else {
               computeSize = true;
               if (waitingOrRejectedVotes > 0) {
