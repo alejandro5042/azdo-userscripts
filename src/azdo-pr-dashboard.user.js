@@ -527,7 +527,10 @@
           $("<details class='reviews-list reviews-approved'><summary>Completed as Approved / Approved with Suggestions</summary></details>").appendTo(personalReviewSection),
 
         createdByMe:
-          $("<details class='reviews-list reviews-approved'><summary>Created by me</summary></details>").appendTo(createdByMeSection),
+          $("<details class='reviews-list reviews-created-by-me'><summary>Active</summary></details>").appendTo(createdByMeSection),
+
+        draftsCreatedByMe:
+          $("<details class='reviews-list reviews-drafts-created-by-me'><summary>Drafts</summary></details>").appendTo(createdByMeSection),
       };
 
       // Load the subsection open/closed setting if it exists and setup a change handler to save the setting. We also add common elements to each sections.
@@ -609,7 +612,11 @@
               }
             }
           } else if (isCreatedByMe) {
-            movePullRequestIntoSection(row, sections.createdByMe);
+            if (pr.isDraft) {
+              movePullRequestIntoSection(row, sections.draftsCreatedByMe);
+            } else {
+              movePullRequestIntoSection(row, sections.createdByMe);
+            }
           }
 
           // Order the reviews by when the current user was added (reviews that the user was added to most recently are listed last). We do this by ordering the rows inside a reversed-order flex container.
