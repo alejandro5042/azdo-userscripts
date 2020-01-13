@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.31.0
+// @version      2.32.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -58,7 +58,7 @@
         addNICodeOfDayToggle();
       }
     } else if (/\/(_pulls|pullrequests)/i.test(window.location.pathname)) {
-      sortPullRequestDashboard();
+      enhancePullRequestDashboard();
     }
 
     applyNicerScrollbars();
@@ -463,16 +463,27 @@
     });
   }
 
+  // Define what it means to be a notable PR after you have approved it.
+  const peopleToNotApproveToCountAsNotableThread = 2;
+  const commentsToCountAsNotableThread = 4;
+  const wordsToCountAsNotableThread = 300;
+  const notableUpdateDescription = `These are pull requests you've already approved, but since then, any of following events have happened:&#013    1) At least ${peopleToNotApproveToCountAsNotableThread} people voted Rejected or Waiting on Author&#013    2) A thread was posted with at least ${commentsToCountAsNotableThread} comments&#013    3) A thread was posted with at least ${wordsToCountAsNotableThread} words&#013Optional: To remove PRs from this list, simply vote again on the PR (even if it's the same vote).`;
+
   // The func we'll call to continuously sort new PRs into categories, once initialization is over.
   let sortEachPullRequestFunc = () => { };
 
   // If we're on a pull request page, attempt to sort it.
-  function sortPullRequestDashboard() {
+  function enhancePullRequestDashboard() {
     // Find the reviews section for this user. Note the two selectors: 1) a repo dashboard; 2) the overall dashboard (e.g. https://dev.azure.com/*/_pulls).
-    $("[aria-label='Assigned to me'][role='region'], .ms-GroupedList-group:has([aria-label*='Assigned to me'])").once('reviews-sorted').each(function () {
+    $("[aria-label='Assigned to me'][role='region'], .ms-GroupedList-group:has([aria-label*='Assigned to me'])").once('prs-enhanced').each(function () {
       sortEachPullRequestFunc = () => { };
 
       const personalReviewSection = $(this);
+      const createdByMeSection = $("[aria-label='Created by me'][role='region'], .ms-GroupedList-group:has([aria-label*='Created by me'])");
+
+      // Disable the expanding button if we are on the overall PR dashboard. If enabled and the user hides/shows this section, it causes the AzDO page to re-add all the PRs, leading to duplicates in the sorted list.
+      personalReviewSection.find('.collapsible-group-header button').hide();
+      createdByMeSection.find('.collapsible-group-header button').hide();
 
       addStyleOnce('reviews-list-css', /* css */ `
         details.reviews-list {
@@ -489,41 +500,37 @@
           flex-direction: column-reverse;
         }`);
 
-
-      // Disable the expanding button if we are on the overall PR dashboard. If enabled and the user hides/shows this section, it causes the AzDO page to re-add all the PRs, leading to duplicates in the sorted list.
-      personalReviewSection.find('button.ms-GroupHeader-expand').prop('disabled', true).attr('title', 'AzDO Pull Request Improvements userscript disabled this button.');
-
-      // Define what it means to be a notable PR after you have approved it.
-      const peopleToNotApproveToCountAsNotableThread = 2;
-      const commentsToCountAsNotableThread = 4;
-      const wordsToCountAsNotableThread = 300;
-      const notableUpdateDescription = `These are pull requests you've already approved, but since then, any of following events have happened:&#013    1) At least ${peopleToNotApproveToCountAsNotableThread} people voted Rejected or Waiting on Author&#013    2) A thread was posted with at least ${commentsToCountAsNotableThread} comments&#013    3) A thread was posted with at least ${wordsToCountAsNotableThread} words&#013Optional: To remove PRs from this list, simply vote again on the PR (even if it's the same vote).`;
-
       // Create review sections with counters.
       const sections = {
         blocking:
-          $("<details class='reviews-list reviews-pending'><summary style='color: var(--status-error-foreground); font-weight: bold'>Blocking</summary></details>"),
+          $("<details class='reviews-list reviews-pending'><summary style='color: var(--status-error-foreground); font-weight: bold'>Blocking</summary></details>").appendTo(personalReviewSection),
 
         pending:
-          $("<details class='reviews-list reviews-pending'><summary>Incomplete</summary></details>"),
+          $("<details class='reviews-list reviews-pending'><summary>Incomplete</summary></details>").appendTo(personalReviewSection),
 
         blocked:
-          $("<details class='reviews-list reviews-incomplete-blocked'><summary>Incomplete but blocked</summary></details>"),
+          $("<details class='reviews-list reviews-incomplete-blocked'><summary>Incomplete but blocked</summary></details>").appendTo(personalReviewSection),
 
         approvedButNotable:
-          $(`<details class='reviews-list reviews-approved-notable'><summary>Completed as Approved / Approved with Suggestions (<abbr title="${notableUpdateDescription}">with notable activity</abbr>)</summary></details>`),
+          $(`<details class='reviews-list reviews-approved-notable'><summary>Completed as Approved / Approved with Suggestions (<abbr title="${notableUpdateDescription}">with notable activity</abbr>)</summary></details>`).appendTo(personalReviewSection),
 
         drafts:
-          $("<details class='reviews-list reviews-drafts'><summary>Drafts</summary></details>"),
+          $("<details class='reviews-list reviews-drafts'><summary>Drafts</summary></details>").appendTo(personalReviewSection),
 
         waiting:
-          $("<details class='reviews-list reviews-waiting'><summary>Completed as Waiting on Author</summary></details>"),
+          $("<details class='reviews-list reviews-waiting'><summary>Completed as Waiting on Author</summary></details>").appendTo(personalReviewSection),
 
         rejected:
-          $("<details class='reviews-list reviews-rejected'><summary>Completed as Rejected</summary></details>"),
+          $("<details class='reviews-list reviews-rejected'><summary>Completed as Rejected</summary></details>").appendTo(personalReviewSection),
 
         approved:
-          $("<details class='reviews-list reviews-approved'><summary>Completed as Approved / Approved with Suggestions</summary></details>"),
+          $("<details class='reviews-list reviews-approved'><summary>Completed as Approved / Approved with Suggestions</summary></details>").appendTo(personalReviewSection),
+
+        createdByMe:
+          $("<details class='reviews-list reviews-created-by-me'><summary>Active</summary></details>").appendTo(createdByMeSection),
+
+        draftsCreatedByMe:
+          $("<details class='reviews-list reviews-drafts-created-by-me'><summary>Drafts</summary></details>").appendTo(createdByMeSection),
       };
 
       // Load the subsection open/closed setting if it exists and setup a change handler to save the setting. We also add common elements to each sections.
@@ -533,12 +540,13 @@
         section.append("<div class='flex-container' />");
         section.prop('open', lscache.get(id));
         section.on('toggle', function () { lscache.set(id, $(this).prop('open')); });
-        section.appendTo(personalReviewSection);
       }
 
       // Loop through the PRs that we've voted on.
-      sortEachPullRequestFunc = () => $(personalReviewSection).find('[role="list"] [role="listitem"]').once('pr-sorted').each(async function () {
+      sortEachPullRequestFunc = () => $("[role='region'], .ms-GroupedList-group").find('[role="list"] [role="listitem"]').once('pr-enhanced').each(async function () {
         const row = $(this);
+        const isAssignedToMe = $(personalReviewSection).has(row).length !== 0;
+        const isCreatedByMe = $(createdByMeSection).has(row).length !== 0;
 
         // Loop until AzDO has added the link to the PR into the row.
         let pullRequestHref;
@@ -560,69 +568,62 @@
           // Get complete information about the PR.
           const pr = await getPullRequestAsync(pullRequestId);
 
-          // Get non-deleted pr threads, ordered from newest to oldest.
-          const prThreads = (await $.get(`${pr.url}/threads?api-version=5.0`)).value.filter(x => !x.isDeleted).reverse();
-          let userAddedTimestamp = getReviewerAddedOrResetTimestamp(prThreads, currentUser.uniqueName);
-          if (!userAddedTimestamp) {
-            userAddedTimestamp = pr.creationDate;
-          }
+          if (isAssignedToMe) {
+            // Get non-deleted pr threads, ordered from newest to oldest.
+            const prThreads = (await $.get(`${pr.url}/threads?api-version=5.0`)).value.filter(x => !x.isDeleted).reverse();
+            assignSortOrderToPulLRequest(row, getReviewerAddedOrResetTimestamp(prThreads, currentUser.uniqueName) || pr.createdDate);
 
-          // Order the reviews by when the current user was added (reviews that the user was added to most recently are listed last). We do this by ordering the rows inside a reversed-order flex container.
-          // The order property is a 32-bit integer. If treat it as number of seconds, that allows a range of 68 years (2147483647 / (60 * 60 * 24 * 365)) in the positive values alone.
-          // Dates values are number of milliseconds since 1970, so we wouldn't overflow until 2038. Still, we might as well subtract a more recent reference date, i.e. 2019.
-          const secondsSince2019 = Math.trunc((Date.parse(userAddedTimestamp) - Date.parse('2019-01-01')) / 1000);
-          row.css('order', secondsSince2019);
-
-          let missingVotes = 0;
-          let waitingOrRejectedVotes = 0;
-          let userVote = 0;
-
-          // Count the number of votes.
-          for (const reviewer of pr.reviewers) {
-            if (reviewer.uniqueName === currentUser.uniqueName) {
-              userVote = reviewer.vote;
+            // Count the number of votes.
+            let missingVotes = 0;
+            let waitingOrRejectedVotes = 0;
+            let userVote = 0;
+            for (const reviewer of pr.reviewers) {
+              if (reviewer.uniqueName === currentUser.uniqueName) {
+                userVote = reviewer.vote;
+              }
+              if (reviewer.vote === 0) {
+                missingVotes += 1;
+              } else if (reviewer.vote < 0) {
+                waitingOrRejectedVotes += 1;
+              }
             }
-            if (reviewer.vote === 0) {
-              missingVotes += 1;
-            } else if (reviewer.vote < 0) {
-              waitingOrRejectedVotes += 1;
-            }
-          }
 
-          // See what section this PR should be filed under and style the row, if necessary.
-          let section;
-          let computeSize = false;
-
-          if (pr.isDraft) {
-            section = sections.drafts;
-            computeSize = true;
-          } else if (userVote === -5) {
-            section = sections.waiting;
-          } else if (userVote < 0) {
-            section = sections.rejected;
-          } else if (userVote > 0) {
-            section = prHadNotableActivitySinceCurrentUserVoted(prThreads, peopleToNotApproveToCountAsNotableThread, commentsToCountAsNotableThread, wordsToCountAsNotableThread)
-              ? sections.approvedButNotable
-              : sections.approved;
-          } else {
-            computeSize = true;
-            if (waitingOrRejectedVotes > 0) {
-              section = sections.blocked;
+            if (pr.isDraft) {
+              movePullRequestIntoSection(row, sections.drafts);
+            } else if (userVote === -5) {
+              movePullRequestIntoSection(row, sections.waiting);
+            } else if (userVote < 0) {
+              movePullRequestIntoSection(row, sections.rejected);
+            } else if (userVote > 0) {
+              const hasNotableActivity = prHadNotableActivitySinceCurrentUserVoted(prThreads, peopleToNotApproveToCountAsNotableThread, commentsToCountAsNotableThread, wordsToCountAsNotableThread);
+              movePullRequestIntoSection(row, hasNotableActivity ? sections.approvedButNotable : sections.approved);
+            } else if (waitingOrRejectedVotes > 0) {
+              movePullRequestIntoSection(row, sections.blocked);
             } else if (missingVotes === 1) {
-              section = sections.blocking;
+              movePullRequestIntoSection(row, sections.blocking);
             } else {
-              section = sections.pending;
+              movePullRequestIntoSection(row, sections.pending);
+            }
+          } else if (isCreatedByMe) {
+            assignSortOrderToPulLRequest(row, pr.createdDate);
+
+            if (pr.isDraft) {
+              movePullRequestIntoSection(row, sections.draftsCreatedByMe);
+            } else {
+              movePullRequestIntoSection(row, sections.createdByMe);
             }
           }
 
           // Compute the size of certain PRs; e.g. those we haven't reviewed yet. But first, sure we've created a merge commit that we can compute its size.
-          if (computeSize && pr.lastMergeCommit) {
+          if (pr.lastMergeCommit) {
             let fileCount = 0;
 
             // See if this PR has owners info and count the files listed for the current user.
-            const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(pr.url);
-            if (ownersInfo) {
-              fileCount = ownersInfo.currentUserFileCount;
+            if (isAssignedToMe) {
+              const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(pr.url);
+              if (ownersInfo) {
+                fileCount = ownersInfo.currentUserFileCount;
+              }
             }
 
             // If there is no owner info or if it returns zero files to review (since we may not be on the review explicitly), then count the number of files in the merge commit.
@@ -631,22 +632,7 @@
               fileCount = _(mergeCommitInfo.changes).filter(item => !item.item.isFolder).size();
             }
 
-            const fileCountContent = `<span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}`;
-
-            // Add the file count on the overall PR dashboard.
-            row.find('div.vss-DetailsList--titleCellTwoLine').parent()
-              .append(`<div style='margin: 0px 15px; width: 3em; text-align: left;'>${fileCountContent}</div>`);
-
-            // Add the file count on a repo's PR dashboard.
-            row.find('div.vc-pullrequest-entry-col-secondary')
-              .after(`<div style='margin: 15px; width: 3.5em; display: flex; align-items: center; text-align: right;'>${fileCountContent}</div>`);
-          }
-
-          // If we identified a section, move the row.
-          if (section) {
-            section.find('.review-subsection-counter').text((i, value) => +value + 1);
-            section.children('div.flex-container').append(row);
-            section.show();
+            annotatePullRequestRow(row, $(`<span><span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}</span>`));
           }
         } finally {
           // No matter what--e.g. even on error--show the row again.
@@ -656,6 +642,32 @@
     });
 
     sortEachPullRequestFunc();
+  }
+
+  function assignSortOrderToPulLRequest(pullRequestRow, sortingTimestampAscending) {
+    // Order the reviews by when the current user was added (reviews that the user was added to most recently are listed last). We do this by ordering the rows inside a reversed-order flex container.
+    // The order property is a 32-bit integer. If treat it as number of seconds, that allows a range of 68 years (2147483647 / (60 * 60 * 24 * 365)) in the positive values alone.
+    // Dates values are number of milliseconds since 1970, so we wouldn't overflow until 2038. Still, we might as well subtract a more recent reference date, i.e. 2019.
+    const secondsSince2019 = Math.trunc((Date.parse(sortingTimestampAscending) - Date.parse('2019-01-01')) / 1000);
+    pullRequestRow.css('order', secondsSince2019);
+  }
+
+  function movePullRequestIntoSection(pullRequestRow, section) {
+    section.find('.review-subsection-counter').text((i, value) => +value + 1);
+    section.children('div.flex-container').append(pullRequestRow);
+    section.show();
+  }
+
+  function annotatePullRequestRow(pullRequestRow, element) {
+    if ($('.prlist').length > 0) {
+      // Add the file count on the overall PR dashboard.
+      pullRequestRow.find('div.vss-DetailsList--titleCellTwoLine').parent()
+        .append($('<div style="margin: 0px 15px; width: 3em; text-align: left;" />').append(element));
+    } else {
+      // Add the file count on a repo's PR dashboard.
+      pullRequestRow.find('div.vc-pullrequest-entry-col-secondary')
+        .after($('<div style="margin: 15px; width: 3.5em; display: flex; align-items: center; text-align: right;" />').append(element));
+    }
   }
 
   function getReviewerAddedOrResetTimestamp(prThreadsNewestFirst, reviewerUniqueName) {
