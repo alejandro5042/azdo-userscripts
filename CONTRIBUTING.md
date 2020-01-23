@@ -12,7 +12,27 @@ For significant effort or feature work, it is preferred to start by filing an is
 - Hit `Ctrl+S` to save
 - Refresh the target page to test your changes
 
-Once you're done, copy your script from the dashboard into the actual source file of a clone of this repo. Then propose a pull request.
+Once you're done, copy your script from the dashboard into the actual source file, either from an on-disk clone of this repo or directly on the [GitHub interface](https://help.github.com/en/github/managing-files-in-a-repository/editing-files-in-your-repository). Then propose a pull request.
+
+## Using a local editor
+
+- Clone this repo on-disk
+- Run `npm install`
+- Allow Tampermonkey to access files on disk:
+  - Go to [Chrome Extension Settings](chrome://extensions/)
+  - Click the "Details" button on Tampermonkey
+  - Enable "Allow access to file URLs"
+- From Tampermonkey, create a new userscript that uses the version on-disk:
+  - Copy the real userscript into this new userscript
+  - Delete all the code (everything under `// ==/UserScript==`)
+  - Before the `// ==/UserScript==` line, add `// @require file:///C:/Path/To/Repo/azdo-userscripts/src/azdo-pr-dashboard.user.js`
+  - Remove the `@updateURL` line
+  - Reduce confusion:
+    - Change the `@name` to help identify that this script is not the official version (aka. add ` (LOCAL)` to the end)
+    - Change the `@version` to something like "0.1"
+- Open your favorite IDE and hack away! (e.g. VS Code)
+
+Make sure you keep the proxy userscript in-sync with changes to the real userscript metadata block (since it doesn't use metadata from any `@require` files).
 
 ## Testing before a PR
 
