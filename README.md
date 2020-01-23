@@ -20,7 +20,7 @@ By default, Tampermonkey will automatically update scripts from the original ins
 
 Sorts the PRs in your dashboard into categories:
 
-![(Picture of an example dashboard)](static/azdo-pr-dashboard-example.png)
+![(Picture of an example dashboard)](assets/azdo-pr-dashboard-example.png)
 
 - Reviews are sorted from oldest to newest (reverse of the default)
 - Reviews are categorized into sections:
@@ -40,17 +40,17 @@ Sorts the PRs in your dashboard into categories:
 
 You can now mark a file as reviewed with a checkbox! The data persists in local browser storage, so if you come back to the PR later, the checkboxes will still be there (up to 3 weeks).
 
-![Checkboxes in the PR files tree](static/file-checkboxes.png)
+![Checkboxes in the PR files tree](assets/file-checkboxes.png)
 
 > Note: awesome.visualstudio.com checkbox data is separate from dev.azure.com/awesome checkbox data.
 
 You can now select the base update to compare against with the base update selector:
 
-![Base update selector](static/base-update-selector.png)
+![Base update selector](assets/base-update-selector.png)
 
 This allows you to diff many updates at once:
 
-![Example: Update 8 to 12](static/diff-many-updates.png)
+![Example: Update 8 to 12](assets/diff-many-updates.png)
 
 > Note: The selector looks best in Chrome.
 
@@ -61,27 +61,27 @@ Some improvements to the multi-file diff view:
 
 Before (long lines are cutoff and the scrollbar may be offscreen):
 
-![Text cutoff and no scrolling.](static/before-pr-diff-scroll-improvements.png)
+![Text cutoff and no scrolling.](assets/before-pr-diff-scroll-improvements.png)
 
 After (scrollbar is always visible):
 
-![Scrollbars always visible.](static/after-pr-diff-scroll-improvements.png)
+![Scrollbars always visible.](assets/after-pr-diff-scroll-improvements.png)
 
 You can now use keyboard shortcuts to quickly switch between PR tabs (e.g. Overview, Files, etc). In Chrome, it'd be `Alt+1`, `Alt+2`, etc. In FireFox, it is `Alt+Shift+Num`. [See this table for details on your browser.](https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/accesskey)
 
-![PR tab keyboard shortcuts in Chrome.](static/pr-tab-accesskeys.png)
+![PR tab keyboard shortcuts in Chrome.](assets/pr-tab-accesskeys.png)
 
 Reviewing a large PR? Press the auto-collapse button to make your tree manageable! (National Instruments: If you have an owners review, the button will keep folders open if they contain files you need to review.)
 
-![Collapse folders.](static/collapse-folders.png)
+![Collapse folders.](assets/collapse-folders.png)
 
 PR threads that start with `note:` (case insensitive) will appear expanded on page load, **even if they are closed**. They are also highlighted with a light border. Use this to mark interesting things for your reviewers in your PR!
 
-![Sticky comments are highlighted.](static/sticky-comment-highlighting.png)
+![Sticky comments are highlighted.](assets/sticky-comment-highlighting.png)
 
 PR comments that start with `await:` (case insensitive) will appear highlighted. Use this to help developers focus their attention on the comments that you want to see again (e.g. the reason why you voted Waiting on Author or Rejected).
 
-![Await comments are highlighted.](static/await-comments.png)
+![Await comments are highlighted.](assets/await-comments.png)
 
 ### Better owners review
 
@@ -89,19 +89,19 @@ PR comments that start with `await:` (case insensitive) will appear highlighted.
 
 The PR file tree will now highlight the files you need to review with a letter to represent your role (Owner, Alternate, Reviewer):
 
-![Files tree highlighting.](static/owners-file-tree.png)
+![Files tree highlighting.](assets/owners-file-tree.png)
 
 Collapsed files are highlighted if they contain files you need to review:
 
-![Highlighted folder.](static/owners-collapsed-folders.png)
+![Highlighted folder.](assets/owners-collapsed-folders.png)
 
 In the multi-file diff view, your files are also highlighted with a blue line on the left:
 
-![Highlighted diffs.](static/owners-diff-highlight.png)
+![Highlighted diffs.](assets/owners-diff-highlight.png)
 
 You can also press the new "Toggle other files" button to fade out and collapse the other diffs! (Ideally, I would hide them completely, but if I do, the AzDO interface bugs out.)
 
-![Toggle other files button.](static/owners-toggle-other-files.png)
+![Toggle other files button.](assets/owners-toggle-other-files.png)
 
 Hopefully all this makes it very easy to scan for the stuff you care about.
 
@@ -113,11 +113,11 @@ Scrollbars site-wide now match the current Azure DevOps color theme.
 
 Before :persevere:
 
-![Scrollbars before.](static/scrollbars-before.png)
+![Scrollbars before.](assets/scrollbars-before.png)
 
 After :smirk:
 
-![Scrollbars now.](static/scrollbars-after.png)
+![Scrollbars now.](assets/scrollbars-after.png)
 
 ## Documentation
 
