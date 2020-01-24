@@ -633,6 +633,29 @@
             }
 
             annotatePullRequestRow(row, $(`<span><span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}</span>`));
+
+            const builds = (await $.get(`${pr.lastMergeCommit.url}/statuses?api-version=5.1&latestOnly=true`)).value;
+
+            let buildStatus;
+            if (builds.length === 0) {
+              // buildStatus = '<i class="bowtie-icon bowtie-status-waiting"></i>';
+              buildStatus = ' ';
+            } else if (builds.every(b => b.state === 'succeeded' || b.description.includes('partially succeeded'))) {
+              // buildStatus = '<i class="bowtie-icon bowtie-check" aria-label="Succeeded"></i>';
+              buildStatus = '✔️';
+            } else if (builds.some(b => b.state === 'pending')) {
+              // buildStatus = '<i class="bowtie-icon bowtie-play-fill" aria-label="In progress"></i>';
+              buildStatus = '▶️';
+            } else {
+              buildStatus = '<i class="bowtie-icon bowtie-math-multiply" aria-label="Failed"></i>';
+              buildStatus = '❌';
+            }
+
+            if (buildStatus) {
+              const buildDescriptions = _.map(builds, 'description').join('\n');
+              const buildElement = $('<span style="cursor: help; margin: 2px">').append(buildStatus).attr('title', buildDescriptions);
+              annotatePullRequestRow(row, $('<span><span aria-hidden="true" class="contributed-icon flex-noshrink fabric-icon ms-Icon--Build"></span>&nbsp;</span>').append(buildElement));
+            }
           }
         } finally {
           // No matter what--e.g. even on error--show the row again.
@@ -662,11 +685,11 @@
     if ($('.prlist').length > 0) {
       // Add the file count on the overall PR dashboard.
       pullRequestRow.find('div.vss-DetailsList--titleCellTwoLine').parent()
-        .append($('<div style="margin: 0px 15px; width: 3em; text-align: left;" />').append(element));
+        .append($('<div style="margin: 0px 10px; width: 3.5em; text-align: left;" />').append(element));
     } else {
       // Add the file count on a repo's PR dashboard.
       pullRequestRow.find('div.vc-pullrequest-entry-col-secondary')
-        .after($('<div style="margin: 15px; width: 3.5em; display: flex; align-items: center; text-align: right;" />').append(element));
+        .after($('<div style="margin: 10px; width: 3.5em; display: flex; align-items: center; text-align: right;" />').append(element));
     }
   }
 
