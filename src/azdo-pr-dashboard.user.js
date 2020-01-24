@@ -616,46 +616,8 @@
 
           // Compute the size of certain PRs; e.g. those we haven't reviewed yet. But first, sure we've created a merge commit that we can compute its size.
           if (pr.lastMergeCommit) {
-            let fileCount = 0;
-
-            // See if this PR has owners info and count the files listed for the current user.
-            if (isAssignedToMe) {
-              const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(pr.url);
-              if (ownersInfo) {
-                fileCount = ownersInfo.currentUserFileCount;
-              }
-            }
-
-            // If there is no owner info or if it returns zero files to review (since we may not be on the review explicitly), then count the number of files in the merge commit.
-            if (fileCount === 0) {
-              const mergeCommitInfo = await $.get(`${pr.lastMergeCommit.url}/changes?api-version=5.0`);
-              fileCount = _(mergeCommitInfo.changes).filter(item => !item.item.isFolder).size();
-            }
-
-            annotatePullRequestRow(row, $(`<span><span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}</span>`));
-
-            const builds = (await $.get(`${pr.lastMergeCommit.url}/statuses?api-version=5.1&latestOnly=true`)).value;
-
-            let buildStatus;
-            if (builds.length === 0) {
-              // buildStatus = '<i class="bowtie-icon bowtie-status-waiting"></i>';
-              buildStatus = ' ';
-            } else if (builds.every(b => b.state === 'succeeded' || b.description.includes('partially succeeded'))) {
-              // buildStatus = '<i class="bowtie-icon bowtie-check" aria-label="Succeeded"></i>';
-              buildStatus = '✔️';
-            } else if (builds.some(b => b.state === 'pending')) {
-              // buildStatus = '<i class="bowtie-icon bowtie-play-fill" aria-label="In progress"></i>';
-              buildStatus = '▶️';
-            } else {
-              buildStatus = '<i class="bowtie-icon bowtie-math-multiply" aria-label="Failed"></i>';
-              buildStatus = '❌';
-            }
-
-            if (buildStatus) {
-              const buildDescriptions = _.map(builds, 'description').join('\n');
-              const buildElement = $('<span style="cursor: help; margin: 2px">').append(buildStatus).attr('title', buildDescriptions);
-              annotatePullRequestRow(row, $('<span><span aria-hidden="true" class="contributed-icon flex-noshrink fabric-icon ms-Icon--Build"></span>&nbsp;</span>').append(buildElement));
-            }
+            annotateFileCountOnPullRequestRow(row, pr, isAssignedToMe);
+            annotateBuildStatusOnPullRequestRow(row, pr);
           }
         } finally {
           // No matter what--e.g. even on error--show the row again.
@@ -665,6 +627,51 @@
     });
 
     sortEachPullRequestFunc();
+  }
+
+  async function annotateFileCountOnPullRequestRow(row, pr, isAssignedToMe) {
+    let fileCount = 0;
+
+    // See if this PR has owners info and count the files listed for the current user.
+    if (isAssignedToMe) {
+      const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(pr.url);
+      if (ownersInfo) {
+        fileCount = ownersInfo.currentUserFileCount;
+      }
+    }
+
+    // If there is no owner info or if it returns zero files to review (since we may not be on the review explicitly), then count the number of files in the merge commit.
+    if (fileCount === 0) {
+      const mergeCommitInfo = await $.get(`${pr.lastMergeCommit.url}/changes?api-version=5.0`);
+      fileCount = _(mergeCommitInfo.changes).filter(item => !item.item.isFolder).size();
+    }
+
+    annotatePullRequestRow(row, $(`<span><span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}</span>`));
+  }
+
+  async function annotateBuildStatusOnPullRequestRow(row, pr) {
+    const builds = (await $.get(`${pr.lastMergeCommit.url}/statuses?api-version=5.1&latestOnly=true`)).value;
+
+    let buildStatus;
+    if (builds.length === 0) {
+      // buildStatus = '<i class="bowtie-icon bowtie-status-waiting"></i>';
+      buildStatus = ' ';
+    } else if (builds.every(b => b.state === 'succeeded' || b.description.includes('partially succeeded'))) {
+      // buildStatus = '<i class="bowtie-icon bowtie-check" aria-label="Succeeded"></i>';
+      buildStatus = '✔️';
+    } else if (builds.some(b => b.state === 'pending')) {
+      // buildStatus = '<i class="bowtie-icon bowtie-play-fill" aria-label="In progress"></i>';
+      buildStatus = '▶️';
+    } else {
+      buildStatus = '<i class="bowtie-icon bowtie-math-multiply" aria-label="Failed"></i>';
+      buildStatus = '❌';
+    }
+
+    if (buildStatus) {
+      const buildDescriptions = _.map(builds, 'description').join('\n');
+      const buildElement = $('<span style="cursor: help; margin: 2px">').append(buildStatus).attr('title', buildDescriptions);
+      annotatePullRequestRow(row, $('<span><span aria-hidden="true" class="contributed-icon flex-noshrink fabric-icon ms-Icon--Build"></span>&nbsp;</span>').append(buildElement));
+    }
   }
 
   function assignSortOrderToPulLRequest(pullRequestRow, sortingTimestampAscending) {
