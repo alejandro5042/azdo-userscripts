@@ -571,7 +571,7 @@
           if (isAssignedToMe) {
             // Get non-deleted pr threads, ordered from newest to oldest.
             const prThreads = (await $.get(`${pr.url}/threads?api-version=5.0`)).value.filter(x => !x.isDeleted).reverse();
-            assignSortOrderToPulLRequest(row, getReviewerAddedOrResetTimestamp(prThreads, currentUser.uniqueName) || pr.createdDate);
+            assignSortOrderToPullRequest(row, getReviewerAddedOrResetTimestamp(prThreads, currentUser.uniqueName) || pr.createdDate);
 
             // Count the number of votes.
             let missingVotes = 0;
@@ -605,7 +605,11 @@
               movePullRequestIntoSection(row, sections.pending);
             }
           } else if (isCreatedByMe) {
-            assignSortOrderToPulLRequest(row, pr.createdDate);
+            if (pr.lastMergeCommit) {
+              assignSortOrderToPullRequest(row, pr.lastMergeCommit.committer.date);
+            } else {
+              assignSortOrderToPullRequest(row, pr.createdDate);
+            }
 
             if (pr.isDraft) {
               movePullRequestIntoSection(row, sections.draftsCreatedByMe);
@@ -673,7 +677,7 @@
     annotatePullRequestRow(row, $('<span><span aria-hidden="true" class="contributed-icon flex-noshrink fabric-icon ms-Icon--Build"></span>&nbsp;</span>').append(buildStatusIcon).css('opacity', opacity));
   }
 
-  function assignSortOrderToPulLRequest(pullRequestRow, sortingTimestampAscending) {
+  function assignSortOrderToPullRequest(pullRequestRow, sortingTimestampAscending) {
     // Order the reviews by when the current user was added (reviews that the user was added to most recently are listed last). We do this by ordering the rows inside a reversed-order flex container.
     // The order property is a 32-bit integer. If treat it as number of seconds, that allows a range of 68 years (2147483647 / (60 * 60 * 24 * 365)) in the positive values alone.
     // Dates values are number of milliseconds since 1970, so we wouldn't overflow until 2038. Still, we might as well subtract a more recent reference date, i.e. 2019.
