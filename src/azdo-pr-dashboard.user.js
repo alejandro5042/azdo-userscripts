@@ -616,8 +616,8 @@
 
           // Compute the size of certain PRs; e.g. those we haven't reviewed yet. But first, sure we've created a merge commit that we can compute its size.
           if (pr.lastMergeCommit) {
-            annotateFileCountOnPullRequestRow(row, pr, isAssignedToMe);
-            annotateBuildStatusOnPullRequestRow(row, pr);
+            await annotateFileCountOnPullRequestRow(row, pr, isAssignedToMe);
+            await annotateBuildStatusOnPullRequestRow(row, pr);
           }
         } finally {
           // No matter what--e.g. even on error--show the row again.
