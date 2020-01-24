@@ -653,21 +653,24 @@
     const builds = (await $.get(`${pr.lastMergeCommit.url}/statuses?api-version=5.1&latestOnly=true`)).value;
 
     let buildStatus;
+    let opacity;
     if (builds.length === 0) {
-      buildStatus = ' ';
+      buildStatus = '';
+      opacity = 0.3;
     } else if (builds.every(b => b.state === 'succeeded' || b.description.includes('partially succeeded'))) {
       buildStatus = '✔️';
+      opacity = 1.0;
     } else if (builds.some(b => b.state === 'pending')) {
       buildStatus = '▶️';
+      opacity = 1.0;
     } else {
       buildStatus = '❌';
+      opacity = 1.0;
     }
 
-    if (buildStatus) {
-      const buildDescriptions = _.map(builds, 'description').join('\n');
-      const buildStatusIcon = $('<span style="cursor: help; margin: 2px">').append(buildStatus).attr('title', buildDescriptions);
-      annotatePullRequestRow(row, $('<span><span aria-hidden="true" class="contributed-icon flex-noshrink fabric-icon ms-Icon--Build"></span>&nbsp;</span>').append(buildStatusIcon));
-    }
+    const buildDescriptions = _.map(builds, 'description').join('\n');
+    const buildStatusIcon = $('<span style="cursor: help; margin: 2px">').append(buildStatus).attr('title', buildDescriptions);
+    annotatePullRequestRow(row, $('<span><span aria-hidden="true" class="contributed-icon flex-noshrink fabric-icon ms-Icon--Build"></span>&nbsp;</span>').append(buildStatusIcon).css('opacity', opacity));
   }
 
   function assignSortOrderToPulLRequest(pullRequestRow, sortingTimestampAscending) {
