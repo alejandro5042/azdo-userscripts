@@ -669,8 +669,8 @@
 
     if (buildStatus) {
       const buildDescriptions = _.map(builds, 'description').join('\n');
-      const buildElement = $('<span style="cursor: help; margin: 2px">').append(buildStatus).attr('title', buildDescriptions);
-      annotatePullRequestRow(row, $('<span><span aria-hidden="true" class="contributed-icon flex-noshrink fabric-icon ms-Icon--Build"></span>&nbsp;</span>').append(buildElement));
+      const buildStatusIcon = $('<span style="cursor: help; margin: 2px">').append(buildStatus).attr('title', buildDescriptions);
+      annotatePullRequestRow(row, $('<span><span aria-hidden="true" class="contributed-icon flex-noshrink fabric-icon ms-Icon--Build"></span>&nbsp;</span>').append(buildStatusIcon));
     }
   }
 
