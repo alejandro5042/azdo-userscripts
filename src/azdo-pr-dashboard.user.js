@@ -654,16 +654,12 @@
 
     let buildStatus;
     if (builds.length === 0) {
-      // buildStatus = '<i class="bowtie-icon bowtie-status-waiting"></i>';
       buildStatus = ' ';
     } else if (builds.every(b => b.state === 'succeeded' || b.description.includes('partially succeeded'))) {
-      // buildStatus = '<i class="bowtie-icon bowtie-check" aria-label="Succeeded"></i>';
       buildStatus = '✔️';
     } else if (builds.some(b => b.state === 'pending')) {
-      // buildStatus = '<i class="bowtie-icon bowtie-play-fill" aria-label="In progress"></i>';
       buildStatus = '▶️';
     } else {
-      buildStatus = '<i class="bowtie-icon bowtie-math-multiply" aria-label="Failed"></i>';
       buildStatus = '❌';
     }
 
