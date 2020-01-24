@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.32.0
+// @version      2.33.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -571,7 +571,7 @@
           if (isAssignedToMe) {
             // Get non-deleted pr threads, ordered from newest to oldest.
             const prThreads = (await $.get(`${pr.url}/threads?api-version=5.0`)).value.filter(x => !x.isDeleted).reverse();
-            assignSortOrderToPulLRequest(row, getReviewerAddedOrResetTimestamp(prThreads, currentUser.uniqueName) || pr.createdDate);
+            assignSortOrderToPullRequest(row, getReviewerAddedOrResetTimestamp(prThreads, currentUser.uniqueName) || pr.createdDate);
 
             // Count the number of votes.
             let missingVotes = 0;
@@ -605,7 +605,11 @@
               movePullRequestIntoSection(row, sections.pending);
             }
           } else if (isCreatedByMe) {
-            assignSortOrderToPulLRequest(row, pr.createdDate);
+            if (pr.lastMergeCommit) {
+              assignSortOrderToPullRequest(row, pr.lastMergeCommit.committer.date);
+            } else {
+              assignSortOrderToPullRequest(row, pr.createdDate);
+            }
 
             if (pr.isDraft) {
               movePullRequestIntoSection(row, sections.draftsCreatedByMe);
@@ -616,23 +620,8 @@
 
           // Compute the size of certain PRs; e.g. those we haven't reviewed yet. But first, sure we've created a merge commit that we can compute its size.
           if (pr.lastMergeCommit) {
-            let fileCount = 0;
-
-            // See if this PR has owners info and count the files listed for the current user.
-            if (isAssignedToMe) {
-              const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(pr.url);
-              if (ownersInfo) {
-                fileCount = ownersInfo.currentUserFileCount;
-              }
-            }
-
-            // If there is no owner info or if it returns zero files to review (since we may not be on the review explicitly), then count the number of files in the merge commit.
-            if (fileCount === 0) {
-              const mergeCommitInfo = await $.get(`${pr.lastMergeCommit.url}/changes?api-version=5.0`);
-              fileCount = _(mergeCommitInfo.changes).filter(item => !item.item.isFolder).size();
-            }
-
-            annotatePullRequestRow(row, $(`<span><span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}</span>`));
+            await annotateFileCountOnPullRequestRow(row, pr, isAssignedToMe);
+            await annotateBuildStatusOnPullRequestRow(row, pr);
           }
         } finally {
           // No matter what--e.g. even on error--show the row again.
@@ -644,7 +633,51 @@
     sortEachPullRequestFunc();
   }
 
-  function assignSortOrderToPulLRequest(pullRequestRow, sortingTimestampAscending) {
+  async function annotateFileCountOnPullRequestRow(row, pr, isAssignedToMe) {
+    let fileCount = 0;
+
+    // See if this PR has owners info and count the files listed for the current user.
+    if (isAssignedToMe) {
+      const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(pr.url);
+      if (ownersInfo) {
+        fileCount = ownersInfo.currentUserFileCount;
+      }
+    }
+
+    // If there is no owner info or if it returns zero files to review (since we may not be on the review explicitly), then count the number of files in the merge commit.
+    if (fileCount === 0) {
+      const mergeCommitInfo = await $.get(`${pr.lastMergeCommit.url}/changes?api-version=5.0`);
+      fileCount = _(mergeCommitInfo.changes).filter(item => !item.item.isFolder).size();
+    }
+
+    annotatePullRequestRow(row, $(`<span><span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}</span>`));
+  }
+
+  async function annotateBuildStatusOnPullRequestRow(row, pr) {
+    const builds = (await $.get(`${pr.lastMergeCommit.url}/statuses?api-version=5.1&latestOnly=true`)).value;
+
+    let buildStatus;
+    let opacity;
+    if (builds.length === 0) {
+      buildStatus = '';
+      opacity = 0.3;
+    } else if (builds.every(b => b.state === 'succeeded' || b.description.includes('partially succeeded'))) {
+      buildStatus = '✔️';
+      opacity = 1.0;
+    } else if (builds.some(b => b.state === 'pending')) {
+      buildStatus = '▶️';
+      opacity = 1.0;
+    } else {
+      buildStatus = '❌';
+      opacity = 1.0;
+    }
+
+    const buildDescriptions = _.map(builds, 'description').join('\n');
+    const buildStatusIcon = $('<span style="cursor: help; margin: 2px">').append(buildStatus).attr('title', buildDescriptions);
+    annotatePullRequestRow(row, $('<span><span aria-hidden="true" class="contributed-icon flex-noshrink fabric-icon ms-Icon--Build"></span>&nbsp;</span>').append(buildStatusIcon).css('opacity', opacity));
+  }
+
+  function assignSortOrderToPullRequest(pullRequestRow, sortingTimestampAscending) {
     // Order the reviews by when the current user was added (reviews that the user was added to most recently are listed last). We do this by ordering the rows inside a reversed-order flex container.
     // The order property is a 32-bit integer. If treat it as number of seconds, that allows a range of 68 years (2147483647 / (60 * 60 * 24 * 365)) in the positive values alone.
     // Dates values are number of milliseconds since 1970, so we wouldn't overflow until 2038. Still, we might as well subtract a more recent reference date, i.e. 2019.
@@ -662,11 +695,11 @@
     if ($('.prlist').length > 0) {
       // Add the file count on the overall PR dashboard.
       pullRequestRow.find('div.vss-DetailsList--titleCellTwoLine').parent()
-        .append($('<div style="margin: 0px 15px; width: 3em; text-align: left;" />').append(element));
+        .append($('<div style="margin: 0px 10px; width: 3.5em; text-align: left;" />').append(element));
     } else {
       // Add the file count on a repo's PR dashboard.
       pullRequestRow.find('div.vc-pullrequest-entry-col-secondary')
-        .after($('<div style="margin: 15px; width: 3.5em; display: flex; align-items: center; text-align: right;" />').append(element));
+        .after($('<div style="margin: 10px; width: 3.5em; display: flex; align-items: center; text-align: right;" />').append(element));
     }
   }
 

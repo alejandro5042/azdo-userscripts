@@ -36,6 +36,10 @@ Sorts the PRs in your dashboard into categories:
 - PRs show how many files the reviewer needs to review
 - Your created PRs are also sorted
 
+Also, build status on PRs (see right column)! If it's empty, there isn't a build yet for that merge commit, or there isn't a merge commit yet.
+
+![Build status on PRs](assets/build-status.png)
+
 ### PR diff improvements
 
 You can now mark a file as reviewed with a checkbox! The data persists in local browser storage, so if you come back to the PR later, the checkboxes will still be there (up to 3 weeks).
