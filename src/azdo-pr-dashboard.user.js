@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.33.0
+// @version      2.34.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -61,7 +61,28 @@
       enhancePullRequestDashboard();
     }
 
+    if (/\/(pullrequests)/i.test(window.location.pathname)) {
+      addOrgPRLink();
+    }
+
     applyNicerScrollbars();
+  }
+
+  function getRepoNameFromUrl(url) {
+    const repoName = url.match(/_git\/(.+)\/pullrequests/)[1];
+    return repoName || '';
+  }
+
+  function addOrgPRLink() {
+    $('.page-title').once('decorate-with-org-pr-link').each(function () {
+      const titleElement = this;
+      $(titleElement).text((i, oldText) => `${getRepoNameFromUrl(window.location.pathname)} ${oldText}`);
+      const orgPRLink = document.createElement('a');
+      orgPRLink.href = `${azdoApiBaseUrl}_pulls`;
+      orgPRLink.text = 'View global PR dashboard';
+      orgPRLink.style = 'margin: 15px; font-size: 80%';
+      titleElement.insertAdjacentElement('beforeend', orgPRLink);
+    });
   }
 
   function highlightAwaitComments() {
