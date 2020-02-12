@@ -68,14 +68,23 @@
     applyNicerScrollbars();
   }
 
+  function getRepoNameFromUrl(url) {
+    const repoMatch = url.match(/_git\/(.+)\/pullrequests/)[1];
+    if (repoMatch == null) {
+      return '';
+    }
+    return `${repoMatch} `;
+  }
+
   function addOrgPRLink() {
     $('.page-title').once('decorate-with-org-pr-link').each(function () {
-      const titleElement = $(this)[0];
-      const repoPRLink = document.createElement('a');
-      repoPRLink.href = 'https://ni.visualstudio.com/_pulls';
-      repoPRLink.text = '(See all my PRs)';
-      repoPRLink.style = 'margin:15px;font-size:80%';
-      titleElement.insertAdjacentElement('beforeend', repoPRLink);
+      const titleElement = this;
+      $(titleElement).text((i, oldText) => getRepoNameFromUrl(window.location.pathname) + oldText);
+      const orgPRLink = document.createElement('a');
+      orgPRLink.href = `${azdoApiBaseUrl}_pulls`;
+      orgPRLink.text = 'View global PR dashboard';
+      orgPRLink.style = 'margin: 15px; font-size: 80%';
+      titleElement.insertAdjacentElement('beforeend', orgPRLink);
     });
   }
 
