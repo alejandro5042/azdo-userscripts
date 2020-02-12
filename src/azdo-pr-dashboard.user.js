@@ -69,17 +69,14 @@
   }
 
   function getRepoNameFromUrl(url) {
-    const repoMatch = url.match(/_git\/(.+)\/pullrequests/)[1];
-    if (repoMatch == null) {
-      return '';
-    }
-    return `${repoMatch} `;
+    const repoName = url.match(/_git\/(.+)\/pullrequests/)[1];
+    return repoName || '';
   }
 
   function addOrgPRLink() {
     $('.page-title').once('decorate-with-org-pr-link').each(function () {
       const titleElement = this;
-      $(titleElement).text((i, oldText) => getRepoNameFromUrl(window.location.pathname) + oldText);
+      $(titleElement).text((i, oldText) => `${getRepoNameFromUrl(window.location.pathname)} ${oldText}`);
       const orgPRLink = document.createElement('a');
       orgPRLink.href = `${azdoApiBaseUrl}_pulls`;
       orgPRLink.text = 'View global PR dashboard';
