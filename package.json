@@ -10,6 +10,7 @@
   },
   "scripts": {
     "build": "npm run lint",
-    "lint": "eslint --ignore-path .gitignore ."
+    "lint": "eslint --ignore-path .gitignore .",
+    "lint-fix": "eslint --fix --ignore-path .gitignore ."
   }
 }
