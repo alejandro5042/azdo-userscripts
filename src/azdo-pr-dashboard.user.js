@@ -124,7 +124,7 @@
       .identity-picker-dropdown ul.items, .scroll-tree-overflow-box, .ui-autocomplete, .vss-PickList--items {
         max-height: 50vh !important;
       }
-      /* Make annoying prompts to add links to work items less prominent, unless hovered over */
+      /* Prompts to add links to work items are much less prominent, unless hovered over */
       .zero-data-action, .deployments-zero-data {
         opacity: 0.2;
       }
