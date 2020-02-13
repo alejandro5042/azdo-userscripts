@@ -61,7 +61,28 @@
       enhancePullRequestDashboard();
     }
 
+    if (/\/(pullrequests)/i.test(window.location.pathname)) {
+      addOrgPRLink();
+    }
+
     enhanceOverallUX();
+  }
+
+  function getRepoNameFromUrl(url) {
+    const repoName = url.match(/_git\/(.+)\/pullrequests/)[1];
+    return repoName || '';
+  }
+
+  function addOrgPRLink() {
+    $('.page-title').once('decorate-with-org-pr-link').each(function () {
+      const titleElement = this;
+      $(titleElement).text((i, oldText) => `${getRepoNameFromUrl(window.location.pathname)} ${oldText}`);
+      const orgPRLink = document.createElement('a');
+      orgPRLink.href = `${azdoApiBaseUrl}_pulls`;
+      orgPRLink.text = 'View global PR dashboard';
+      orgPRLink.style = 'margin: 15px; font-size: 80%';
+      titleElement.insertAdjacentElement('beforeend', orgPRLink);
+    });
   }
 
   function highlightAwaitComments() {
