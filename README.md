@@ -123,6 +123,11 @@ After :smirk:
 
 ![Scrollbars now.](assets/scrollbars-after.png)
 
+Also:
+
+- Drop down menus are bigger!
+- Prompts to add links to work items are much less prominent, unless hovered over
+
 ## Documentation
 
 - [Support and troubleshooting](SUPPORT.md)

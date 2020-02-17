@@ -65,7 +65,7 @@
       addOrgPRLink();
     }
 
-    applyNicerScrollbars();
+    enhanceOverallUX();
   }
 
   function getRepoNameFromUrl(url) {
@@ -128,8 +128,9 @@
     });
   }
 
-  function applyNicerScrollbars() {
-    addStyleOnce('nicer-scrollbars', /* css */ `
+  function enhanceOverallUX() {
+    addStyleOnce('enhance-overall-ux', /* css */ `
+      /* Colored scrollbars */
       ::-webkit-scrollbar {
         width: 15px;
         height: 15px;
@@ -139,6 +140,21 @@
       }
       ::-webkit-scrollbar-thumb {
         background: rgb(var(--palette-neutral-20));
+      }
+      /* Bigger dropdown menus */
+      .identity-picker-dropdown ul.items, .scroll-tree-overflow-box, .ui-autocomplete, .vss-PickList--items {
+        max-height: 50vh !important;
+      }
+      /* Prompts to add links to work items are much less prominent, unless hovered over */
+      .zero-data-action, .deployments-zero-data {
+        opacity: 0.2;
+      }
+      .zero-data-action img, .deployments-zero-data img,
+      .zero-data-action i, .deployments-zero-data i {
+        display: none;
+      }
+      .zero-data-action:hover, .deployments-zero-data:hover {
+        opacity: 1;
       }`);
   }
 
