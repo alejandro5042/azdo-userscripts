@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.35.0
+// @version      2.36.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -10,13 +10,12 @@
 // @homepageURL  https://alejandro5042.github.io/azdo-userscripts/
 // @supportURL   https://alejandro5042.github.io/azdo-userscripts/SUPPORT.html
 // @updateURL    https://rebrand.ly/update-azdo-pr-dashboard-user-js
-
 // @contributionURL  https://github.com/alejandro5042/azdo-userscripts
 
 // @include      https://dev.azure.com/*
 // @include      https://*.visualstudio.com/*
 
-// @run-at       document-end
+// @run-at       document-body
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js#sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jquery-once/2.2.3/jquery.once.min.js#sha256-HaeXVMzafCQfVtWoLtN3wzhLWNs8cY2cH9OIQ8R9jfM=
 // @require      https://cdnjs.cloudflare.com/ajax/libs/lscache/1.3.0/lscache.js#sha256-QVvX22TtfzD4pclw/4yxR0G1/db2GZMYG9+gxRM9v30=
@@ -41,11 +40,21 @@
   // Set a namespace for our local storage items.
   lscache.setBucket('acb-azdo/');
 
-  // Call our event handler if we notice new elements being inserted into the DOM. This happens as the page is loading or updating dynamically based on user activity. We throttle new element events to avoid using up CPU when AzDO is adding a lot of elements during a short time (like on page load).
-  document.addEventListener('DOMNodeInserted', _.throttle(onPageDOMNodeInserted, 400));
+  // Throttle page update events to avoid using up CPU when AzDO is adding a lot of elements during a short time (like on page load).
+  const onPageUpdatedThrottled = _.throttle(onPageUpdated, 400, { leading: false, trailing: true });
+
+  // Start modifying the page once the DOM is ready.
+  document.addEventListener('DOMContentLoaded', () => {
+    // Handle any existing elements, flushing it to execute immediately.
+    onPageUpdatedThrottled();
+    onPageUpdatedThrottled.flush();
+
+    // Call our event handler if we notice new elements being inserted into the DOM. This happens as the page is loading or updating dynamically based on user activity.
+    document.addEventListener('DOMNodeInserted', onPageUpdatedThrottled);
+  });
 
   // This is "main()" for this script. Runs periodically when the page updates.
-  function onPageDOMNodeInserted(event) {
+  function onPageUpdated() {
     // The page may not have refreshed when moving between URLs--sometimes AzDO acts as a single-page application. So we must always check where we are and act accordingly.
     if (/\/(pullrequest)\//i.test(window.location.pathname)) {
       addCheckboxesToFiles();
@@ -64,9 +73,9 @@
     if (/\/(pullrequests)/i.test(window.location.pathname)) {
       addOrgPRLink();
     }
-
-    enhanceOverallUX();
   }
+
+  enhanceOverallUX();
 
   function getRepoNameFromUrl(url) {
     const repoName = url.match(/_git\/(.+)\/pullrequests/)[1];
