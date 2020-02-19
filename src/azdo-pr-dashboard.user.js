@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.36.0
+// @version      2.36.1
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -30,28 +30,29 @@
   // All REST API calls should fail after a timeout, instead of going on forever.
   $.ajaxSetup({ timeout: 5000 });
 
-  // Find out who is our current user. In general, we should avoid using pageData because it doesn't always get updated when moving between page-to-page in AzDO's single-page application flow. Instead, rely on the AzDO REST APIs to get information from stuff you find on the page or the URL. Some things are OK to get from pageData; e.g. stuff like the user which is available on all pages.
-  const pageData = JSON.parse(document.getElementById('dataProviders').innerHTML).data;
-  const currentUser = pageData['ms.vss-web.page-data'].user;
-
-  // Because of CORS, we need to make sure we're querying the same hostname for our AzDO APIs.
-  const azdoApiBaseUrl = `${window.location.origin}${pageData['ms.vss-tfs-web.header-action-data'].suiteHomeUrl}`;
-
-  // Set a namespace for our local storage items.
   lscache.setBucket('acb-azdo/');
 
-  // Throttle page update events to avoid using up CPU when AzDO is adding a lot of elements during a short time (like on page load).
-  const onPageUpdatedThrottled = _.throttle(onPageUpdated, 400, { leading: false, trailing: true });
+  var currentUser;
+  var azdoApiBaseUrl;
 
-  // Start modifying the page once the DOM is ready.
-  document.addEventListener('DOMContentLoaded', () => {
+  function onReady() {
+    // Find out who is our current user. In general, we should avoid using pageData because it doesn't always get updated when moving between page-to-page in AzDO's single-page application flow. Instead, rely on the AzDO REST APIs to get information from stuff you find on the page or the URL. Some things are OK to get from pageData; e.g. stuff like the user which is available on all pages.
+    const pageData = JSON.parse(document.getElementById('dataProviders').innerHTML).data;
+    currentUser = pageData['ms.vss-web.page-data'].user;
+
+    // Because of CORS, we need to make sure we're querying the same hostname for our AzDO APIs.
+    azdoApiBaseUrl = `${window.location.origin}${pageData['ms.vss-tfs-web.header-action-data'].suiteHomeUrl}`;
+
     // Handle any existing elements, flushing it to execute immediately.
     onPageUpdatedThrottled();
     onPageUpdatedThrottled.flush();
 
     // Call our event handler if we notice new elements being inserted into the DOM. This happens as the page is loading or updating dynamically based on user activity.
     document.addEventListener('DOMNodeInserted', onPageUpdatedThrottled);
-  });
+  }
+
+  // Throttle page update events to avoid using up CPU when AzDO is adding a lot of elements during a short time (like on page load).
+  const onPageUpdatedThrottled = _.throttle(onPageUpdated, 400, { leading: false, trailing: true });
 
   // This is "main()" for this script. Runs periodically when the page updates.
   function onPageUpdated() {
@@ -961,5 +962,12 @@
     }
 
     return ownersInfo;
+  }
+
+  // Start modifying the page once the DOM is ready.
+  if (document.readyState !== "loading") {
+    onReady();
+  } else {
+    document.addEventListener("DOMContentLoaded", onReady);
   }
 }());
