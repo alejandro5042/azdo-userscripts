@@ -44,6 +44,7 @@ More:
 
 - Labels now appear on the overall PR dashboard
 - At NI, some labels get coloring (e.g. "bypass owners" gets a red background)
+- If a PR has bug work items associated with it, we add a label with the severity of such bugs (if SEV == 1 or 2)
 
 ### PR diff improvements
 

@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.38.0
+// @version      2.39.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -86,8 +86,8 @@
   enhanceOverallUX();
 
   addStyleOnce('labels', /* css */ `
-    /* The overall PR dashboard doesn't show tags by default, so we need to add in some CSS when we add tags to that dashboard. */
-    .prlist .tag-box {
+    /* The overall PR dashboard doesn't show tags by default, so we need to add in some CSS when we add tags to that dashboard. Also, reuse this style for PR bug severity. */
+    .prlist .tag-box, .pr-bug-severity {
       margin: 2px 3px;
       padding: 0px 6px;
       font-size: 12px;
@@ -96,6 +96,19 @@
       background-color: rgba(239,246,252,1);
       background-color: rgba(var(--palette-primary-tint-40,239, 246, 252),1);
       user-select: none;
+    }
+    /* Known bug severities we should style. */
+    .pr-bug-severity {
+      display: none;
+      cursor: help;
+    }
+    .pr-bug-severity--1-critical {
+      background: #a008 !important;
+      display: initial;
+    }
+    .pr-bug-severity--2-high {
+      background: #fd38 !important;
+      display: initial;
     }
     /* Known labels we should style. */
     .label--owners {
@@ -706,6 +719,7 @@
           await addLabelsToPullRequest(row, pr);
           await annotateBuildStatusOnPullRequestRow(row, pr);
           await annotateFileCountOnPullRequestRow(row, pr, isAssignedToMe);
+          await annotateBugsOnPullRequestRow(row, pr);
         } finally {
           // No matter what--e.g. even on error--show the row again.
           row.show(150);
@@ -714,6 +728,25 @@
     });
 
     sortEachPullRequestFunc();
+  }
+
+  async function annotateBugsOnPullRequestRow(row, pr) {
+    const workItemRefs = (await $.get(`${pr.url}/workitems?api-version=5.1`)).value;
+    for (const workItemRef of workItemRefs) {
+      // eslint-disable-next-line no-await-in-loop
+      const workItem = await $.get(`${workItemRef.url}?api-version=5.1`);
+      if (workItem.fields['System.WorkItemType'] === 'Bug') {
+        const severity = workItem.fields['Microsoft.VSTS.Common.Severity'];
+        if (severity) {
+          const title = workItem.fields['System.Title'];
+          annotatePullRequestTitle(row,
+            $('<span class="pr-bug-severity" />')
+              .text(`SEV${severity}`)
+              .addClass(`pr-bug-severity--${stringToCssIdentifier(severity)}`)
+              .attr('title', title));
+        }
+      }
+    }
   }
 
   async function addLabelsToPullRequest(row, pr) {
@@ -802,13 +835,23 @@
 
   function annotatePullRequestRow(pullRequestRow, element) {
     if ($('.prlist').length > 0) {
-      // Add the file count on the overall PR dashboard.
+      // Overall PR dashboard.
       pullRequestRow.find('div.vss-DetailsList--titleCellTwoLine').parent()
         .append($('<div style="margin: 0px 10px; width: 3.5em; text-align: left;" />').append(element));
     } else {
-      // Add the file count on a repo's PR dashboard.
+      // Repo PR dashboard.
       pullRequestRow.find('div.vc-pullrequest-entry-col-secondary')
         .after($('<div style="margin: 10px; width: 3.5em; display: flex; align-items: center; text-align: right;" />').append(element));
+    }
+  }
+
+  function annotatePullRequestTitle(pullRequestRow, element) {
+    if ($('.prlist').length > 0) {
+      // Overall PR dashboard.
+      pullRequestRow.find('.vss-DetailsList--titleCellPrimary').append(element);
+    } else {
+      // Repo PR dashboard.
+      pullRequestRow.find('.primary-line').append(element);
     }
   }
 
