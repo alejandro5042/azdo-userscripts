@@ -38,6 +38,9 @@
   // Throttle page update events to avoid using up CPU when AzDO is adding a lot of elements during a short time (like on page load).
   const onPageUpdatedThrottled = _.throttle(onPageUpdated, 400, { leading: false, trailing: true });
 
+  // Some features only apply at National Instruments.
+  const atNI = /^ni\./i.test(window.location.hostname) || /^\/ni\//i.test(window.location.pathname);
+
   function onReady() {
     // Find out who is our current user. In general, we should avoid using pageData because it doesn't always get updated when moving between page-to-page in AzDO's single-page application flow. Instead, rely on the AzDO REST APIs to get information from stuff you find on the page or the URL. Some things are OK to get from pageData; e.g. stuff like the user which is available on all pages.
     const pageData = JSON.parse(document.getElementById('dataProviders').innerHTML).data;
@@ -64,11 +67,15 @@
       applyStickyPullRequestComments();
       highlightAwaitComments();
       addAccessKeysToPullRequestTabs();
-      if (/\/DevCentral\/_git\/ASW\//i.test(window.location.pathname)) {
+      if (atNI && /\/DevCentral\/_git\/ASW\//i.test(window.location.pathname)) {
         addNICodeOfDayToggle();
       }
     } else if (/\/(_pulls|pullrequests)/i.test(window.location.pathname)) {
       enhancePullRequestDashboard();
+    }
+
+    if (atNI) {
+      styleLabels();
     }
 
     if (/\/(pullrequests)/i.test(window.location.pathname)) {
@@ -77,6 +84,45 @@
   }
 
   enhanceOverallUX();
+
+  addStyleOnce('labels', /* css */ `
+    /* The overall PR dashboard doesn't show tags by default, so we need to add in some CSS when we add tags to that dashboard. */
+    .prlist .tag-box {
+      margin: 2px 3px;
+      padding: 2px 6px;
+      font-size: 12px;
+      color: rgba(0,0,0,.55);
+      color: var(--text-secondary-color,rgba(0, 0, 0, .55));
+      background-color: rgba(239,246,252,1);
+      background-color: rgba(var(--palette-primary-tint-40,239, 246, 252),1);
+      user-select: none;
+    }
+    /* Known labels we should style. */
+    .label--owners {
+      background: #00f4 !important;
+    }
+    .label--draft {
+      background: #8808 !important;
+    }
+    .label--tiny {
+      background: #0a08 !important;
+    }
+    .label--bypassowners {
+      background: #a008 !important;
+    }`);
+
+  function styleLabels() {
+    // Give all tags a CSS class based on their name.
+    $('.tag-box').once('labels').each(function () {
+      const tagBox = $(this);
+      const subClass = stringToCssIdentifier(tagBox.text());
+      tagBox.addClass(`label--${subClass}`);
+    });
+  }
+
+  function stringToCssIdentifier(text) {
+    return encodeURIComponent(text.toLowerCase()).replace(/%[0-9A-F]{2}/gi, '');
+  }
 
   function getRepoNameFromUrl(url) {
     const repoName = url.match(/_git\/(.+)\/pullrequests/)[1];
@@ -614,6 +660,15 @@
 
           // Get complete information about the PR.
           const pr = await getPullRequestAsync(pullRequestId);
+
+          // Add labels to PRs listed in the overall PR dashboard.
+          const linkWithoutLabels = $(row).find('.vss-DetailsList--titleCellPrimary');
+          if (linkWithoutLabels.length > 0) {
+            const labels = (await $.get(`${pr.url}/labels?api-version=5.1-preview.1`)).value.filter(x => x.active);
+            for (const label of labels) {
+              $('<span class="tag-box" />').text(label.name).appendTo(linkWithoutLabels);
+            }
+          }
 
           if (isAssignedToMe) {
             // Get non-deleted pr threads, ordered from newest to oldest.
