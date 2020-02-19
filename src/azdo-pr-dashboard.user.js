@@ -89,7 +89,7 @@
     /* The overall PR dashboard doesn't show tags by default, so we need to add in some CSS when we add tags to that dashboard. */
     .prlist .tag-box {
       margin: 2px 3px;
-      padding: 2px 6px;
+      padding: 0px 6px;
       font-size: 12px;
       color: rgba(0,0,0,.55);
       color: var(--text-secondary-color,rgba(0, 0, 0, .55));
