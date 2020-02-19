@@ -107,7 +107,7 @@
       display: initial;
     }
     .pr-bug-severity--2-high {
-      background: #a808 !important;
+      background: #fd38 !important;
       display: initial;
     }
     /* Known labels we should style. */
