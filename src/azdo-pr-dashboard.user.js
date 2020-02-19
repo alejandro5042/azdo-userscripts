@@ -32,8 +32,11 @@
 
   lscache.setBucket('acb-azdo/');
 
-  var currentUser;
-  var azdoApiBaseUrl;
+  let currentUser;
+  let azdoApiBaseUrl;
+
+  // Throttle page update events to avoid using up CPU when AzDO is adding a lot of elements during a short time (like on page load).
+  const onPageUpdatedThrottled = _.throttle(onPageUpdated, 400, { leading: false, trailing: true });
 
   function onReady() {
     // Find out who is our current user. In general, we should avoid using pageData because it doesn't always get updated when moving between page-to-page in AzDO's single-page application flow. Instead, rely on the AzDO REST APIs to get information from stuff you find on the page or the URL. Some things are OK to get from pageData; e.g. stuff like the user which is available on all pages.
@@ -50,9 +53,6 @@
     // Call our event handler if we notice new elements being inserted into the DOM. This happens as the page is loading or updating dynamically based on user activity.
     document.addEventListener('DOMNodeInserted', onPageUpdatedThrottled);
   }
-
-  // Throttle page update events to avoid using up CPU when AzDO is adding a lot of elements during a short time (like on page load).
-  const onPageUpdatedThrottled = _.throttle(onPageUpdated, 400, { leading: false, trailing: true });
 
   // This is "main()" for this script. Runs periodically when the page updates.
   function onPageUpdated() {
@@ -965,9 +965,9 @@
   }
 
   // Start modifying the page once the DOM is ready.
-  if (document.readyState !== "loading") {
+  if (document.readyState !== 'loading') {
     onReady();
   } else {
-    document.addEventListener("DOMContentLoaded", onReady);
+    document.addEventListener('DOMContentLoaded', onReady);
   }
 }());
