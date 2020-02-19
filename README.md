@@ -40,6 +40,11 @@ Also, build status on PRs (see right column)! If it's empty, there isn't a build
 
 ![Build status on PRs](assets/build-status.png)
 
+More:
+
+- Labels now appear on the overall PR dashboard
+- At NI, some labels get coloring (e.g. "bypass owners" gets a red background)
+
 ### PR diff improvements
 
 You can now mark a file as reviewed with a checkbox! The data persists in local browser storage, so if you come back to the PR later, the checkboxes will still be there (up to 3 weeks).
