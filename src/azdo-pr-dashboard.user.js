@@ -954,6 +954,7 @@
         } else if (alternate.email === currentUser.uniqueName) {
           ownersInfo.currentUserFilesToRole[file.Path] = 'A';
           ownersInfo.currentUserFileCount += 1;
+          // eslint-disable-next-line no-loop-func
         } else if (_(reviewers).some(r => r.email === currentUser.uniqueName)) {
           ownersInfo.currentUserFilesToRole[file.Path] = 'R';
           ownersInfo.currentUserFileCount += 1;
