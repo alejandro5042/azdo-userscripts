@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.37.0
+// @version      2.38.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -636,39 +636,19 @@
       }
 
       // Loop through the PRs that we've voted on.
-      sortEachPullRequestFunc = () => $("[role='region'], .ms-GroupedList-group").find('[role="list"] [role="listitem"]').once('pr-enhanced').each(async function () {
-        const row = $(this);
-        const isAssignedToMe = $(personalReviewSection).has(row).length !== 0;
-        const isCreatedByMe = $(createdByMeSection).has(row).length !== 0;
-
-        // Loop until AzDO has added the link to the PR into the row.
-        let pullRequestHref;
-        while (!pullRequestHref) {
-          // Important! Do not remove this sleep, even on the first iteration. We need to give AzDO some time to finish making the row before moving it. If we don't sleep for some time, and we begin moving rows, AzDO may get confused and not create all the PR rows. That would cause some PRs to not be rendered in the list. The best solution is to wait until the list finishes to render via an event handler; except that I don't know how to hook into that without understanding AzDO JS infrastructure. The sleep time was chosen to balance first load time (don't wait too long before sorting) and what appears to be long enough to avoid the missing PR problem when sorting a 50+ PR dashboard, as determined by experimentation (refreshing the page a dozen or so times).
-          // eslint-disable-next-line no-await-in-loop
-          await sleep(300);
-          pullRequestHref = row.find("a[href*='/pullrequest/']").attr('href');
-        }
+      sortEachPullRequestFunc = () => $(".vc-pullRequest-list-section.mine[role='region'], .ms-GroupedList-group").find("a[href*='/pullrequest/']").once('pr-enhanced').each(async function () {
+        const row = $(this).closest('[role="list"] [role="listitem"]');
 
         try {
-          // Hide the row while we are updating it.
           row.hide(150);
 
-          // Get the PR id.
-          const pullRequestUrl = new URL(pullRequestHref, window.location.origin);
-          const pullRequestId = parseInt(pullRequestUrl.pathname.substring(pullRequestUrl.pathname.lastIndexOf('/') + 1), 10);
+          const isAssignedToMe = $(personalReviewSection).has(row).length !== 0;
+          const isCreatedByMe = $(createdByMeSection).has(row).length !== 0;
 
           // Get complete information about the PR.
+          const pullRequestUrl = new URL($(this).attr('href'), window.location.origin);
+          const pullRequestId = parseInt(pullRequestUrl.pathname.substring(pullRequestUrl.pathname.lastIndexOf('/') + 1), 10);
           const pr = await getPullRequestAsync(pullRequestId);
-
-          // Add labels to PRs listed in the overall PR dashboard.
-          const linkWithoutLabels = $(row).find('.vss-DetailsList--titleCellPrimary');
-          if (linkWithoutLabels.length > 0) {
-            const labels = (await $.get(`${pr.url}/labels?api-version=5.1-preview.1`)).value.filter(x => x.active);
-            for (const label of labels) {
-              $('<span class="tag-box" />').text(label.name).appendTo(linkWithoutLabels);
-            }
-          }
 
           if (isAssignedToMe) {
             // Get non-deleted pr threads, ordered from newest to oldest.
@@ -720,11 +700,12 @@
             }
           }
 
-          // Compute the size of certain PRs; e.g. those we haven't reviewed yet. But first, sure we've created a merge commit that we can compute its size.
-          if (pr.lastMergeCommit) {
-            await annotateFileCountOnPullRequestRow(row, pr, isAssignedToMe);
-            await annotateBuildStatusOnPullRequestRow(row, pr);
-          }
+          // The row is now in the right category and won't be moving around more. Show it before we keep annotating (which can take longer).
+          row.show(150);
+
+          await addLabelsToPullRequest(row, pr);
+          await annotateBuildStatusOnPullRequestRow(row, pr);
+          await annotateFileCountOnPullRequestRow(row, pr, isAssignedToMe);
         } finally {
           // No matter what--e.g. even on error--show the row again.
           row.show(150);
@@ -735,46 +716,72 @@
     sortEachPullRequestFunc();
   }
 
-  async function annotateFileCountOnPullRequestRow(row, pr, isAssignedToMe) {
-    let fileCount = 0;
-
-    // See if this PR has owners info and count the files listed for the current user.
-    if (isAssignedToMe) {
-      const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(pr.url);
-      if (ownersInfo) {
-        fileCount = ownersInfo.currentUserFileCount;
+  async function addLabelsToPullRequest(row, pr) {
+    // Add labels to PRs listed in the overall PR dashboard.
+    const linkWithoutLabels = $(row).find('.vss-DetailsList--titleCellPrimary');
+    if (linkWithoutLabels.length > 0) {
+      const labels = (await $.get(`${pr.url}/labels?api-version=5.1-preview.1`)).value.filter(x => x.active);
+      for (const label of labels) {
+        $('<span class="tag-box" />').text(label.name).appendTo(linkWithoutLabels);
       }
     }
+  }
 
-    // If there is no owner info or if it returns zero files to review (since we may not be on the review explicitly), then count the number of files in the merge commit.
-    if (fileCount === 0) {
-      const mergeCommitInfo = await $.get(`${pr.lastMergeCommit.url}/changes?api-version=5.0`);
-      fileCount = _(mergeCommitInfo.changes).filter(item => !item.item.isFolder).size();
+  async function annotateFileCountOnPullRequestRow(row, pr, isAssignedToMe) {
+    let fileCount;
+
+    if (pr.lastMergeCommit) {
+      fileCount = 0;
+
+      // See if this PR has owners info and count the files listed for the current user.
+      if (isAssignedToMe) {
+        const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(pr.url);
+        if (ownersInfo) {
+          fileCount = ownersInfo.currentUserFileCount;
+        }
+      }
+
+      // If there is no owner info or if it returns zero files to review (since we may not be on the review explicitly), then count the number of files in the merge commit.
+      if (fileCount === 0) {
+        const mergeCommitInfo = await $.get(`${pr.lastMergeCommit.url}/changes?api-version=5.0`);
+        fileCount = _(mergeCommitInfo.changes).filter(item => !item.item.isFolder).size();
+      }
+    } else {
+      fileCount = '⛔';
     }
 
     annotatePullRequestRow(row, $(`<span><span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}</span>`));
   }
 
   async function annotateBuildStatusOnPullRequestRow(row, pr) {
-    const builds = (await $.get(`${pr.lastMergeCommit.url}/statuses?api-version=5.1&latestOnly=true`)).value;
-
     let buildStatus;
     let opacity;
-    if (builds.length === 0) {
+    let buildDescriptions;
+
+    if (pr.lastMergeCommit) {
+      const builds = (await $.get(`${pr.lastMergeCommit.url}/statuses?api-version=5.1&latestOnly=true`)).value;
+
+      if (builds.length === 0) {
+        buildStatus = '';
+        opacity = 0.3;
+      } else if (builds.every(b => b.state === 'succeeded' || b.description.includes('partially succeeded'))) {
+        buildStatus = '✔️';
+        opacity = 1.0;
+      } else if (builds.some(b => b.state === 'pending')) {
+        buildStatus = '▶️';
+        opacity = 1.0;
+      } else {
+        buildStatus = '❌';
+        opacity = 1.0;
+      }
+
+      buildDescriptions = _.map(builds, 'description').join('\n');
+    } else {
       buildStatus = '';
       opacity = 0.3;
-    } else if (builds.every(b => b.state === 'succeeded' || b.description.includes('partially succeeded'))) {
-      buildStatus = '✔️';
-      opacity = 1.0;
-    } else if (builds.some(b => b.state === 'pending')) {
-      buildStatus = '▶️';
-      opacity = 1.0;
-    } else {
-      buildStatus = '❌';
-      opacity = 1.0;
+      buildDescriptions = 'No merge commit to build.';
     }
 
-    const buildDescriptions = _.map(builds, 'description').join('\n');
     const buildStatusIcon = $('<span style="cursor: help; margin: 2px">').append(buildStatus).attr('title', buildDescriptions);
     annotatePullRequestRow(row, $('<span><span aria-hidden="true" class="contributed-icon flex-noshrink fabric-icon ms-Icon--Build"></span>&nbsp;</span>').append(buildStatusIcon).css('opacity', opacity));
   }
