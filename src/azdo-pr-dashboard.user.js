@@ -729,11 +729,9 @@
 
   async function annotateFileCountOnPullRequestRow(row, pr, isAssignedToMe) {
     let fileCount;
-    let opacity;
 
     if (pr.lastMergeCommit) {
       fileCount = 0;
-      opacity = 1;
 
       // See if this PR has owners info and count the files listed for the current user.
       if (isAssignedToMe) {
@@ -749,11 +747,10 @@
         fileCount = _(mergeCommitInfo.changes).filter(item => !item.item.isFolder).size();
       }
     } else {
-      fileCount = '';
-      opacity = 0.3;
+      fileCount = '⛔';
     }
 
-    annotatePullRequestRow(row, $(`<span><span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}</span>`).css('opacity', opacity));
+    annotatePullRequestRow(row, $(`<span><span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}</span>`));
   }
 
   async function annotateBuildStatusOnPullRequestRow(row, pr) {
