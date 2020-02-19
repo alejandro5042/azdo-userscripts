@@ -720,7 +720,6 @@
           await annotateBuildStatusOnPullRequestRow(row, pr);
           await annotateFileCountOnPullRequestRow(row, pr, isAssignedToMe);
           await annotateBugsOnPullRequestRow(row, pr);
-
         } finally {
           // No matter what--e.g. even on error--show the row again.
           row.show(150);
