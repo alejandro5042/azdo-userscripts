@@ -54,32 +54,48 @@
     onPageUpdatedThrottled.flush();
 
     // Call our event handler if we notice new elements being inserted into the DOM. This happens as the page is loading or updating dynamically based on user activity.
-    document.addEventListener('DOMNodeInserted', onPageUpdatedThrottled);
+    $('body > div.full-size')[0].addEventListener('DOMNodeInserted', onPageUpdatedThrottled);
   }
+
+  let errorCount = 0;
 
   // This is "main()" for this script. Runs periodically when the page updates.
   function onPageUpdated() {
-    // The page may not have refreshed when moving between URLs--sometimes AzDO acts as a single-page application. So we must always check where we are and act accordingly.
-    if (/\/(pullrequest)\//i.test(window.location.pathname)) {
-      addCheckboxesToFiles();
-      addBaseUpdateSelector();
-      makePullRequestDiffEasierToScroll();
-      applyStickyPullRequestComments();
-      highlightAwaitComments();
-      addAccessKeysToPullRequestTabs();
-      if (atNI && /\/DevCentral\/_git\/ASW\//i.test(window.location.pathname)) {
-        addNICodeOfDayToggle();
+    try {
+      // The page may not have refreshed when moving between URLs--sometimes AzDO acts as a single-page application. So we must always check where we are and act accordingly.
+      if (/\/(pullrequest)\//i.test(window.location.pathname)) {
+        addCheckboxesToFiles();
+        addBaseUpdateSelector();
+        makePullRequestDiffEasierToScroll();
+        applyStickyPullRequestComments();
+        highlightAwaitComments();
+        addAccessKeysToPullRequestTabs();
+        if (atNI && /\/DevCentral\/_git\/ASW\//i.test(window.location.pathname)) {
+          addNICodeOfDayToggle();
+        }
+      } else if (/\/(_pulls|pullrequests)/i.test(window.location.pathname)) {
+        enhancePullRequestDashboard();
       }
-    } else if (/\/(_pulls|pullrequests)/i.test(window.location.pathname)) {
-      enhancePullRequestDashboard();
-    }
 
-    if (atNI) {
-      styleLabels();
-    }
+      if (atNI) {
+        styleLabels();
+      }
 
-    if (/\/(pullrequests)/i.test(window.location.pathname)) {
-      addOrgPRLink();
+      if (/\/(pullrequests)/i.test(window.location.pathname)) {
+        throw new Error('Everything is bad and I hate it!');
+        addOrgPRLink();
+      }
+    } catch (e) {
+      errorCount += 1;
+      console.error('Userscript error: ', e);
+      $('#azdo-userscript-error').remove();
+      $('<div id="azdo-userscript-error" style="position: fixed; bottom: 0; left: 0; right: 0; padding: 10px 20px; background: #f66; border-top: 2px solid black; color: #000; z-index: 10000000" />')
+        .append($('<button style="float: right; font-weight: bold; padding: 5px 10px">Close</button>').click(function () { this.parentElement.remove(); }))
+        .append($(`<div style="padding: 5px 10px">${GM_info.script.name} v${GM_info.script.version} error #${errorCount}: <i>${e.message}</i> <strong>(<a href="${GM_info.script.supportURL}" target="_blank">Getting help with this error</a>)</strong></div>`))
+        .prependTo(document.body)
+        .on('mouseover', function () { $(this).stop(true, true).show(); })
+        .delay(3000)
+        .slideToggle(1000);
     }
   }
 
