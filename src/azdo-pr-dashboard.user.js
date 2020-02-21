@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.39.0
+// @version      2.39.1
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -649,7 +649,7 @@
       }
 
       // Loop through the PRs that we've voted on.
-      sortEachPullRequestFunc = () => $(".vc-pullRequest-list-section.mine[role='region'], .ms-GroupedList-group").find("a[href*='/pullrequest/']").once('pr-enhanced').each(async function () {
+      sortEachPullRequestFunc = () => $(".ms-GroupedList-group a[href*='/pullrequest/'].prlistlink, .vc-pullRequest-list-section.mine[role='region'] a[href*='/pullrequest/'].primary-text").once('pr-enhanced').each(async function () {
         const row = $(this).closest('[role="list"] [role="listitem"]');
 
         try {
@@ -741,7 +741,7 @@
           const title = workItem.fields['System.Title'];
           annotatePullRequestTitle(row,
             $('<span class="pr-bug-severity" />')
-              .text(`SEV${severity}`)
+              .text(`SEV${severity.replace(/ - .*$/, '')}`)
               .addClass(`pr-bug-severity--${stringToCssIdentifier(severity)}`)
               .attr('title', title));
         }
