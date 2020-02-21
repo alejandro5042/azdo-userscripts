@@ -649,9 +649,8 @@
       }
 
       // Loop through the PRs that we've voted on.
-      sortEachPullRequestFunc = () => $(".vc-pullRequest-list-section.mine[role='region'], .ms-GroupedList-group").find("a[href*='/pullrequest/']").once('pr-enhanced').each(async function () {
+      sortEachPullRequestFunc = () => $(".ms-GroupedList-group a[href*='/pullrequest/'].prlistlink, .vc-pullRequest-list-section.mine[role='region'] a[href*='/pullrequest/'].primary-text").once('pr-enhanced').each(async function () {
         const prLink = $(this);
-        const row = prLink.closest('[role="list"] [role="listitem"]');
 
         try {
           row.hide(150);
@@ -745,7 +744,7 @@
           const title = workItem.fields['System.Title'];
           annotatePullRequestTitle(row,
             $('<span class="pr-bug-severity" />')
-              .text(`SEV${severity}`)
+              .text(`SEV${severity.replace(/ - .*$/, '')}`)
               .addClass(`pr-bug-severity--${stringToCssIdentifier(severity)}`)
               .attr('title', title));
         }
