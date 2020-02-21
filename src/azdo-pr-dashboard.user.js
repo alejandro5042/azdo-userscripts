@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.39.0
+// @version      2.40.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -650,7 +650,8 @@
 
       // Loop through the PRs that we've voted on.
       sortEachPullRequestFunc = () => $(".vc-pullRequest-list-section.mine[role='region'], .ms-GroupedList-group").find("a[href*='/pullrequest/']").once('pr-enhanced').each(async function () {
-        const row = $(this).closest('[role="list"] [role="listitem"]');
+        const prLink = $(this);
+        const row = prLink.closest('[role="list"] [role="listitem"]');
 
         try {
           row.hide(150);
@@ -662,6 +663,9 @@
           const pullRequestUrl = new URL($(this).attr('href'), window.location.origin);
           const pullRequestId = parseInt(pullRequestUrl.pathname.substring(pullRequestUrl.pathname.lastIndexOf('/') + 1), 10);
           const pr = await getPullRequestAsync(pullRequestId);
+
+          // Add a tooltip to the PR link. (The overall dashboard doesn't include tooltips.)
+          prLink.attr('title', pr.title);
 
           if (isAssignedToMe) {
             // Get non-deleted pr threads, ordered from newest to oldest.
