@@ -60,7 +60,6 @@
   let errorCount = 0;
 
   addStyleOnce('azdo-userscript-error', /* css */ `
-    /* The overall PR dashboard doesn't show tags by default, so we need to add in some CSS when we add tags to that dashboard. Also, reuse this style for PR bug severity. */
     #azdo-userscript-error {
       position: fixed;
       bottom: 0;
