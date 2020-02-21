@@ -651,6 +651,7 @@
       // Loop through the PRs that we've voted on.
       sortEachPullRequestFunc = () => $(".ms-GroupedList-group a[href*='/pullrequest/'].prlistlink, .vc-pullRequest-list-section.mine[role='region'] a[href*='/pullrequest/'].primary-text").once('pr-enhanced').each(async function () {
         const prLink = $(this);
+        const row = prLink.closest('[role="list"] [role="listitem"]');
 
         try {
           row.hide(150);
