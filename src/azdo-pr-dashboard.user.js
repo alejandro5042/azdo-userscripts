@@ -54,32 +54,77 @@
     onPageUpdatedThrottled.flush();
 
     // Call our event handler if we notice new elements being inserted into the DOM. This happens as the page is loading or updating dynamically based on user activity.
-    document.addEventListener('DOMNodeInserted', onPageUpdatedThrottled);
+    $('body > div.full-size')[0].addEventListener('DOMNodeInserted', onPageUpdatedThrottled);
   }
+
+  let errorCount = 0;
+
+  addStyleOnce('azdo-userscript-error', /* css */ `
+    #azdo-userscript-error {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 10px 20px;
+      background: #f66;
+      box-shadow: 0px 0px 15px 5px rgba(64, 64, 64, 0.4);
+      color: #000;
+      z-index: 10000000;
+    }
+    #azdo-userscript-error div {
+      padding: 5px 10px;
+    }
+    #azdo-userscript-error button {
+      float: right;
+      font-weight: bold;
+      margin: 0px 10px;
+      padding: 5px 10px;
+      border: 2px solid #000;
+      border-radius: 6px;
+      background: #ccc;
+      color: #000;
+    }
+    #azdo-userscript-error button:hover {
+      background: #aaa;
+    }`);
 
   // This is "main()" for this script. Runs periodically when the page updates.
   function onPageUpdated() {
-    // The page may not have refreshed when moving between URLs--sometimes AzDO acts as a single-page application. So we must always check where we are and act accordingly.
-    if (/\/(pullrequest)\//i.test(window.location.pathname)) {
-      addCheckboxesToFiles();
-      addBaseUpdateSelector();
-      makePullRequestDiffEasierToScroll();
-      applyStickyPullRequestComments();
-      highlightAwaitComments();
-      addAccessKeysToPullRequestTabs();
-      if (atNI && /\/DevCentral\/_git\/ASW\//i.test(window.location.pathname)) {
-        addNICodeOfDayToggle();
+    try {
+      // The page may not have refreshed when moving between URLs--sometimes AzDO acts as a single-page application. So we must always check where we are and act accordingly.
+      if (/\/(pullrequest)\//i.test(window.location.pathname)) {
+        addCheckboxesToFiles();
+        addBaseUpdateSelector();
+        makePullRequestDiffEasierToScroll();
+        applyStickyPullRequestComments();
+        highlightAwaitComments();
+        addAccessKeysToPullRequestTabs();
+        if (atNI && /\/DevCentral\/_git\/ASW\//i.test(window.location.pathname)) {
+          addNICodeOfDayToggle();
+        }
+      } else if (/\/(_pulls|pullrequests)/i.test(window.location.pathname)) {
+        enhancePullRequestDashboard();
       }
-    } else if (/\/(_pulls|pullrequests)/i.test(window.location.pathname)) {
-      enhancePullRequestDashboard();
-    }
 
-    if (atNI) {
-      styleLabels();
-    }
+      if (atNI) {
+        styleLabels();
+      }
 
-    if (/\/(pullrequests)/i.test(window.location.pathname)) {
-      addOrgPRLink();
+      if (/\/(pullrequests)/i.test(window.location.pathname)) {
+        addOrgPRLink();
+      }
+    } catch (e) {
+      errorCount += 1;
+      $('#azdo-userscript-error').remove();
+      $('<div id="azdo-userscript-error" />')
+        .append($('<button>Close</button>').click(function () { this.parentElement.remove(); }))
+        .append($('<button>Get Help</button>').click(() => window.open(GM_info.script.supportURL, '_blank')))
+        .append($('<button>Copy Details</button>').click(() => navigator.clipboard.writeText(e.stack)))
+        .append($(`<div><strong>${GM_info.script.name} v${GM_info.script.version} error #${errorCount}:</strong> ${e.message}</div>`))
+        .prependTo(document.body)
+        .on('mouseover', function () { $(this).stop(true, true).show(); })
+        .delay(3000)
+        .slideToggle(1500);
     }
   }
 
