@@ -116,7 +116,7 @@
     } catch (e) {
       errorCount += 1;
       $('#azdo-userscript-error').remove();
-      $('<div id="azdo-userscript-error" style="" />')
+      $('<div id="azdo-userscript-error" />')
         .append($('<button>Close</button>').click(function () { this.parentElement.remove(); }))
         .append($('<button>Get Help</button>').click(() => window.open(GM_info.script.supportURL, '_blank')))
         .append($('<button>Copy Details</button>').click(() => navigator.clipboard.writeText(e.stack)))
