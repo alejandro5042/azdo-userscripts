@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.41.0
+// @version      2.41.1
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -1097,9 +1097,9 @@
     if (currentUserListedInThisOwnerReview) {
       for (const file of reviewProperties.fileProperties) {
         // Get the identities associated with each of the known roles.
-        const owner = reviewProperties.reviewerIdentities[file.Owner - 1] || {};
-        const alternate = reviewProperties.reviewerIdentities[file.Alternate - 1] || {}; // handle nulls everywhere
-        const reviewers = file.Reviewers.map(r => reviewProperties.reviewerIdentities[r - 1]) || [];
+        const owner = reviewProperties.reviewerIdentities[file.owner - 1] || {};
+        const alternate = reviewProperties.reviewerIdentities[file.alternate - 1] || {}; // handle nulls everywhere
+        const reviewers = file.reviewers.map(r => reviewProperties.reviewerIdentities[r - 1]) || [];
 
         // Pick the highest role for the current user on this file, and track it.
         if (owner.email === currentUser.uniqueName) {
