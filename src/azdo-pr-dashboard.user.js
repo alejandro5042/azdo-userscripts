@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.41.1
+// @version      2.41.2
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -1103,14 +1103,14 @@
 
         // Pick the highest role for the current user on this file, and track it.
         if (owner.email === currentUser.uniqueName) {
-          ownersInfo.currentUserFilesToRole[file.Path] = 'O';
+          ownersInfo.currentUserFilesToRole[file.path] = 'O';
           ownersInfo.currentUserFileCount += 1;
         } else if (alternate.email === currentUser.uniqueName) {
-          ownersInfo.currentUserFilesToRole[file.Path] = 'A';
+          ownersInfo.currentUserFilesToRole[file.path] = 'A';
           ownersInfo.currentUserFileCount += 1;
           // eslint-disable-next-line no-loop-func
         } else if (_(reviewers).some(r => r.email === currentUser.uniqueName)) {
-          ownersInfo.currentUserFilesToRole[file.Path] = 'R';
+          ownersInfo.currentUserFilesToRole[file.path] = 'R';
           ownersInfo.currentUserFileCount += 1;
         }
       }
