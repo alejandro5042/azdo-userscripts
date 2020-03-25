@@ -1097,6 +1097,7 @@
     if (currentUserListedInThisOwnerReview) {
       for (const file of reviewProperties.fileProperties) {
         // Get the identities associated with each of the known roles.
+        // Note that the values for file.owner/alternate/reviewers may contain the value 0 (which is not a valid 1-based index) to indicate nobody for that role.
         const owner = reviewProperties.reviewerIdentities[file.owner - 1] || {};
         const alternate = reviewProperties.reviewerIdentities[file.alternate - 1] || {}; // handle nulls everywhere
         const reviewers = file.reviewers.map(r => reviewProperties.reviewerIdentities[r - 1] || {}) || [];
