@@ -781,9 +781,9 @@
 
   async function annotateBugsOnPullRequestRow(row, pr) {
     const workItemRefs = (await $.get(`${pr.url}/workitems?api-version=5.1`)).value;
-    var highestSeverityBug = null;
-    var highestSeverity = 100; // highest sev is lowest number
-    var otherHighestSeverityBugsCount = 0;
+    let highestSeverityBug = null;
+    let highestSeverity = 100; // highest sev is lowest number
+    let otherHighestSeverityBugsCount = 0;
 
     for (const workItemRef of workItemRefs) {
       // eslint-disable-next-line no-await-in-loop
@@ -791,7 +791,7 @@
       if (workItem.fields['System.WorkItemType'] === 'Bug') {
         const severityString = workItem.fields['Microsoft.VSTS.Common.Severity'];
         if (severityString) {
-          const severity = parseInt(severityString.replace(/ - .*$/, ''));
+          const severity = parseInt(severityString.replace(/ - .*$/, ''), 10);
           if (severity < highestSeverity) { // lower severity value is higher severity
             highestSeverity = severity;
             highestSeverityBug = workItem;
@@ -804,7 +804,7 @@
     }
 
     if (highestSeverity) {
-      var title = highestSeverityBug.fields['System.Title'];
+      let title = highestSeverityBug.fields['System.Title'];
       if (otherHighestSeverityBugsCount) {
         title += ` (and ${otherHighestSeverityBugsCount} other)`;
       }
