@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.41.3
+// @version      2.41.4
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -781,20 +781,38 @@
 
   async function annotateBugsOnPullRequestRow(row, pr) {
     const workItemRefs = (await $.get(`${pr.url}/workitems?api-version=5.1`)).value;
+    var highestSeverityBug = null;
+    var highestSeverity = 100; // highest sev is lowest number
+    var otherHighestSeverityBugsCount = 0;
+
     for (const workItemRef of workItemRefs) {
       // eslint-disable-next-line no-await-in-loop
       const workItem = await $.get(`${workItemRef.url}?api-version=5.1`);
       if (workItem.fields['System.WorkItemType'] === 'Bug') {
-        const severity = workItem.fields['Microsoft.VSTS.Common.Severity'];
-        if (severity) {
-          const title = workItem.fields['System.Title'];
-          annotatePullRequestTitle(row,
-            $('<span class="pr-bug-severity" />')
-              .text(`SEV${severity.replace(/ - .*$/, '')}`)
-              .addClass(`pr-bug-severity--${stringToCssIdentifier(severity)}`)
-              .attr('title', title));
+        const severityString = workItem.fields['Microsoft.VSTS.Common.Severity'];
+        if (severityString) {
+          const severity = parseInt(severityString.replace(/ - .*$/, ''));
+          if (severity < highestSeverity) { // lower severity value is higher severity
+            highestSeverity = severity;
+            highestSeverityBug = workItem;
+            otherHighestSeverityBugsCount = 0;
+          } else if (severity === highestSeverity) {
+            otherHighestSeverityBugsCount += 1;
+          }
         }
       }
+    }
+
+    if (highestSeverity) {
+      var title = highestSeverityBug.fields['System.Title'];
+      if (otherHighestSeverityBugsCount) {
+        title += ` (and ${otherHighestSeverityBugsCount} other)`;
+      }
+      annotatePullRequestTitle(row,
+        $('<span class="pr-bug-severity" />')
+          .text(`SEV${highestSeverity}`)
+          .addClass(`pr-bug-severity--${stringToCssIdentifier(highestSeverity.toString())}`)
+          .attr('title', title));
     }
   }
 
