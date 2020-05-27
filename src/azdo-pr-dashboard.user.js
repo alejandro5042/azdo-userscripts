@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.41.4
+// @version      2.42.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -99,6 +99,7 @@
         applyStickyPullRequestComments();
         highlightAwaitComments();
         addAccessKeysToPullRequestTabs();
+        addTrophiesToPullRequest();
         if (atNI && /\/DevCentral\/_git\/ASW\//i.test(window.location.pathname)) {
           addNICodeOfDayToggle();
         }
@@ -270,6 +271,54 @@
       .zero-data-action:hover, .deployments-zero-data:hover {
         opacity: 1;
       }`);
+  }
+
+  // Adds a "Trophies" section to the Overview tab of a PR for a qualifying PR number
+  function addTrophiesToPullRequest()
+  {
+    // Pull request author is sometimes undefined on first call. Only add trophies if we can get the author name.
+    const pullRequestAuthor = $("div.ms-TooltipHost.host_e6f6b93f.created-by-label").children("span").text();
+
+    // Only create the trophies section once.
+    if($('#trophies-section').length == 0 && pullRequestAuthor.length != 0)
+    {
+      const pullRequestId = getCurrentPullRequestId();
+
+      var trophiesLeftPaneSection = $("<div>").addClass("vc-pullrequest-leftpane-section").attr('id', 'trophies-section');
+
+      var sectionTitle = $("<div>").addClass("vc-pullrequest-leftpane-section-title").append('<span>Trophies</span>');
+      var divider = $("<div>").addClass("divider");
+      var sectionContent = $("<div>").addClass("policies-section");
+
+      trophiesLeftPaneSection
+        .append(sectionTitle)
+        .append(divider)
+        .append(sectionContent);
+
+      var trophyAwarded = false;
+
+      // Milestone trophy: Awarded if pull request ID is greater than 1000 and is a non-zero digit followed by only zeroes (e.g. 1000, 5000, 10000).
+      if (pullRequestId >= 1000 && pullRequestId.match("^[1-9]0+$"))
+      {
+        trophyAwarded = true;
+        var milestoneTrophyMessage = $("<span>)").text(`${pullRequestAuthor} got pull request #${pullRequestId}!`);
+        sectionContent.append(milestoneTrophyMessage.prepend('&ensp;🏆&emsp;'));
+      }
+
+      // Fish trophy: Give a man a fish, he'll waste hours trying to figure out why.
+      if (pullRequestId == pullRequestId.split('').reverse().join(''))
+      {
+        trophyAwarded = true;
+        var fishTrophyMessage = $("<span>)").text(`${pullRequestAuthor} got a fish trophy!`);
+        sectionContent.append(fishTrophyMessage.prepend('&ensp;🐠&emsp;'));
+      }
+
+      // Add the trophy section to the Overview tab pane only if a trophy has been awarded.
+      if (trophyAwarded)
+      {
+        $("div.overview-tab-pane").append(trophiesLeftPaneSection);
+      };
+    }
   }
 
   function makePullRequestDiffEasierToScroll() {
