@@ -93,6 +93,12 @@ PR comments that start with `await:` (case insensitive) will appear highlighted.
 
 ![Await comments are highlighted.](assets/await-comments.png)
 
+### PR trophies
+
+Trophies are awarded for notable PRs and shown in a trophies section on the Overview tab. For example:
+
+![Milestone trophy.](assets/milestone-trophy.png)
+
 ### Better owners review
 
 > These features are currently specific to National Instruments.
