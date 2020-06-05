@@ -296,14 +296,14 @@
 
       // Milestone trophy: Awarded if pull request ID is greater than 1000 and is a non-zero digit followed by only zeroes (e.g. 1000, 5000, 10000).
       if (pullRequestId >= 1000 && pullRequestId.match('^[1-9]0+$')) {
-        const milestoneTrophyMessage = $('<span>)').text(`${pullRequestAuthor} got pull request #${pullRequestId}!`);
+        const milestoneTrophyMessage = $('<div>)').text(`${pullRequestAuthor} got pull request #${pullRequestId}!`);
         sectionContent.append(milestoneTrophyMessage.prepend('&ensp;🏆&emsp;'));
         trophyAwarded = true;
       }
 
-      // Fish trophy: Give a man a fish, he'll waste hours trying to figure out why.
+      // Fish trophy: Give a man a fish, he'll waste hours trying to figure out why. (Awarded if the ID is a palindrome.)
       if (pullRequestId === pullRequestId.split('').reverse().join('')) {
-        const fishTrophyMessage = $('<span>)').text(`${pullRequestAuthor} got a fish trophy!`);
+        const fishTrophyMessage = $('<div>)').text(`${pullRequestAuthor} got a fish trophy!`);
         sectionContent.append(fishTrophyMessage.prepend('&ensp;🐠&emsp;'));
         trophyAwarded = true;
       }
