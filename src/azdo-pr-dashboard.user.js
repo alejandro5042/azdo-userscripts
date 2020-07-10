@@ -176,7 +176,7 @@
       display: none;
       position: absolute;
       top: 38px;
-      left: -230px;
+      left: -240px;
       z-index: 1000;
       background-color: #E6B307;
       padding: 8px 12px;
