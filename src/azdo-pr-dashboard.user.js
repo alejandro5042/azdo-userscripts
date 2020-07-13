@@ -171,7 +171,9 @@
     }
     .label--bypassowners {
       background: #a008 !important;
-    }
+    }`);
+
+  addStyleOnce('bypassOwnersPrompt', /* css */ `
     .bypass-reminder {
       display: none;
       position: absolute;
@@ -309,6 +311,11 @@
       return;
     }
 
+    if (!$(document.body).once('add-bypass-banner')) {
+      return;
+    }
+
+    // This has to be a paragraph so that the bypass reminder div has an anchor ("origin" of the absolute position) other than the upper left corner of the whole page.
     const container = document.createElement('p');
     container.classList.add('bypass-reminder-container');
 
@@ -319,21 +326,20 @@
     if ($('.repos-pr-header-vote-button').length === 0) {
       // "old" PR experience
       $('#pull-request-vote-button')
-        .once('add-bypass-banner')
         .parent()
         .parent()
         .addClass('vote-button-wrapper')
         .appendTo(container);
       container.appendChild(banner);
-      $('.vote-control-container').once('add-bypass-banner').append(container);
+      $('.vote-control-container').append(container);
     } else {
       // "new" PR experience
       const buttonWrapper = document.createElement('div');
       buttonWrapper.classList.add('vote-button-wrapper');
-      $('.repos-pr-header-vote-button').once('add-bypass-banner').appendTo(buttonWrapper);
+      $('.repos-pr-header-vote-button').appendTo(buttonWrapper);
       container.appendChild(buttonWrapper);
       container.appendChild(banner);
-      $(container).insertBefore($('.repos-pr-header-complete-button').once('add-bypass-banner'));
+      $(container).insertBefore($('.repos-pr-header-complete-button'));
     }
   }
 
