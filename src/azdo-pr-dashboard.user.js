@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.43.1
+// @version      2.43.2
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -337,12 +337,23 @@
       $('.vote-control-container').append(container);
     } else {
       // "new" PR experience
-      const buttonWrapper = document.createElement('div');
-      buttonWrapper.classList.add('vote-button-wrapper');
-      $('.repos-pr-header-vote-button').appendTo(buttonWrapper);
-      container.appendChild(buttonWrapper);
-      container.appendChild(banner);
-      $(container).insertBefore($('.repos-pr-header-complete-button'));
+      const voteButton = document.getElementsByClassName('repos-pr-header-vote-button')[0];
+      // We cannot change the parent of the voteButton, or we get an error when pressing the approve button.
+      // Instead, we basically have to wedge our "container" <p> element between the voteButton and its children.
+      // Because the voteButton's children will be moved under our container, we'll need to create a new wrapping element (buttonLayoutWrapper) to keep them laid-out properly.
+      const buttonLayoutWrapper = document.createElement('div');
+      buttonLayoutWrapper.classList.add('vote-button-wrapper');
+      buttonLayoutWrapper.classList.add('bolt-split-button');
+      buttonLayoutWrapper.classList.add('flex-stretch');
+      buttonLayoutWrapper.classList.add('inline-flex-row');
+      buttonLayoutWrapper.append(voteButton.children[0]);
+      buttonLayoutWrapper.append(voteButton.children[0]);
+      buttonLayoutWrapper.append(voteButton.children[0]);
+
+      container.append(buttonLayoutWrapper);
+      container.append(banner);
+
+      voteButton.append(container);
     }
   }
 
