@@ -337,7 +337,7 @@
     } else {
       // "new" PR experience
       const voteButton = document.getElementsByClassName('repos-pr-header-vote-button')[0];
-      // We cannot change the parent of the voteButton, or we get an error when pressing the approve button.
+      // We cannot change the parent of voteButton, or we get an error when pressing the approve button.
       // Instead, we'll wedge our "container" div between the voteButton and its children.
       // Because the voteButton's children will be moved under our container, we'll need to create a new wrapping element (by cloning the old parent) to keep them laid-out properly.
       const buttonLayoutWrapper = voteButton.cloneNode(false);
