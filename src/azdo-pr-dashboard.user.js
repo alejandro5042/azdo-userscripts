@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.42.0
+// @version      2.43.2
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -99,6 +99,9 @@
         applyStickyPullRequestComments();
         highlightAwaitComments();
         addAccessKeysToPullRequestTabs();
+        if (atNI) {
+          conditionallyAddBypassReminderAsync();
+        }
         addTrophiesToPullRequest();
         if (atNI && /\/DevCentral\/_git\/ASW\//i.test(window.location.pathname)) {
           addNICodeOfDayToggle();
@@ -168,6 +171,37 @@
     }
     .label--bypassowners {
       background: #a008 !important;
+    }`);
+
+  addStyleOnce('bypassOwnersPrompt', /* css */ `
+    .bypass-reminder {
+      display: inline;
+      position: absolute;
+      top: 38px;
+      left: -240px;
+      z-index: 1000;
+      background-color: #E6B307;
+      padding: 6px 12px;
+      border-radius: 6px;
+      box-shadow: 4px 4px 4px #18181888;
+      opacity: 0;
+      transition: 0.3s;
+    }
+    .bypass-reminder-container {
+      position: relative;
+      display: inline-flex;
+      flex-direction: column;
+    }
+    .vote-button-wrapper {
+      border: 3px solid transparent;
+      border-radius: 4px;
+      transition: 0.3s;
+    }
+    .vote-button-wrapper:hover {
+      border-color: #E6B307;
+    }
+    .vote-button-wrapper:hover ~ .bypass-reminder {
+      opacity: 1;
     }`);
 
   function styleLabels() {
@@ -271,6 +305,52 @@
       .zero-data-action:hover, .deployments-zero-data:hover {
         opacity: 1;
       }`);
+  }
+
+  // Adds a bypass suggestion message that pops up when the user mouses over the Approve button.
+  async function conditionallyAddBypassReminderAsync() {
+    // Only add it if the target branch requires owner approval
+    if (!(await pullRequestHasRequiredOwnersPolicyAsync())) {
+      return;
+    }
+
+    if ($('.bypass-reminder-container').length > 0) {
+      return;
+    }
+
+    const container = document.createElement('div');
+    container.classList.add('bypass-reminder-container');
+
+    const banner = document.createElement('div');
+    banner.classList.add('bypass-reminder');
+    banner.appendChild(document.createTextNode('If you vouch for the whole PR, please bypass owners.'));
+
+    if ($('.repos-pr-header-vote-button').length === 0) {
+      // "old" PR experience
+      $('#pull-request-vote-button')
+        .parent()
+        .parent()
+        .addClass('vote-button-wrapper')
+        .appendTo(container);
+      container.appendChild(banner);
+      $('.vote-control-container').append(container);
+    } else {
+      // "new" PR experience
+      const voteButton = document.getElementsByClassName('repos-pr-header-vote-button')[0];
+      // We cannot change the parent of voteButton, or we get an error when pressing the approve button.
+      // Instead, we'll wedge our "container" div between the voteButton and its children.
+      // Because the voteButton's children will be moved under our container, we'll need to create a new wrapping element (by cloning the old parent) to keep them laid-out properly.
+      const buttonLayoutWrapper = voteButton.cloneNode(false);
+      buttonLayoutWrapper.classList.add('vote-button-wrapper');
+      buttonLayoutWrapper.append(voteButton.children[0]);
+      buttonLayoutWrapper.append(voteButton.children[0]);
+      buttonLayoutWrapper.append(voteButton.children[0]);
+
+      container.append(buttonLayoutWrapper);
+      container.append(banner);
+
+      voteButton.append(container);
+    }
   }
 
   // Adds a "Trophies" section to the Overview tab of a PR for a qualifying PR number
@@ -1034,14 +1114,19 @@
     return window.location.pathname.substring(window.location.pathname.lastIndexOf('/') + 1);
   }
 
+  // Don't access this directly -- use getCurrentPullRequestAsync() instead.
   let currentPullRequest = null;
 
-  // Helper function to get the url of the PR that's currently on screen.
-  async function getCurrentPullRequestUrlAsync() {
+  async function getCurrentPullRequestAsync() {
     if (!currentPullRequest || currentPullRequest.pullRequestId !== getCurrentPullRequestId()) {
       currentPullRequest = await getPullRequestAsync();
     }
-    return currentPullRequest.url;
+    return currentPullRequest;
+  }
+
+  // Helper function to get the url of the PR that's currently on screen.
+  async function getCurrentPullRequestUrlAsync() {
+    return (await getCurrentPullRequestAsync()).url;
   }
 
   // Async helper function get info on a single PR. Defaults to the PR that's currently on screen.
@@ -1060,6 +1145,12 @@
     const properties = await $.get(`${prUrl}/properties?api-version=5.1-preview.1`);
     const property = properties.value[key];
     return property ? JSON.parse(property.$value) : defaultValue;
+  }
+
+  async function pullRequestHasRequiredOwnersPolicyAsync() {
+    const pr = await getCurrentPullRequestAsync();
+    const url = `${azdoApiBaseUrl}${pr.repository.project.name}/_apis/git/policy/configurations?repositoryId=${pr.repository.id}&refName=${pr.targetRefName}`;
+    return (await $.get(url)).value.some(x => x.isBlocking && x.settings.statusName === 'owners-approved');
   }
 
   // Cached "Code of the Day" thread data.
