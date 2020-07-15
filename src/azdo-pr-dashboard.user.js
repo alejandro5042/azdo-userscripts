@@ -181,8 +181,8 @@
       left: -240px;
       z-index: 1000;
       background-color: #E6B307;
-      padding: 8px 12px;
-      border-radius: 8px;
+      padding: 6px 12px;
+      border-radius: 6px;
       box-shadow: 4px 4px 4px #18181888;
       opacity: 0;
       transition: 0.3s;
@@ -318,8 +318,7 @@
       return;
     }
 
-    // This has to be a paragraph so that the bypass reminder div has an anchor ("origin" of the absolute position) other than the upper left corner of the whole page.
-    const container = document.createElement('p');
+    const container = document.createElement('div');
     container.classList.add('bypass-reminder-container');
 
     const banner = document.createElement('div');
@@ -339,13 +338,10 @@
       // "new" PR experience
       const voteButton = document.getElementsByClassName('repos-pr-header-vote-button')[0];
       // We cannot change the parent of the voteButton, or we get an error when pressing the approve button.
-      // Instead, we basically have to wedge our "container" <p> element between the voteButton and its children.
-      // Because the voteButton's children will be moved under our container, we'll need to create a new wrapping element (buttonLayoutWrapper) to keep them laid-out properly.
-      const buttonLayoutWrapper = document.createElement('div');
+      // Instead, we'll wedge our "container" div between the voteButton and its children.
+      // Because the voteButton's children will be moved under our container, we'll need to create a new wrapping element (by cloning the old parent) to keep them laid-out properly.
+      const buttonLayoutWrapper = voteButton.cloneNode(false);
       buttonLayoutWrapper.classList.add('vote-button-wrapper');
-      buttonLayoutWrapper.classList.add('bolt-split-button');
-      buttonLayoutWrapper.classList.add('flex-stretch');
-      buttonLayoutWrapper.classList.add('inline-flex-row');
       buttonLayoutWrapper.append(voteButton.children[0]);
       buttonLayoutWrapper.append(voteButton.children[0]);
       buttonLayoutWrapper.append(voteButton.children[0]);
