@@ -881,7 +881,8 @@
       // If there is no owner info or if it returns zero files to review (since we may not be on the review explicitly), then count the number of files in the merge commit.
       if (fileCount === 0) {
         const mergeCommitInfo = await $.get(`${pr.lastMergeCommit.url}/changes?api-version=5.0`);
-        fileCount = _(mergeCommitInfo.changes).filter(item => !item.item.isFolder).size();
+        const files = _(mergeCommitInfo.changes).filter(item => !item.item.isFolder);
+        fileCount = files.size();
       }
     } else {
       fileCount = '⛔';
@@ -912,7 +913,7 @@
   }
 
   function annotatePullRequestTitle(pullRequestRow, cssClass, title, html) {
-    let labels = pullRequestRow.querySelector('.bolt-pill-group');
+    let labels = pullRequestRow.querySelector('.bolt-pill-group-inner');
     if (!labels) {
       // eslint-disable-next-line prefer-destructuring
       labels = $('<div class="margin-left-8 bolt-pill-group flex-row"></div>')[0];
