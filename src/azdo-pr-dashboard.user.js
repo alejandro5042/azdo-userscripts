@@ -52,6 +52,7 @@
     // Because of CORS, we need to make sure we're querying the same hostname for our AzDO APIs.
     azdoApiBaseUrl = `${window.location.origin}${pageData['ms.vss-tfs-web.header-action-data'].suiteHomeUrl}`;
 
+    // Invoke our new eus-style features.
     watchPullRequestDashboard();
 
     // Handle any existing elements, flushing it to execute immediately.
@@ -111,8 +112,6 @@
         if (atNI && /\/DevCentral\/_git\/ASW\//i.test(window.location.pathname)) {
           addNICodeOfDayToggle();
         }
-      } else if (/\/(_pulls|pullrequests)/i.test(window.location.pathname)) {
-        // enhancePullRequestDashboard();
       }
 
       if (atNI) {
