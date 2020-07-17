@@ -926,7 +926,14 @@
   }
 
   function annotatePullRequestTitle(pullRequestRow, cssClass, title, html) {
-    pullRequestRow.querySelector('.bolt-pill-group').insertAdjacentHTML('afterbegin', `<div class="pr-annotation bolt-pill-overflow flex-row"><div class="bolt-pill-group-inner flex-row"><div class="bolt-pill flex-row flex-center standard compact ${cssClass}" data-focuszone="focuszone-75" role="presentation" title="${escapeStringForHtml(title)}"><div class="bolt-pill-content text-ellipsis">${html}</div></div></div><div class="bolt-pill-observe"></div></div>`);
+    const label = `<div class="pr-annotation bolt-pill-overflow flex-row"><div class="bolt-pill-group-inner flex-row"><div class="bolt-pill flex-row flex-center standard compact ${cssClass}" data-focuszone="focuszone-75" role="presentation" title="${escapeStringForHtml(title)}"><div class="bolt-pill-content text-ellipsis">${html}</div></div></div><div class="bolt-pill-observe"></div></div>`;
+    let labels = pullRequestRow.querySelector('.bolt-pill-group');
+    if (!labels) {
+      // eslint-disable-next-line prefer-destructuring
+      labels = $('<div class="margin-left-8 bolt-pill-group flex-row"></div>')[0];
+      pullRequestRow.querySelector('.body-l').insertAdjacentElement('afterend', labels);
+    }
+    labels.insertAdjacentHTML('afterbegin', label);
   }
 
   // Helper function to avoid adding CSS twice into a document.
