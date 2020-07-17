@@ -764,6 +764,9 @@
     table.repos-pr-list tbody > a.review-is-blocked-on-me {
       background-color: #dd000033;
     }
+    table.repos-pr-list tbody > a.review-is-blocked-on-me:hover {
+      background-color: #dd000066;
+    }
     table.repos-pr-list tbody > a.draft {
       /* background-color: #0000ff33; */
     }`);
