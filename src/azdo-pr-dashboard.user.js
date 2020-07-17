@@ -747,23 +747,26 @@
   }
 
   addStyleOnce('reviews-list-css2', /* css */ `
+    table.repos-pr-list tbody > a {
+      transition: 0.2s;
+    }
     table.repos-pr-list tbody > a.voted-waiting {
-      abackground-color: #ffff0044;
-      opacity: 0.2;
+      opacity: 0.15;
+    }
+    table.repos-pr-list tbody > a.voted-waiting:hover {
+      background-color: #ffdd0055;
+      opacity: 1;
     }
     table.repos-pr-list tbody > a.voted-rejected {
-      abackground-color: #ff000044;
-      aopacity: 0.5;
     }
-    table.repos-pr-list tbody > a.blocked-review {
+    table.repos-pr-list tbody > a.review-waiting-or-rejected {
     }
-    table.repos-pr-list tbody > a.my-vote-is-last {
-      background-color: #ff000044;
+    table.repos-pr-list tbody > a.review-is-blocked-on-me {
+      background-color: #dd000033;
     }
     table.repos-pr-list tbody > a.draft {
-      background-color: #0000ff44;
-    }
-    `);
+      background-color: #0000ff33;
+    }`);
 
   function watchPullRequestDashboard() {
     eus.onUrl(/\/(_pulls|pullrequests)/gi, (session, urlMatch) => {
@@ -786,10 +789,11 @@
     if (row.dataset.pullRequestId === pullRequestId.toString()) return;
     row.dataset.pullRequestId = pullRequestId;
 
+    row.classList.remove('draft');
     row.classList.remove('voted-waiting');
     row.classList.remove('voted-rejected');
-    row.classList.remove('blocked-review');
-    row.classList.remove('my-vote-is-last');
+    row.classList.remove('review-waiting-or-rejected');
+    row.classList.remove('review-is-blocked-on-me');
 
     for (const element of row.querySelectorAll('.pr-annotation')) {
       element.remove();
@@ -803,13 +807,24 @@
       const votes = countVotes(pr);
       row.classList.toggle('voted-waiting', votes.userVote === -5);
       row.classList.toggle('voted-rejected', votes.userVote === -10);
-      row.classList.toggle('blocked-review', votes.waitingOrRejectedVotes > 0);
-      row.classList.toggle('my-vote-is-last', votes.userVote === 0 && votes.missingVotes === 1);
+      row.classList.toggle('review-waiting-or-rejected', votes.waitingOrRejectedVotes > 0);
+      row.classList.toggle('review-is-blocked-on-me', votes.userVote === 0 && votes.missingVotes === 1);
     }
 
     await annotateBuildStatusOnPullRequestRow(row, pr);
     await annotateFileCountOnPullRequestRow(row, pr, sectionTitle === 'Assigned to me');
     await annotateBugsOnPullRequestRow(row, pr);
+
+    // TODO: Color labels
+    // TODO: Error in Reviewed category... something about the annotations
+
+    // if (atNI) {
+    //   $(row, '.pr-annotation .bolt-pill').once('labels').each(function () {
+    //     const tagBox = $(this);
+    //     const subClass = stringToCssIdentifier(tagBox.text());
+    //     tagBox.addClass(`label--${subClass}`);
+    //   });
+    // }
   }
 
   function encodeString(value) {
