@@ -765,9 +765,6 @@
     }
     table.repos-pr-list tbody > a.review-is-blocked-on-me:hover {
       background-color: #dd000066;
-    }
-    table.repos-pr-list tbody > a.draft {
-      background-color: #0000ff33;
     }`);
 
   function watchPullRequestDashboard() {
@@ -796,13 +793,12 @@
     row.dataset.pullRequestId = pullRequestId;
 
     // Remove annotations a previous PR may have had. Recall that React reuses DOM elements.
-    row.classList.remove('draft', 'voted-waiting', 'voted-rejected', 'review-waiting-or-rejected', 'review-is-blocked-on-me');
+    row.classList.remove('voted-waiting', 'voted-rejected', 'review-waiting-or-rejected', 'review-is-blocked-on-me');
     for (const element of row.querySelectorAll('.pr-annotation')) {
       element.remove();
     }
 
     const pr = await getPullRequestAsync(pullRequestId);
-    row.classList.toggle('draft', pr.isDraft);
 
     if (sectionTitle !== 'Created by me') {
       const votes = countVotes(pr);
