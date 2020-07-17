@@ -12,6 +12,7 @@ module.exports = {
     "SharedArrayBuffer": "readonly",
     "lscache": "readonly",
     "dateFns": "readonly",
+    "eus": "readonly",
     "_": "readonly"
   },
   "parserOptions": {

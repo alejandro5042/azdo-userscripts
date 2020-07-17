@@ -22,6 +22,9 @@
 // @require      https://cdnjs.cloudflare.com/ajax/libs/date-fns/1.30.1/date_fns.min.js#sha256-wCBClaCr6pJ7sGU5kfb3gQMOOcIZNzaWpWcj/lD9Vfk=
 // @require      https://cdn.jsdelivr.net/npm/lodash@4.17.11/lodash.min.js#sha256-7/yoZS3548fXSRXqc/xYzjsmuW3sFKzuvOCHd06Pmps=
 
+// @require      https://cdn.jsdelivr.net/npm/sweetalert2@9.13.1/dist/sweetalert2.all.min.js#sha384-8oDwN6wixJL8kVeuALUvK2VlyyQlpEEN5lg6bG26x2lvYQ1HWAV0k8e2OwiWIX8X
+// @require      https://gist.githubusercontent.com/alejandro5042/af2ee5b0ad92b271cd2c71615a05da2c/raw/easy-userscripts.js?v=71#sha384-wap0YOqYtSdG40UHxvqTwNbx08/Q0qskXT/Kl9uGHwt0f9OIH7pQP7JwT6wod2F2
+
 // ==/UserScript==
 
 (function () {
@@ -48,6 +51,8 @@
 
     // Because of CORS, we need to make sure we're querying the same hostname for our AzDO APIs.
     azdoApiBaseUrl = `${window.location.origin}${pageData['ms.vss-tfs-web.header-action-data'].suiteHomeUrl}`;
+
+    prDashboard();
 
     // Handle any existing elements, flushing it to execute immediately.
     onPageUpdatedThrottled();
@@ -103,7 +108,7 @@
           addNICodeOfDayToggle();
         }
       } else if (/\/(_pulls|pullrequests)/i.test(window.location.pathname)) {
-        enhancePullRequestDashboard();
+        // enhancePullRequestDashboard();
       }
 
       if (atNI) {
@@ -614,169 +619,97 @@
     });
   }
 
-  // Define what it means to be a notable PR after you have approved it.
-  const peopleToNotApproveToCountAsNotableThread = 2;
-  const commentsToCountAsNotableThread = 4;
-  const wordsToCountAsNotableThread = 300;
-  const notableUpdateDescription = `These are pull requests you've already approved, but since then, any of following events have happened:&#013    1) At least ${peopleToNotApproveToCountAsNotableThread} people voted Rejected or Waiting on Author&#013    2) A thread was posted with at least ${commentsToCountAsNotableThread} comments&#013    3) A thread was posted with at least ${wordsToCountAsNotableThread} words&#013Optional: To remove PRs from this list, simply vote again on the PR (even if it's the same vote).`;
+  function countVotes(pr) {
+    const votes = {
+      missingVotes: 0,
+      waitingOrRejectedVotes: 0,
+      userVote: 0,
+    };
 
-  // The func we'll call to continuously sort new PRs into categories, once initialization is over.
-  let sortEachPullRequestFunc = () => { };
-
-  // If we're on a pull request page, attempt to sort it.
-  function enhancePullRequestDashboard() {
-    // Find the reviews section for this user. Note the two selectors: 1) a repo dashboard; 2) the overall dashboard (e.g. https://dev.azure.com/*/_pulls).
-    $("[aria-label='Assigned to me'][role='region'], .ms-GroupedList-group:has([aria-label*='Assigned to me'])").once('prs-enhanced').each(function () {
-      sortEachPullRequestFunc = () => { };
-
-      const personalReviewSection = $(this);
-      const createdByMeSection = $("[aria-label='Created by me'][role='region'], .ms-GroupedList-group:has([aria-label*='Created by me'])");
-
-      // Disable the expanding button if we are on the overall PR dashboard. If enabled and the user hides/shows this section, it causes the AzDO page to re-add all the PRs, leading to duplicates in the sorted list.
-      personalReviewSection.find('.collapsible-group-header button').hide();
-      createdByMeSection.find('.collapsible-group-header button').hide();
-
-      addStyleOnce('reviews-list-css', /* css */ `
-        details.reviews-list {
-          margin: 10px 30px;
-          display: none;
-        }
-        details.reviews-list summary {
-          padding: 10px;
-          cursor: pointer;
-          color: var(--text-secondary-color);
-        }
-        details.reviews-list > div.flex-container {
-          display: flex;
-          flex-direction: column-reverse;
-        }`);
-
-      // Create review sections with counters.
-      const sections = {
-        blocking:
-          $("<details class='reviews-list reviews-pending'><summary style='color: var(--status-error-foreground); font-weight: bold'>Blocking</summary></details>").appendTo(personalReviewSection),
-
-        pending:
-          $("<details class='reviews-list reviews-pending'><summary>Incomplete</summary></details>").appendTo(personalReviewSection),
-
-        blocked:
-          $("<details class='reviews-list reviews-incomplete-blocked'><summary>Incomplete but blocked</summary></details>").appendTo(personalReviewSection),
-
-        approvedButNotable:
-          $(`<details class='reviews-list reviews-approved-notable'><summary>Completed as Approved / Approved with Suggestions (<abbr title="${notableUpdateDescription}">with notable activity</abbr>)</summary></details>`).appendTo(personalReviewSection),
-
-        drafts:
-          $("<details class='reviews-list reviews-drafts'><summary>Drafts</summary></details>").appendTo(personalReviewSection),
-
-        waiting:
-          $("<details class='reviews-list reviews-waiting'><summary>Completed as Waiting on Author</summary></details>").appendTo(personalReviewSection),
-
-        rejected:
-          $("<details class='reviews-list reviews-rejected'><summary>Completed as Rejected</summary></details>").appendTo(personalReviewSection),
-
-        approved:
-          $("<details class='reviews-list reviews-approved'><summary>Completed as Approved / Approved with Suggestions</summary></details>").appendTo(personalReviewSection),
-
-        createdByMe:
-          $("<details class='reviews-list reviews-created-by-me'><summary>Active</summary></details>").appendTo(createdByMeSection),
-
-        draftsCreatedByMe:
-          $("<details class='reviews-list reviews-drafts-created-by-me'><summary>Drafts</summary></details>").appendTo(createdByMeSection),
-      };
-
-      // Load the subsection open/closed setting if it exists and setup a change handler to save the setting. We also add common elements to each sections.
-      for (const section of Object.values(sections)) {
-        const id = `pr-section-open/${section.attr('class')}`;
-        section.children('summary').append(" (<span class='review-subsection-counter'>0</span>)");
-        section.append("<div class='flex-container' />");
-        section.prop('open', lscache.get(id));
-        section.on('toggle', function () { lscache.set(id, $(this).prop('open')); });
+    for (const reviewer of pr.reviewers) {
+      if (reviewer.uniqueName === currentUser.uniqueName) {
+        votes.userVote = reviewer.vote;
       }
+      if (reviewer.vote === 0) {
+        votes.missingVotes += 1;
+      } else if (reviewer.vote < 0) {
+        votes.waitingOrRejectedVotes += 1;
+      }
+    }
 
-      // Loop through the PRs that we've voted on.
-      sortEachPullRequestFunc = () => $(".ms-GroupedList-group a[href*='/pullrequest/'].prlistlink, .vc-pullRequest-list-section.mine[role='region'] a[href*='/pullrequest/'].primary-text").once('pr-enhanced').each(async function () {
-        const prLink = $(this);
-        const row = prLink.closest('[role="list"] [role="listitem"]');
+    return votes;
+  }
 
-        try {
-          row.hide(150);
+  addStyleOnce('reviews-list-css2', /* css */ `
+    table.repos-pr-list tbody > a.voted-waiting {
+      abackground-color: #ffff0044;
+      opacity: 0.5;
+    }
+    table.repos-pr-list tbody > a.voted-rejected {
+      abackground-color: #ff000044;
+      aopacity: 0.5;
+    }
+    table.repos-pr-list tbody > a.blocked-review {
+    }
+    table.repos-pr-list tbody > a.my-vote-is-last {
+      background-color: #ff000044;
+    }
+    table.repos-pr-list tbody > a.draft {
+      background-color: #0000ff44;
+    }
+    `);
 
-          const isAssignedToMe = $(personalReviewSection).has(row).length !== 0;
-          const isCreatedByMe = $(createdByMeSection).has(row).length !== 0;
-
-          // Get complete information about the PR.
-          const pullRequestUrl = new URL($(this).attr('href'), window.location.origin);
-          const pullRequestId = parseInt(pullRequestUrl.pathname.substring(pullRequestUrl.pathname.lastIndexOf('/') + 1), 10);
-          const pr = await getPullRequestAsync(pullRequestId);
-
-          // Add a tooltip to the PR link. (The overall dashboard doesn't include tooltips.)
-          prLink.attr('title', pr.title);
-
-          if (isAssignedToMe) {
-            // Get non-deleted pr threads, ordered from newest to oldest.
-            const prThreads = (await $.get(`${pr.url}/threads?api-version=5.0`)).value.filter(x => !x.isDeleted).reverse();
-            assignSortOrderToPullRequest(row, getReviewerAddedOrResetTimestamp(prThreads, currentUser.uniqueName) || pr.createdDate);
-
-            // Count the number of votes.
-            let missingVotes = 0;
-            let waitingOrRejectedVotes = 0;
-            let userVote = 0;
-            for (const reviewer of pr.reviewers) {
-              if (reviewer.uniqueName === currentUser.uniqueName) {
-                userVote = reviewer.vote;
-              }
-              if (reviewer.vote === 0) {
-                missingVotes += 1;
-              } else if (reviewer.vote < 0) {
-                waitingOrRejectedVotes += 1;
-              }
-            }
-
-            if (pr.isDraft) {
-              movePullRequestIntoSection(row, sections.drafts);
-            } else if (userVote === -5) {
-              movePullRequestIntoSection(row, sections.waiting);
-            } else if (userVote < 0) {
-              movePullRequestIntoSection(row, sections.rejected);
-            } else if (userVote > 0) {
-              const hasNotableActivity = prHadNotableActivitySinceCurrentUserVoted(prThreads, peopleToNotApproveToCountAsNotableThread, commentsToCountAsNotableThread, wordsToCountAsNotableThread);
-              movePullRequestIntoSection(row, hasNotableActivity ? sections.approvedButNotable : sections.approved);
-            } else if (waitingOrRejectedVotes > 0) {
-              movePullRequestIntoSection(row, sections.blocked);
-            } else if (missingVotes === 1) {
-              movePullRequestIntoSection(row, sections.blocking);
-            } else {
-              movePullRequestIntoSection(row, sections.pending);
-            }
-          } else if (isCreatedByMe) {
-            if (pr.lastMergeCommit) {
-              assignSortOrderToPullRequest(row, pr.lastMergeCommit.committer.date);
-            } else {
-              assignSortOrderToPullRequest(row, pr.createdDate);
-            }
-
-            if (pr.isDraft) {
-              movePullRequestIntoSection(row, sections.draftsCreatedByMe);
-            } else {
-              movePullRequestIntoSection(row, sections.createdByMe);
-            }
-          }
-
-          // The row is now in the right category and won't be moving around more. Show it before we keep annotating (which can take longer).
-          row.show(150);
-
-          await addLabelsToPullRequest(row, pr);
-          await annotateBuildStatusOnPullRequestRow(row, pr);
-          await annotateFileCountOnPullRequestRow(row, pr, isAssignedToMe);
-          await annotateBugsOnPullRequestRow(row, pr);
-        } finally {
-          // No matter what--e.g. even on error--show the row again.
-          row.show(150);
-        }
+  function prDashboard() {
+    eus.onUrl(/\/(_pulls|pullrequests)/gi, (session, urlMatch) => {
+      session.onEveryNew(document, '.repos-pr-section-card', section => {
+        const sectionTitle = section.querySelector('.repos-pr-section-header-title > span').innerText;
+        if (sectionTitle !== 'Assigned to me') return;
+        // session.onEveryNew(section, 'colgroup', colgroup => {
+        //   colgroup.querySelector('col:nth-of-type(4)').insertAdjacentHTML('afterend', '<col style="width: 5rem;">');
+        // });
+        session.onEveryNew(section, 'a[role="row"]', (row, isNew) => {
+          if (!isNew) return;
+          enhancePR(row, sectionTitle);
+          session.onAnyChangeTo(row, () => enhancePR(row, sectionTitle));
+        });
       });
     });
+  }
 
-    sortEachPullRequestFunc();
+  async function enhancePR(row, sectionTitle) {
+    const pullRequestUrl = new URL(row.href, window.location.origin);
+    const pullRequestId = parseInt(pullRequestUrl.pathname.substring(pullRequestUrl.pathname.lastIndexOf('/') + 1), 10);
+
+    if (row.dataset.pullRequestId === pullRequestId.toString()) return;
+    row.dataset.pullRequestId = pullRequestId;
+
+    row.classList.remove('voted-waiting');
+    row.classList.remove('voted-rejected');
+    row.classList.remove('blocked-review');
+    row.classList.remove('my-vote-is-last');
+
+    const pr = await getPullRequestAsync(pullRequestId);
+
+    // Add a tooltip to the PR link. (The overall dashboard doesn't include tooltips.)
+    row.title = pr.title;
+
+    row.classList.toggle('draft', pr.isDraft);
+
+    if (sectionTitle !== 'Created by me') {
+      // Get non-deleted pr threads, ordered from newest to oldest.
+      // const prThreads = (await $.get(`${pr.url}/threads?api-version=5.0`)).value.filter(x => !x.isDeleted).reverse();
+      // assignSortOrderToPullRequest(row, getReviewerAddedOrResetTimestamp(prThreads, currentUser.uniqueName) || pr.createdDate);
+
+      const votes = countVotes(pr);
+      row.classList.toggle('voted-waiting', votes.userVote === -5);
+      row.classList.toggle('voted-rejected', votes.userVote === -10);
+      row.classList.toggle('blocked-review', votes.waitingOrRejectedVotes > 0);
+      row.classList.toggle('my-vote-is-last', votes.userVote === 0 && votes.missingVotes === 1);
+    }
+
+    await annotateBuildStatusOnPullRequestRow(row, pr);
+    await annotateFileCountOnPullRequestRow(row, pr, sectionTitle === 'Assigned to me');
+    await annotateBugsOnPullRequestRow(row, pr);
   }
 
   async function annotateBugsOnPullRequestRow(row, pr) {
@@ -803,7 +736,7 @@
       }
     }
 
-    if (highestSeverity) {
+    if (highestSeverityBug) {
       let title = highestSeverityBug.fields['System.Title'];
       if (otherHighestSeverityBugsCount) {
         title += ` (and ${otherHighestSeverityBugsCount} other)`;
@@ -812,18 +745,7 @@
         $('<span class="pr-bug-severity" />')
           .text(`SEV${highestSeverity}`)
           .addClass(`pr-bug-severity--${stringToCssIdentifier(highestSeverity.toString())}`)
-          .attr('title', title));
-    }
-  }
-
-  async function addLabelsToPullRequest(row, pr) {
-    // Add labels to PRs listed in the overall PR dashboard.
-    const linkWithoutLabels = $(row).find('.vss-DetailsList--titleCellPrimary');
-    if (linkWithoutLabels.length > 0) {
-      const labels = (await $.get(`${pr.url}/labels?api-version=5.1-preview.1`)).value.filter(x => x.active);
-      for (const label of labels) {
-        $('<span class="tag-box" />').text(label.name).appendTo(linkWithoutLabels);
-      }
+          .attr('title', title)[0]);
     }
   }
 
@@ -850,7 +772,8 @@
       fileCount = '⛔';
     }
 
-    annotatePullRequestRow(row, $(`<span><span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}</span>`));
+    // annotatePullRequestRow(row, $(`<span><span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}</span>`));
+    annotatePullRequestTitle(row, $(`<span><span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}</span>`)[0]);
   }
 
   async function annotateBuildStatusOnPullRequestRow(row, pr) {
@@ -882,8 +805,10 @@
       buildDescriptions = 'No merge commit to build.';
     }
 
-    const buildStatusIcon = $('<span style="cursor: help; margin: 2px">').append(buildStatus).attr('title', buildDescriptions);
-    annotatePullRequestRow(row, $('<span><span aria-hidden="true" class="contributed-icon flex-noshrink fabric-icon ms-Icon--Build"></span>&nbsp;</span>').append(buildStatusIcon).css('opacity', opacity));
+    const buildStatusIcon = `<span style="cursor: help; margin: 2px">${buildStatus}</span>`;
+    //annotatePullRequestRow(row, $('<span><span aria-hidden="true" class="contributed-icon flex-noshrink fabric-icon ms-Icon--Build"></span>&nbsp;</span>').append(buildStatusIcon).css('opacity', opacity));
+    //annotatePullRequestRow(row, `<span><span aria-hidden="true" class="contributed-icon flex-noshrink fabric-icon ms-Icon--Build"></span>&nbsp;${buildStatusIcon}</span>`);
+    annotatePullRequestTitle(row, $(`<span><span aria-hidden="true" class="contributed-icon flex-noshrink fabric-icon ms-Icon--Build" title="${buildDescriptions}" style="opacity: ${opacity}"></span>&nbsp;${buildStatusIcon}</span>`)[0]);
   }
 
   function assignSortOrderToPullRequest(pullRequestRow, sortingTimestampAscending) {
@@ -891,35 +816,24 @@
     // The order property is a 32-bit integer. If treat it as number of seconds, that allows a range of 68 years (2147483647 / (60 * 60 * 24 * 365)) in the positive values alone.
     // Dates values are number of milliseconds since 1970, so we wouldn't overflow until 2038. Still, we might as well subtract a more recent reference date, i.e. 2019.
     const secondsSince2019 = Math.trunc((Date.parse(sortingTimestampAscending) - Date.parse('2019-01-01')) / 1000);
-    pullRequestRow.css('order', secondsSince2019);
+    pullRequestRow.style.order = secondsSince2019;
   }
 
-  function movePullRequestIntoSection(pullRequestRow, section) {
-    section.find('.review-subsection-counter').text((i, value) => +value + 1);
-    section.children('div.flex-container').append(pullRequestRow);
-    section.show();
-  }
-
-  function annotatePullRequestRow(pullRequestRow, element) {
-    if ($('.prlist').length > 0) {
-      // Overall PR dashboard.
-      pullRequestRow.find('div.vss-DetailsList--titleCellTwoLine').parent()
-        .append($('<div style="margin: 0px 10px; width: 3.5em; text-align: left;" />').append(element));
-    } else {
-      // Repo PR dashboard.
-      pullRequestRow.find('div.vc-pullrequest-entry-col-secondary')
-        .after($('<div style="margin: 10px; width: 3.5em; display: flex; align-items: center; text-align: right;" />').append(element));
-    }
+  function annotatePullRequestRow(pullRequestRow, additionHtml) {
+    const precedingColumn = pullRequestRow.querySelector('td[data-column-index="2"]');
+    console.log(additionHtml);
+    precedingColumn.insertAdjacentHTML('afterend', `
+        <td class="bolt-table-cell bolt-list-cell" role="gridcell">
+          <div class="bolt-table-cell-content flex-row flex-center">
+            <div class="flex-row flex-center">
+              ${additionHtml}
+            </div>
+          </div>
+        </td>`);
   }
 
   function annotatePullRequestTitle(pullRequestRow, element) {
-    if ($('.prlist').length > 0) {
-      // Overall PR dashboard.
-      pullRequestRow.find('.vss-DetailsList--titleCellPrimary').append(element);
-    } else {
-      // Repo PR dashboard.
-      pullRequestRow.find('.primary-line').append(element);
-    }
+    pullRequestRow.querySelector('.body-l').appendChild(element);
   }
 
   function getReviewerAddedOrResetTimestamp(prThreadsNewestFirst, reviewerUniqueName) {
@@ -938,45 +852,6 @@
       }
     }
     return null;
-  }
-
-  function prHadNotableActivitySinceCurrentUserVoted(prThreadsNewestFirst, newNonApprovingVoteLimit, newThreadCommentCountLimit, newThreadWordCountLimit) {
-    let newNonApprovedVotes = 0;
-    for (const thread of prThreadsNewestFirst) {
-      // See if this thread represents a non-approved vote.
-      if (thread.properties && Object.prototype.hasOwnProperty.call(thread.properties, 'CodeReviewThreadType')) {
-        if (thread.properties.CodeReviewThreadType.$value === 'VoteUpdate') {
-          // Stop looking at threads once we find the thread that represents our vote.
-          const votingUser = thread.identities[thread.properties.CodeReviewVotedByIdentity.$value];
-          if (votingUser.uniqueName === currentUser.uniqueName) {
-            break;
-          }
-
-          if (thread.properties.CodeReviewVoteResult.$value < 0) {
-            newNonApprovedVotes += 1;
-            if (newNonApprovedVotes >= newNonApprovingVoteLimit) {
-              return true;
-            }
-          }
-        }
-      }
-
-      // Count the number of comments and words in the thread.
-      let wordCount = 0;
-      let commentCount = 0;
-      for (const comment of thread.comments) {
-        if (comment.commentType !== 'system' && !comment.isDeleted && comment.content) {
-          commentCount += 1;
-          wordCount += comment.content.trim().split(/\s+/).length;
-        }
-      }
-
-      if (commentCount >= newThreadCommentCountLimit || wordCount >= newThreadWordCountLimit) {
-        return true;
-      }
-    }
-
-    return false;
   }
 
   // Helper function to avoid adding CSS twice into a document.
