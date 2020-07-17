@@ -148,7 +148,7 @@
       background: #fd38 !important;
     }
     /* Align labels to the right and give them a nice border. */
-    .bolt-pill-group {
+    .repos-pr-list .bolt-pill-group {
       flex-grow: 1;
       justify-content: flex-end;
     }
