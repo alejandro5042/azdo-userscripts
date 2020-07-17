@@ -885,7 +885,7 @@
         title += ` (and ${otherHighestSeverityBugsCount} other)`;
       }
 
-      annotatePullRequestTitle(row, `pr-bug-severity--${highestSeverity}`, title, `SEV${highestSeverity}`);
+      annotatePullRequestTitle(row, `pr-bug-severity-${highestSeverity}`, title, `SEV${highestSeverity}`);
     }
   }
 
