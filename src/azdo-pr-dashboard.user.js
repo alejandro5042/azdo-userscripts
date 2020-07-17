@@ -54,6 +54,7 @@
 
     // Invoke our new eus-style features.
     watchPullRequestDashboard();
+    watchForNewLabels();
 
     // Handle any existing elements, flushing it to execute immediately.
     onPageUpdatedThrottled();
@@ -146,19 +147,41 @@
     .pr-bug-severity-2 {
       background: #fd38 !important;
     }
+    /* Align labels to the right and give them a nice border. */
+    .bolt-pill-group {
+      flex-grow: 1;
+      justify-content: flex-end;
+    }
+    .bolt-pill {
+      border: 1px solid #0001;
+    }
     /* Known labels we should style. */
-    .label--owners {
-      background: #00f4 !important;
+    .pr-annotation:not([title=""]) {
+      cursor: help !important;
     }
-    .label--draft {
-      background: #8808 !important;
+    .pr-annotation.file-count {
+      background: #00f2 !important;
     }
-    .label--tiny {
-      background: #0a08 !important;
-    }
-    .label--bypassowners {
-      background: #a008 !important;
+    .pr-annotation.build-status {
+      background: #00f2 !important;
     }`);
+
+  if (atNI) {
+    addStyleOnce('ni-labels', /* css */ `
+      /* Known labels we should style. */
+      .label--owners {
+        opacity: 0.3;
+      }
+      .label--draft {
+        background: #8808 !important;
+      }
+      .label--tiny {
+        background: #0a08 !important;
+      }
+      .label--bypassowners {
+        background: #a008 !important;
+      }`);
+  }
 
   addStyleOnce('bypassOwnersPrompt', /* css */ `
     .bypass-reminder {
@@ -197,6 +220,15 @@
       const tagBox = $(this);
       const subClass = stringToCssIdentifier(tagBox.text());
       tagBox.addClass(`label--${subClass}`);
+    });
+  }
+
+  function watchForNewLabels() {
+    // Give all tags a CSS class based on their name.
+    eus.globalSession.onEveryNew(document, '.bolt-pill', label => {
+      if (!label.ariaLabel) return;
+      const subClass = stringToCssIdentifier(label.ariaLabel);
+      label.classList.add(`label--${subClass}`);
     });
   }
 
@@ -771,7 +803,7 @@
     eus.onUrl(/\/(_pulls|pullrequests)/gi, (session, urlMatch) => {
       session.onEveryNew(document, '.repos-pr-section-card', section => {
         const sectionTitle = section.querySelector('.repos-pr-section-header-title > span').innerText;
-        if (sectionTitle !== 'Assigned to me') return;
+        if (sectionTitle !== 'Assigned to me' && sectionTitle !== 'Created by me') return;
 
         session.onEveryNew(section, 'a[role="row"]', (row, isNew) => {
           if (!isNew) return;
@@ -794,6 +826,9 @@
 
     // Remove annotations a previous PR may have had. Recall that React reuses DOM elements.
     row.classList.remove('voted-waiting', 'voted-rejected', 'review-waiting-or-rejected', 'review-is-blocked-on-me');
+    for (const element of row.querySelectorAll('.userscript-bolt-pill-group')) {
+      element.remove();
+    }
     for (const element of row.querySelectorAll('.pr-annotation')) {
       element.remove();
     }
@@ -811,15 +846,6 @@
     await annotateBuildStatusOnPullRequestRow(row, pr);
     await annotateFileCountOnPullRequestRow(row, pr, sectionTitle === 'Assigned to me');
     await annotateBugsOnPullRequestRow(row, pr);
-
-    // TODO: Color labels
-    // if (atNI) {
-    //   $(row, '.pr-annotation .bolt-pill').once('labels').each(function () {
-    //     const tagBox = $(this);
-    //     const subClass = stringToCssIdentifier(tagBox.text());
-    //     tagBox.addClass(`label--${subClass}`);
-    //   });
-    // }
   }
 
   async function annotateBugsOnPullRequestRow(row, pr) {
@@ -881,7 +907,8 @@
     }
 
     const label = `<span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}`;
-    annotatePullRequestTitle(row, 'file-count', '# of files in the PR you need to review', label);
+    const tooltip = atNI ? '# of files in the PR  -or-  # of files you need to review (.niconfig)' : '# of files in the PR';
+    annotatePullRequestTitle(row, 'file-count', tooltip, label);
   }
 
   async function annotateBuildStatusOnPullRequestRow(row, pr) {
@@ -908,12 +935,23 @@
     let labels = pullRequestRow.querySelector('.bolt-pill-group-inner');
     if (!labels) {
       // eslint-disable-next-line prefer-destructuring
-      labels = $('<div class="margin-left-8 bolt-pill-group flex-row"></div>')[0];
-      pullRequestRow.querySelector('.body-l').insertAdjacentElement('afterend', labels);
+      const labelContainer = $(`
+        <div class="userscript-bolt-pill-group margin-left-8 bolt-pill-group flex-row">
+          <div class="bolt-pill-overflow flex-row">
+            <div class="bolt-pill-group-inner flex-row">
+            </div>
+            <div class="bolt-pill-observe"></div>
+          </div>
+        </div>`)[0];
+      pullRequestRow.querySelector('.body-l').insertAdjacentElement('afterend', labelContainer);
+      labels = pullRequestRow.querySelector('.bolt-pill-group-inner');
     }
 
-    const label = `<div class="pr-annotation bolt-pill-overflow flex-row"><div class="bolt-pill-group-inner flex-row"><div class="bolt-pill flex-row flex-center standard compact ${cssClass}" data-focuszone="focuszone-75" role="presentation" title="${escapeStringForHtml(title)}"><div class="bolt-pill-content text-ellipsis">${html}</div></div></div><div class="bolt-pill-observe"></div></div>`;
-    labels.insertAdjacentHTML('afterbegin', label);
+    const label = `
+      <div class="pr-annotation bolt-pill flex-row flex-center standard compact ${cssClass}" data-focuszone="focuszone-75" role="presentation" title="${escapeStringForHtml(title)}">
+        <div class="bolt-pill-content text-ellipsis">${html}</div>
+      </div>`;
+    labels.insertAdjacentHTML('beforeend', label);
   }
 
   // Helper function to avoid adding CSS twice into a document.
