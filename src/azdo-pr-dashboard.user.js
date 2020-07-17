@@ -775,8 +775,10 @@
       session.onEveryNew(document, '.repos-pr-section-card', section => {
         const sectionTitle = section.querySelector('.repos-pr-section-header-title > span').innerText;
         if (sectionTitle !== 'Assigned to me') return;
+
         session.onEveryNew(section, 'a[role="row"]', (row, isNew) => {
           if (!isNew) return;
+
           enhancePullRequestRow(row, sectionTitle);
           session.onAnyChangeTo(row, () => enhancePullRequestRow(row, sectionTitle));
         });
@@ -790,21 +792,18 @@
 
     // Skip if we've already processed this PR.
     if (row.dataset.pullRequestId === pullRequestId.toString()) return;
+    // eslint-disable-next-line no-param-reassign
     row.dataset.pullRequestId = pullRequestId;
 
     // Remove annotations a previous PR may have had. Recall that React reuses DOM elements.
-    row.classList.remove('draft');
-    row.classList.remove('voted-waiting');
-    row.classList.remove('voted-rejected');
-    row.classList.remove('review-waiting-or-rejected');
-    row.classList.remove('review-is-blocked-on-me');
+    row.classList.remove('draft', 'voted-waiting', 'voted-rejected', 'review-waiting-or-rejected', 'review-is-blocked-on-me');
     for (const element of row.querySelectorAll('.pr-annotation')) {
       element.remove();
     }
 
     const pr = await getPullRequestAsync(pullRequestId);
 
-  // TODO: Decide what to do about draft coloring.
+    // TODO: Decide what to do about draft coloring.
     row.classList.toggle('draft', pr.isDraft);
 
     if (sectionTitle !== 'Created by me') {
@@ -861,7 +860,7 @@
         title += ` (and ${otherHighestSeverityBugsCount} other)`;
       }
 
-      annotatePullRequestTitle(row, `pr-bug-severity--${highestSeverity})}`, title, `SEV${highestSeverity}</span>`);
+      annotatePullRequestTitle(row, `pr-bug-severity--${highestSeverity}`, title, `SEV${highestSeverity}`);
     }
   }
 
@@ -888,51 +887,39 @@
       fileCount = '⛔';
     }
 
-    annotatePullRequestTitle(row, 'file-count', '# of files in the PR you need to review', `<span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}`);
+    const label = `<span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}`;
+    annotatePullRequestTitle(row, 'file-count', '# of files in the PR you need to review', label);
   }
 
   async function annotateBuildStatusOnPullRequestRow(row, pr) {
-    let buildStatus;
-    let opacity;
-    let buildDescriptions;
+    if (!pr.lastMergeCommit) return;
 
-    if (pr.lastMergeCommit) {
-      const builds = (await $.get(`${pr.lastMergeCommit.url}/statuses?api-version=5.1&latestOnly=true`)).value;
+    const builds = (await $.get(`${pr.lastMergeCommit.url}/statuses?api-version=5.1&latestOnly=true`)).value;
+    if (!builds) return;
 
-      if (builds.length === 0) {
-        buildStatus = '';
-        opacity = 0.3;
-      } else if (builds.every(b => b.state === 'succeeded' || b.description.includes('partially succeeded'))) {
-        buildStatus = '✔️';
-        opacity = 1.0;
-      } else if (builds.some(b => b.state === 'pending')) {
-        buildStatus = '▶️';
-        opacity = 1.0;
-      } else {
-        buildStatus = '❌';
-        opacity = 1.0;
-      }
-
-      buildDescriptions = _.map(builds, 'description').join('\n');
+    let state;
+    if (builds.every(b => b.state === 'succeeded' || b.description.includes('partially succeeded'))) {
+      state = '✔️';
+    } else if (builds.some(b => b.state === 'pending')) {
+      state = '▶️';
     } else {
-      buildStatus = '';
-      opacity = 0.3;
-      buildDescriptions = 'No merge commit to build.';
+      state = '❌';
     }
 
-    if (buildStatus) {
-      annotatePullRequestTitle(row, 'build-status', buildDescriptions, `<span aria-hidden="true" class="contributed-icon flex-noshrink fabric-icon ms-Icon--Build" style="opacity: ${opacity}"></span>&nbsp;${buildStatus}`);
-    }
+    const tooltip = _.map(builds, 'description').join('\n');
+    const label = `<span aria-hidden="true" class="contributed-icon flex-noshrink fabric-icon ms-Icon--Build"></span>&nbsp;${state}`;
+    annotatePullRequestTitle(row, 'build-status', tooltip, label);
   }
 
   function annotatePullRequestTitle(pullRequestRow, cssClass, title, html) {
-    const label = `<div class="pr-annotation bolt-pill-overflow flex-row"><div class="bolt-pill-group-inner flex-row"><div class="bolt-pill flex-row flex-center standard compact ${cssClass}" data-focuszone="focuszone-75" role="presentation" title="${escapeStringForHtml(title)}"><div class="bolt-pill-content text-ellipsis">${html}</div></div></div><div class="bolt-pill-observe"></div></div>`;
     let labels = pullRequestRow.querySelector('.bolt-pill-group');
     if (!labels) {
       // eslint-disable-next-line prefer-destructuring
       labels = $('<div class="margin-left-8 bolt-pill-group flex-row"></div>')[0];
       pullRequestRow.querySelector('.body-l').insertAdjacentElement('afterend', labels);
     }
+
+    const label = `<div class="pr-annotation bolt-pill-overflow flex-row"><div class="bolt-pill-group-inner flex-row"><div class="bolt-pill flex-row flex-center standard compact ${cssClass}" data-focuszone="focuszone-75" role="presentation" title="${escapeStringForHtml(title)}"><div class="bolt-pill-content text-ellipsis">${html}</div></div></div><div class="bolt-pill-observe"></div></div>`;
     labels.insertAdjacentHTML('afterbegin', label);
   }
 
@@ -1048,7 +1035,7 @@
 
   // Helper function to encode any string into an string that can be placed directly into HTML.
   function escapeStringForHtml(string) {
-    return string.replace(/[\u00A0-\u9999<>\&]/gim, ch => `&#${ch.charCodeAt(0)};`);
+    return string.replace(/[\u00A0-\u9999<>&]/gim, ch => `&#${ch.charCodeAt(0)};`);
   }
 
   // Async helper function to return reviewer info specific to National Instruments workflows (where this script is used the most).
