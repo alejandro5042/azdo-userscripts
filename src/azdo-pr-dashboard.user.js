@@ -159,18 +159,16 @@
     .pr-annotation:not([title=""]) {
       cursor: help !important;
     }
-    .pr-annotation.file-count {
-      background: #00f2 !important;
-    }
+    .pr-annotation.file-count,
     .pr-annotation.build-status {
-      background: #00f2 !important;
+      background: #fff4 !important;
+      min-width: 8ex;
     }`);
 
   if (atNI) {
     addStyleOnce('ni-labels', /* css */ `
       /* Known labels we should style. */
       .label--owners {
-        opacity: 0.3;
       }
       .label--draft {
         background: #8808 !important;
@@ -179,7 +177,6 @@
         background: #0a08 !important;
       }
       .label--bypassowners {
-        background: #a008 !important;
       }`);
   }
 
@@ -756,6 +753,87 @@
     });
   }
 
+  addStyleOnce('pr-dashboard-css', /* css */ `
+    table.repos-pr-list tbody > a {
+      transition: 0.2s;
+    }
+    table.repos-pr-list tbody > a.voted-waiting > td > * {
+      opacity: 0.15;
+    }
+    .repos-pr-list-last-reviewer-pill.outlined {
+      border-color: #f00;
+      border-color: var(--status-error-text,rgba(177, 133, 37, 1));
+      color: #f00;
+      color: var(--status-error-text,rgba(177, 133, 37, 1));
+      background: var(--status-error-background,rgba(177, 133, 37, 1));
+    }`);
+
+  function watchPullRequestDashboard() {
+    eus.onUrl(/\/(_pulls|pullrequests)/gi, (session, urlMatch) => {
+      session.onEveryNew(document, '.repos-pr-section-card', section => {
+        const sectionTitle = section.querySelector('.repos-pr-section-header-title > span').innerText;
+        if (sectionTitle !== 'Assigned to me' && sectionTitle !== 'Created by me') return;
+
+        session.onEveryNew(section, 'a[role="row"]', (row, addedDynamically) => {
+          // AzDO re-adds PR rows when it updates them with in JS. That's the one we want to enhance.
+          if (!addedDynamically) return;
+
+          enhancePullRequestRow(row, sectionTitle);
+
+          // React will re-use this DOM element, so we need to re-enhance.
+          session.onAnyChangeTo(row, () => enhancePullRequestRow(row, sectionTitle));
+        });
+      });
+    });
+  }
+
+  async function enhancePullRequestRow(row, sectionTitle) {
+    const pullRequestUrl = new URL(row.href, window.location.origin);
+    const pullRequestId = parseInt(pullRequestUrl.pathname.substring(pullRequestUrl.pathname.lastIndexOf('/') + 1), 10);
+
+    // Skip if we've already processed this PR.
+    if (row.dataset.pullRequestId === pullRequestId.toString()) return;
+    // eslint-disable-next-line no-param-reassign
+    row.dataset.pullRequestId = pullRequestId;
+
+    // TODO: If you switch between Active and Reviewed too fast, you may get duplicate annotations.
+
+    // Remove annotations a previous PR may have had. Recall that React reuses DOM elements.
+    row.classList.remove('voted-waiting');
+    for (const element of row.querySelectorAll('.repos-pr-list-last-reviewer-pill')) {
+      element.remove();
+    }
+    for (const element of row.querySelectorAll('.userscript-bolt-pill-group')) {
+      element.remove();
+    }
+    for (const element of row.querySelectorAll('.pr-annotation')) {
+      element.remove();
+    }
+
+    const pr = await getPullRequestAsync(pullRequestId);
+
+    if (sectionTitle === 'Assigned to me') {
+      const votes = countVotes(pr);
+
+      // TODO: If you press the PR menu button, the PR loses it's styling.
+      row.classList.toggle('voted-waiting', votes.userVote === -5);
+
+      if (votes.userVote === 0 && votes.missingVotes === 1) {
+        const blockingAnnotation = `
+          <div aria-label="Auto-complete" class="repos-pr-list-last-reviewer-pill flex-noshrink margin-left-4 bolt-pill flex-row flex-center outlined compact" data-focuszone="focuszone-19" role="presentation">
+            <div class="bolt-pill-content text-ellipsis">Last Reviewer</div>
+          </div>`;
+        const title = row.querySelector('.body-l');
+        title.insertAdjacentHTML('afterend', blockingAnnotation);
+      }
+
+      await annotateFileCountOnPullRequestRow(row, pr);
+    }
+
+    await annotateBuildStatusOnPullRequestRow(row, pr);
+    await annotateBugsOnPullRequestRow(row, pr);
+  }
+
   function countVotes(pr) {
     const votes = {
       missingVotes: 0,
@@ -775,77 +853,6 @@
     }
 
     return votes;
-  }
-
-  addStyleOnce('pr-dashboard-css', /* css */ `
-    table.repos-pr-list tbody > a {
-      transition: 0.2s;
-    }
-    table.repos-pr-list tbody > a.voted-waiting {
-      opacity: 0.15;
-    }
-    table.repos-pr-list tbody > a.voted-waiting:hover {
-      background-color: #ffdd0055;
-      opacity: 1;
-    }
-    table.repos-pr-list tbody > a.voted-rejected {
-    }
-    table.repos-pr-list tbody > a.review-waiting-or-rejected {
-    }
-    table.repos-pr-list tbody > a.review-is-blocked-on-me {
-      background-color: #dd000033;
-    }
-    table.repos-pr-list tbody > a.review-is-blocked-on-me:hover {
-      background-color: #dd000066;
-    }`);
-
-  function watchPullRequestDashboard() {
-    eus.onUrl(/\/(_pulls|pullrequests)/gi, (session, urlMatch) => {
-      session.onEveryNew(document, '.repos-pr-section-card', section => {
-        const sectionTitle = section.querySelector('.repos-pr-section-header-title > span').innerText;
-        if (sectionTitle !== 'Assigned to me' && sectionTitle !== 'Created by me') return;
-
-        session.onEveryNew(section, 'a[role="row"]', (row, isNew) => {
-          if (!isNew) return;
-
-          enhancePullRequestRow(row, sectionTitle);
-          session.onAnyChangeTo(row, () => enhancePullRequestRow(row, sectionTitle));
-        });
-      });
-    });
-  }
-
-  async function enhancePullRequestRow(row, sectionTitle) {
-    const pullRequestUrl = new URL(row.href, window.location.origin);
-    const pullRequestId = parseInt(pullRequestUrl.pathname.substring(pullRequestUrl.pathname.lastIndexOf('/') + 1), 10);
-
-    // Skip if we've already processed this PR.
-    if (row.dataset.pullRequestId === pullRequestId.toString()) return;
-    // eslint-disable-next-line no-param-reassign
-    row.dataset.pullRequestId = pullRequestId;
-
-    // Remove annotations a previous PR may have had. Recall that React reuses DOM elements.
-    row.classList.remove('voted-waiting', 'voted-rejected', 'review-waiting-or-rejected', 'review-is-blocked-on-me');
-    for (const element of row.querySelectorAll('.userscript-bolt-pill-group')) {
-      element.remove();
-    }
-    for (const element of row.querySelectorAll('.pr-annotation')) {
-      element.remove();
-    }
-
-    const pr = await getPullRequestAsync(pullRequestId);
-
-    if (sectionTitle !== 'Created by me') {
-      const votes = countVotes(pr);
-      row.classList.toggle('voted-waiting', votes.userVote === -5);
-      row.classList.toggle('voted-rejected', votes.userVote === -10);
-      row.classList.toggle('review-waiting-or-rejected', votes.waitingOrRejectedVotes > 0);
-      row.classList.toggle('review-is-blocked-on-me', votes.userVote === 0 && votes.missingVotes === 1);
-    }
-
-    await annotateBuildStatusOnPullRequestRow(row, pr);
-    await annotateFileCountOnPullRequestRow(row, pr, sectionTitle === 'Assigned to me');
-    await annotateBugsOnPullRequestRow(row, pr);
   }
 
   async function annotateBugsOnPullRequestRow(row, pr) {
@@ -882,18 +889,16 @@
     }
   }
 
-  async function annotateFileCountOnPullRequestRow(row, pr, isAssignedToMe) {
+  async function annotateFileCountOnPullRequestRow(row, pr) {
     let fileCount;
 
     if (pr.lastMergeCommit) {
       fileCount = 0;
 
       // See if this PR has owners info and count the files listed for the current user.
-      if (isAssignedToMe) {
-        const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(pr.url);
-        if (ownersInfo) {
-          fileCount = ownersInfo.currentUserFileCount;
-        }
+      const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(pr.url);
+      if (ownersInfo) {
+        fileCount = ownersInfo.currentUserFileCount;
       }
 
       // If there is no owner info or if it returns zero files to review (since we may not be on the review explicitly), then count the number of files in the merge commit.
@@ -907,8 +912,7 @@
     }
 
     const label = `<span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}`;
-    const tooltip = atNI ? '# of files in the PR  -or-  # of files you need to review (.niconfig)' : '# of files in the PR';
-    annotatePullRequestTitle(row, 'file-count', tooltip, label);
+    annotatePullRequestTitle(row, 'file-count', '# of files you need to review', label);
   }
 
   async function annotateBuildStatusOnPullRequestRow(row, pr) {
@@ -933,6 +937,8 @@
 
   function annotatePullRequestTitle(pullRequestRow, cssClass, title, html) {
     let labels = pullRequestRow.querySelector('.bolt-pill-group-inner');
+
+    // The PR may not have any labels to begin with, so we have to construct the label container.
     if (!labels) {
       // eslint-disable-next-line prefer-destructuring
       const labelContainer = $(`
