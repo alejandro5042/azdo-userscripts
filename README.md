@@ -93,6 +93,16 @@ PR comments that start with `await:` (case insensitive) will appear highlighted.
 
 ![Await comments are highlighted.](assets/await-comments.png)
 
+### Bypass owners reminder
+
+For PRs into branches requiring a passing ni/owners-approved status, hovering over the Approve button pops up a reminder to consider bypassing owners.
+
+### PR trophies
+
+Trophies are awarded for notable PRs and shown in a trophies section on the Overview tab. For example:
+
+![Milestone trophy.](assets/milestone-trophy.png)
+
 ### Better owners review
 
 > These features are currently specific to National Instruments.
