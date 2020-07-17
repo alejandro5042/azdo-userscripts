@@ -797,9 +797,6 @@
 
     const pr = await getPullRequestAsync(pullRequestId);
 
-    // Add a tooltip to the PR link. (The overall dashboard doesn't include tooltips.)
-    row.title = pr.title;
-
     row.classList.toggle('draft', pr.isDraft);
 
     if (sectionTitle !== 'Created by me') {
