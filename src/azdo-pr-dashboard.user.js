@@ -140,29 +140,12 @@
   enhanceOverallUX();
 
   addStyleOnce('labels', /* css */ `
-    /* The overall PR dashboard doesn't show tags by default, so we need to add in some CSS when we add tags to that dashboard. Also, reuse this style for PR bug severity. */
-    .prlist .tag-box, .pr-bug-severity {
-      margin: 2px 3px;
-      padding: 0px 6px;
-      font-size: 12px;
-      color: rgba(0,0,0,.55);
-      color: var(--text-secondary-color,rgba(0, 0, 0, .55));
-      background-color: rgba(239,246,252,1);
-      background-color: rgba(var(--palette-primary-tint-40,239, 246, 252),1);
-      user-select: none;
-    }
     /* Known bug severities we should style. */
-    .pr-bug-severity {
-      display: none;
-      cursor: help;
-    }
-    .pr-bug-severity--1-critical {
+    .pr-bug-severity-1 {
       background: #a008 !important;
-      display: initial;
     }
-    .pr-bug-severity--2-high {
+    .pr-bug-severity-2 {
       background: #fd38 !important;
-      display: initial;
     }
     /* Known labels we should style. */
     .label--owners {
@@ -860,13 +843,13 @@
       }
     }
 
-    if (highestSeverityBug && highestSeverity <= 1) {
+    if (highestSeverityBug && highestSeverity <= 2) {
       let title = highestSeverityBug.fields['System.Title'];
       if (otherHighestSeverityBugsCount) {
         title += ` (and ${otherHighestSeverityBugsCount} other)`;
       }
 
-      annotatePullRequestTitle(row, `pr-bug-severity pr-bug-severity--${stringToCssIdentifier(highestSeverity.toString())}`, title, `SEV${highestSeverity}</span>`);
+      annotatePullRequestTitle(row, `pr-bug-severity--${highestSeverity})}`, title, `SEV${highestSeverity}</span>`);
     }
   }
 
