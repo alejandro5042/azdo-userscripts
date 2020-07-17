@@ -210,13 +210,13 @@
   }
 
   function addOrgPRLink() {
-    $('.page-title').once('decorate-with-org-pr-link').each(function () {
+    $('.bolt-header-title.title-m.l').once('decorate-with-org-pr-link').each(function () {
       const titleElement = this;
-      $(titleElement).text((i, oldText) => `${getRepoNameFromUrl(window.location.pathname)} ${oldText}`);
+      titleElement.innerText = `${getRepoNameFromUrl(window.location.pathname)} ${titleElement.innerText}`;
       const orgPRLink = document.createElement('a');
       orgPRLink.href = `${azdoApiBaseUrl}_pulls`;
-      orgPRLink.text = 'View global PR dashboard';
-      orgPRLink.style = 'margin: 15px; font-size: 80%';
+      orgPRLink.text = '→ View global PR dashboard';
+      orgPRLink.style = 'margin: 15px; font-size: 80%; text-decoration: none; color: var(--communication-foreground,rgba(0, 90, 158, 1)); font-weight: normal';
       titleElement.insertAdjacentElement('beforeend', orgPRLink);
     });
   }
