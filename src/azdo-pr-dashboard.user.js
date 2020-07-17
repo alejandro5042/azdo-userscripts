@@ -52,7 +52,7 @@
     // Because of CORS, we need to make sure we're querying the same hostname for our AzDO APIs.
     azdoApiBaseUrl = `${window.location.origin}${pageData['ms.vss-tfs-web.header-action-data'].suiteHomeUrl}`;
 
-    prDashboard();
+    watchPullRequestDashboard();
 
     // Handle any existing elements, flushing it to execute immediately.
     onPageUpdatedThrottled();
@@ -782,24 +782,21 @@
     }
     `);
 
-  function prDashboard() {
+  function watchPullRequestDashboard() {
     eus.onUrl(/\/(_pulls|pullrequests)/gi, (session, urlMatch) => {
       session.onEveryNew(document, '.repos-pr-section-card', section => {
         const sectionTitle = section.querySelector('.repos-pr-section-header-title > span').innerText;
         if (sectionTitle !== 'Assigned to me') return;
-        // session.onEveryNew(section, 'colgroup', colgroup => {
-        //   colgroup.querySelector('col:nth-of-type(4)').insertAdjacentHTML('afterend', '<col style="width: 5rem;">');
-        // });
         session.onEveryNew(section, 'a[role="row"]', (row, isNew) => {
           if (!isNew) return;
-          enhancePR(row, sectionTitle);
-          session.onAnyChangeTo(row, () => enhancePR(row, sectionTitle));
+          enhancePullRequestRow(row, sectionTitle);
+          session.onAnyChangeTo(row, () => enhancePullRequestRow(row, sectionTitle));
         });
       });
     });
   }
 
-  async function enhancePR(row, sectionTitle) {
+  async function enhancePullRequestRow(row, sectionTitle) {
     const pullRequestUrl = new URL(row.href, window.location.origin);
     const pullRequestId = parseInt(pullRequestUrl.pathname.substring(pullRequestUrl.pathname.lastIndexOf('/') + 1), 10);
 
@@ -819,10 +816,6 @@
     row.classList.toggle('draft', pr.isDraft);
 
     if (sectionTitle !== 'Created by me') {
-      // Get non-deleted pr threads, ordered from newest to oldest.
-      // const prThreads = (await $.get(`${pr.url}/threads?api-version=5.0`)).value.filter(x => !x.isDeleted).reverse();
-      // assignSortOrderToPullRequest(row, getReviewerAddedOrResetTimestamp(prThreads, currentUser.uniqueName) || pr.createdDate);
-
       const votes = countVotes(pr);
       row.classList.toggle('voted-waiting', votes.userVote === -5);
       row.classList.toggle('voted-rejected', votes.userVote === -10);
@@ -833,6 +826,10 @@
     await annotateBuildStatusOnPullRequestRow(row, pr);
     await annotateFileCountOnPullRequestRow(row, pr, sectionTitle === 'Assigned to me');
     await annotateBugsOnPullRequestRow(row, pr);
+  }
+
+  function encodeString(value) {
+    return value.replace(/[\u00A0-\u9999<>\&]/gim, ch => `&#${ch.charCodeAt(0)};`);
   }
 
   async function annotateBugsOnPullRequestRow(row, pr) {
@@ -859,16 +856,13 @@
       }
     }
 
-    if (highestSeverityBug) {
+    if (highestSeverityBug && highestSeverity <= 1) {
       let title = highestSeverityBug.fields['System.Title'];
       if (otherHighestSeverityBugsCount) {
         title += ` (and ${otherHighestSeverityBugsCount} other)`;
       }
-      annotatePullRequestTitle(row,
-        $('<span class="pr-bug-severity" />')
-          .text(`SEV${highestSeverity}`)
-          .addClass(`pr-bug-severity--${stringToCssIdentifier(highestSeverity.toString())}`)
-          .attr('title', title)[0]);
+
+      annotatePullRequestTitle(row, `<span class="pr-bug-severity pr-bug-severity--${stringToCssIdentifier(highestSeverity.toString())}" title="${encodeString(title)}">SEV${highestSeverity}<span>`);
     }
   }
 
@@ -895,8 +889,7 @@
       fileCount = '⛔';
     }
 
-    // annotatePullRequestRow(row, $(`<span><span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}</span>`));
-    annotatePullRequestTitle(row, $(`<span><span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}</span>`)[0]);
+    annotatePullRequestTitle(row, `<span><span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}</span>`);
   }
 
   async function annotateBuildStatusOnPullRequestRow(row, pr) {
@@ -928,53 +921,12 @@
       buildDescriptions = 'No merge commit to build.';
     }
 
-    const buildStatusIcon = `<span style="cursor: help; margin: 2px">${buildStatus}</span>`;
-    //annotatePullRequestRow(row, $('<span><span aria-hidden="true" class="contributed-icon flex-noshrink fabric-icon ms-Icon--Build"></span>&nbsp;</span>').append(buildStatusIcon).css('opacity', opacity));
-    //annotatePullRequestRow(row, `<span><span aria-hidden="true" class="contributed-icon flex-noshrink fabric-icon ms-Icon--Build"></span>&nbsp;${buildStatusIcon}</span>`);
-    annotatePullRequestTitle(row, $(`<span><span aria-hidden="true" class="contributed-icon flex-noshrink fabric-icon ms-Icon--Build" title="${buildDescriptions}" style="opacity: ${opacity}"></span>&nbsp;${buildStatusIcon}</span>`)[0]);
+    const element = `<span><span aria-hidden="true" class="contributed-icon flex-noshrink fabric-icon ms-Icon--Build" title="${buildDescriptions}" style="opacity: ${opacity}"></span>&nbsp;${buildStatus}</span>`;
+    annotatePullRequestTitle(row, element);
   }
 
-  function assignSortOrderToPullRequest(pullRequestRow, sortingTimestampAscending) {
-    // Order the reviews by when the current user was added (reviews that the user was added to most recently are listed last). We do this by ordering the rows inside a reversed-order flex container.
-    // The order property is a 32-bit integer. If treat it as number of seconds, that allows a range of 68 years (2147483647 / (60 * 60 * 24 * 365)) in the positive values alone.
-    // Dates values are number of milliseconds since 1970, so we wouldn't overflow until 2038. Still, we might as well subtract a more recent reference date, i.e. 2019.
-    const secondsSince2019 = Math.trunc((Date.parse(sortingTimestampAscending) - Date.parse('2019-01-01')) / 1000);
-    pullRequestRow.style.order = secondsSince2019;
-  }
-
-  function annotatePullRequestRow(pullRequestRow, additionHtml) {
-    const precedingColumn = pullRequestRow.querySelector('td[data-column-index="2"]');
-    console.log(additionHtml);
-    precedingColumn.insertAdjacentHTML('afterend', `
-        <td class="bolt-table-cell bolt-list-cell" role="gridcell">
-          <div class="bolt-table-cell-content flex-row flex-center">
-            <div class="flex-row flex-center">
-              ${additionHtml}
-            </div>
-          </div>
-        </td>`);
-  }
-
-  function annotatePullRequestTitle(pullRequestRow, element) {
-    pullRequestRow.querySelector('.body-l').appendChild(element);
-  }
-
-  function getReviewerAddedOrResetTimestamp(prThreadsNewestFirst, reviewerUniqueName) {
-    for (const thread of prThreadsNewestFirst) {
-      if (thread.properties) {
-        if (Object.prototype.hasOwnProperty.call(thread.properties, 'CodeReviewReviewersUpdatedAddedIdentity')) {
-          const addedReviewer = thread.identities[thread.properties.CodeReviewReviewersUpdatedAddedIdentity.$value];
-          if (addedReviewer.uniqueName === reviewerUniqueName) {
-            return thread.publishedDate;
-          }
-        } else if (Object.prototype.hasOwnProperty.call(thread.properties, 'CodeReviewResetMultipleVotesExampleVoterIdentities')) {
-          if (Object.keys(thread.identities).filter(x => thread.identities[x].uniqueName === reviewerUniqueName)) {
-            return thread.publishedDate;
-          }
-        }
-      }
-    }
-    return null;
+  function annotatePullRequestTitle(pullRequestRow, html) {
+    pullRequestRow.querySelector('.bolt-pill-group').insertAdjacentHTML('afterbegin', `<div class="bolt-pill-overflow flex-row"><div class="bolt-pill-group-inner flex-row"><div class="bolt-pill flex-row flex-center standard compact" data-focuszone="focuszone-75" role="presentation"><div class="bolt-pill-content text-ellipsis">${html}</div></div></div><div class="bolt-pill-observe"></div></div>`);
   }
 
   // Helper function to avoid adding CSS twice into a document.
