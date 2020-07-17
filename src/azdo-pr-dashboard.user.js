@@ -767,7 +767,7 @@
       background-color: #dd000066;
     }
     table.repos-pr-list tbody > a.draft {
-      /* background-color: #0000ff33; */
+      background-color: #0000ff33;
     }`);
 
   function watchPullRequestDashboard() {
@@ -802,8 +802,6 @@
     }
 
     const pr = await getPullRequestAsync(pullRequestId);
-
-    // TODO: Decide what to do about draft coloring.
     row.classList.toggle('draft', pr.isDraft);
 
     if (sectionTitle !== 'Created by me') {
@@ -819,8 +817,6 @@
     await annotateBugsOnPullRequestRow(row, pr);
 
     // TODO: Color labels
-    // TODO: Error in Reviewed category... something about the annotations
-
     // if (atNI) {
     //   $(row, '.pr-annotation .bolt-pill').once('labels').each(function () {
     //     const tagBox = $(this);
