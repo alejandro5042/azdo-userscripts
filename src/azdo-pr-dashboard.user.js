@@ -765,8 +765,9 @@
       background-color: #dd000033;
     }
     table.repos-pr-list tbody > a.draft {
-      background-color: #0000ff33;
+      /* background-color: #0000ff33; */
     }`);
+  // TODO: Decide what to do about draft coloring.
 
   function watchPullRequestDashboard() {
     eus.onUrl(/\/(_pulls|pullrequests)/gi, (session, urlMatch) => {
