@@ -746,7 +746,7 @@
     return votes;
   }
 
-  addStyleOnce('reviews-list-css2', /* css */ `
+  addStyleOnce('pr-dashboard-css', /* css */ `
     table.repos-pr-list tbody > a {
       transition: 0.2s;
     }
@@ -770,7 +770,6 @@
     table.repos-pr-list tbody > a.draft {
       /* background-color: #0000ff33; */
     }`);
-  // TODO: Decide what to do about draft coloring.
 
   function watchPullRequestDashboard() {
     eus.onUrl(/\/(_pulls|pullrequests)/gi, (session, urlMatch) => {
@@ -790,21 +789,23 @@
     const pullRequestUrl = new URL(row.href, window.location.origin);
     const pullRequestId = parseInt(pullRequestUrl.pathname.substring(pullRequestUrl.pathname.lastIndexOf('/') + 1), 10);
 
+    // Skip if we've already processed this PR.
     if (row.dataset.pullRequestId === pullRequestId.toString()) return;
     row.dataset.pullRequestId = pullRequestId;
 
+    // Remove annotations a previous PR may have had. Recall that React reuses DOM elements.
     row.classList.remove('draft');
     row.classList.remove('voted-waiting');
     row.classList.remove('voted-rejected');
     row.classList.remove('review-waiting-or-rejected');
     row.classList.remove('review-is-blocked-on-me');
-
     for (const element of row.querySelectorAll('.pr-annotation')) {
       element.remove();
     }
 
     const pr = await getPullRequestAsync(pullRequestId);
 
+  // TODO: Decide what to do about draft coloring.
     row.classList.toggle('draft', pr.isDraft);
 
     if (sectionTitle !== 'Created by me') {
@@ -829,10 +830,6 @@
     //     tagBox.addClass(`label--${subClass}`);
     //   });
     // }
-  }
-
-  function encodeString(value) {
-    return value.replace(/[\u00A0-\u9999<>\&]/gim, ch => `&#${ch.charCodeAt(0)};`);
   }
 
   async function annotateBugsOnPullRequestRow(row, pr) {
@@ -930,7 +927,7 @@
   }
 
   function annotatePullRequestTitle(pullRequestRow, cssClass, title, html) {
-    pullRequestRow.querySelector('.bolt-pill-group').insertAdjacentHTML('afterbegin', `<div class="pr-annotation bolt-pill-overflow flex-row"><div class="bolt-pill-group-inner flex-row"><div class="bolt-pill flex-row flex-center standard compact ${cssClass}" data-focuszone="focuszone-75" role="presentation" title="${encodeString(title)}"><div class="bolt-pill-content text-ellipsis">${html}</div></div></div><div class="bolt-pill-observe"></div></div>`);
+    pullRequestRow.querySelector('.bolt-pill-group').insertAdjacentHTML('afterbegin', `<div class="pr-annotation bolt-pill-overflow flex-row"><div class="bolt-pill-group-inner flex-row"><div class="bolt-pill flex-row flex-center standard compact ${cssClass}" data-focuszone="focuszone-75" role="presentation" title="${escapeStringForHtml(title)}"><div class="bolt-pill-content text-ellipsis">${html}</div></div></div><div class="bolt-pill-observe"></div></div>`);
   }
 
   // Helper function to avoid adding CSS twice into a document.
@@ -1041,6 +1038,11 @@
   // Helper function to limit a string to a certain length, adding an ellipsis if necessary.
   function truncate(text, maxLength) {
     return text.length > maxLength ? `${text.substring(0, maxLength - 3)}...` : text;
+  }
+
+  // Helper function to encode any string into an string that can be placed directly into HTML.
+  function escapeStringForHtml(string) {
+    return string.replace(/[\u00A0-\u9999<>\&]/gim, ch => `&#${ch.charCodeAt(0)};`);
   }
 
   // Async helper function to return reviewer info specific to National Instruments workflows (where this script is used the most).
