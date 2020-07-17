@@ -18,10 +18,8 @@ By default, Tampermonkey will automatically update scripts from the original ins
 
 ### PR dashboard improvements
 
-![(Picture of an example dashboard)](assets/pr-dashboard.png)
-
-- Blocking reviews are colored red
 - Reviews where you voted "Waiting on Author" are faded out (and hover over yellow)
+- Reviews where you are the last reviewer are marked "Last Reviewer" in red
 - Reviews show how many files you need to review
 - Reviews show build status (if it's empty, there isn't a merge commit or a build configured)
 - If a PR has bug work items associated with it, we add a label with the severity of such bugs (if SEV == 1 or 2)
