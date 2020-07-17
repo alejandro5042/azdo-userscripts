@@ -766,7 +766,7 @@
   addStyleOnce('reviews-list-css2', /* css */ `
     table.repos-pr-list tbody > a.voted-waiting {
       abackground-color: #ffff0044;
-      opacity: 0.5;
+      opacity: 0.2;
     }
     table.repos-pr-list tbody > a.voted-rejected {
       abackground-color: #ff000044;
@@ -807,6 +807,10 @@
     row.classList.remove('voted-rejected');
     row.classList.remove('blocked-review');
     row.classList.remove('my-vote-is-last');
+
+    for (const element of row.querySelectorAll('.pr-annotation')) {
+      element.remove();
+    }
 
     const pr = await getPullRequestAsync(pullRequestId);
 
@@ -862,7 +866,7 @@
         title += ` (and ${otherHighestSeverityBugsCount} other)`;
       }
 
-      annotatePullRequestTitle(row, `<span class="pr-bug-severity pr-bug-severity--${stringToCssIdentifier(highestSeverity.toString())}" title="${encodeString(title)}">SEV${highestSeverity}<span>`);
+      annotatePullRequestTitle(row, `pr-bug-severity pr-bug-severity--${stringToCssIdentifier(highestSeverity.toString())}`, title, `SEV${highestSeverity}</span>`);
     }
   }
 
@@ -889,7 +893,7 @@
       fileCount = '⛔';
     }
 
-    annotatePullRequestTitle(row, `<span><span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}</span>`);
+    annotatePullRequestTitle(row, 'file-count', '# of files in the PR you need to review', `<span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}`);
   }
 
   async function annotateBuildStatusOnPullRequestRow(row, pr) {
@@ -921,12 +925,13 @@
       buildDescriptions = 'No merge commit to build.';
     }
 
-    const element = `<span><span aria-hidden="true" class="contributed-icon flex-noshrink fabric-icon ms-Icon--Build" title="${buildDescriptions}" style="opacity: ${opacity}"></span>&nbsp;${buildStatus}</span>`;
-    annotatePullRequestTitle(row, element);
+    if (buildStatus) {
+      annotatePullRequestTitle(row, 'build-status', buildDescriptions, `<span aria-hidden="true" class="contributed-icon flex-noshrink fabric-icon ms-Icon--Build" style="opacity: ${opacity}"></span>&nbsp;${buildStatus}`);
+    }
   }
 
-  function annotatePullRequestTitle(pullRequestRow, html) {
-    pullRequestRow.querySelector('.bolt-pill-group').insertAdjacentHTML('afterbegin', `<div class="bolt-pill-overflow flex-row"><div class="bolt-pill-group-inner flex-row"><div class="bolt-pill flex-row flex-center standard compact" data-focuszone="focuszone-75" role="presentation"><div class="bolt-pill-content text-ellipsis">${html}</div></div></div><div class="bolt-pill-observe"></div></div>`);
+  function annotatePullRequestTitle(pullRequestRow, cssClass, title, html) {
+    pullRequestRow.querySelector('.bolt-pill-group').insertAdjacentHTML('afterbegin', `<div class="pr-annotation bolt-pill-overflow flex-row"><div class="bolt-pill-group-inner flex-row"><div class="bolt-pill flex-row flex-center standard compact ${cssClass}" data-focuszone="focuszone-75" role="presentation" title="${encodeString(title)}"><div class="bolt-pill-content text-ellipsis">${html}</div></div></div><div class="bolt-pill-observe"></div></div>`);
   }
 
   // Helper function to avoid adding CSS twice into a document.
