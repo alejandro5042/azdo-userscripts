@@ -18,33 +18,12 @@ By default, Tampermonkey will automatically update scripts from the original ins
 
 ### PR dashboard improvements
 
-Sorts the PRs in your dashboard into categories:
-
-![(Picture of an example dashboard)](assets/azdo-pr-dashboard-example.png)
-
-- Reviews are sorted from oldest to newest (reverse of the default)
-- Reviews are categorized into sections:
-  - **Blocking:** Reviews where you are the last reviewer and everyone else approved
-  - **Incomplete:** Reviews you need to process
-  - **Incomplete but blocked:** Reviews you have not completed but are blocked anyways because another reviewer voted Waiting on Author or Rejected. This section is open by default
-  - **Drafts**
-  - **Completed as Waiting on Author**
-  - **Completed as Rejected**
-  - **Completed as Approved / Approved with Suggestions**
-  - **Completed as Approved / Approved with Suggestions (with notable updates):** PRs that have had notable activity after you've approved; e.g. lots of comments or non-approval votes
-- Sections remember if they are open/closed
-- PRs show how many files the reviewer needs to review
-- Your created PRs are also sorted
-
-Also, build status on PRs (see right column)! If it's empty, there isn't a build yet for that merge commit, or there isn't a merge commit yet.
-
-![Build status on PRs](assets/build-status.png)
-
-More:
-
-- Labels now appear on the overall PR dashboard
-- At NI, some labels get coloring (e.g. "bypass owners" gets a red background)
+- Reviews where you voted "Waiting on Author" are faded out (and hover over yellow)
+- Reviews where you are the last reviewer are marked "Last Reviewer" in red
+- Reviews show how many files you need to review
+- Reviews show build status (if it's empty, there isn't a merge commit or a build configured)
 - If a PR has bug work items associated with it, we add a label with the severity of such bugs (if SEV == 1 or 2)
+- At NI, some labels get coloring (e.g. "bypass owners" gets a red background)
 
 ### PR diff improvements
 
