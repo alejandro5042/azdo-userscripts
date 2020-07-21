@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.44.1
+// @version      2.45.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -760,12 +760,13 @@
     table.repos-pr-list tbody > a.voted-waiting > td > * {
       opacity: 0.15;
     }
-    .repos-pr-list-last-reviewer-pill.outlined {
+    .repos-pr-list-late-review-pill.outlined {
       border-color: #f00;
       border-color: var(--status-error-text,rgba(177, 133, 37, 1));
       color: #f00;
       color: var(--status-error-text,rgba(177, 133, 37, 1));
       background: var(--status-error-background,rgba(177, 133, 37, 1));
+      cursor: help;
     }`);
 
   function watchPullRequestDashboard() {
@@ -800,7 +801,7 @@
 
     // Remove annotations a previous PR may have had. Recall that React reuses DOM elements.
     row.classList.remove('voted-waiting');
-    for (const element of row.querySelectorAll('.repos-pr-list-last-reviewer-pill')) {
+    for (const element of row.querySelectorAll('.repos-pr-list-late-review-pill')) {
       element.remove();
     }
     for (const element of row.querySelectorAll('.userscript-bolt-pill-group')) {
@@ -812,6 +813,9 @@
 
     const pr = await getPullRequestAsync(pullRequestId);
 
+    // Sometimes, PRs lose their styling shortly after the page loads. A slight delay makes this problem go away, 99% of the time. Sucks -- but works and better to have this than not.
+    await sleep(333);
+
     if (sectionTitle === 'Assigned to me') {
       const votes = countVotes(pr);
 
@@ -819,12 +823,16 @@
       row.classList.toggle('voted-waiting', votes.userVote === -5);
 
       if (votes.userVote === 0 && votes.missingVotes === 1) {
-        const blockingAnnotation = `
-          <div aria-label="Auto-complete" class="repos-pr-list-last-reviewer-pill flex-noshrink margin-left-4 bolt-pill flex-row flex-center outlined compact" data-focuszone="focuszone-19" role="presentation">
-            <div class="bolt-pill-content text-ellipsis">Last Reviewer</div>
-          </div>`;
-        const title = row.querySelector('.body-l');
-        title.insertAdjacentHTML('afterend', blockingAnnotation);
+        annotatePullRequestTitle(row, 'repos-pr-list-late-review-pill', 'Last Reviewer', 'Everyone is waiting on you!');
+      }
+
+      if (atNI && votes.userVote === 0) {
+        const prThreadsNewestFirst = (await $.get(`${pr.url}/threads?api-version=5.0`)).value.filter(x => !x.isDeleted).reverse();
+        const dateAdded = getReviewerAddedOrResetTimestamp(prThreadsNewestFirst, currentUser.uniqueName) || pr.createdDate;
+        const weekDays = differenceInWeekDays(new Date(dateAdded), new Date());
+        if (weekDays >= 1.0) {
+          annotatePullRequestTitle(row, 'repos-pr-list-late-review-pill', `${weekDays} days old`, "# of week days since you've been added or reset. At NI, reviews should be addressed within 1 business day.");
+        }
       }
     }
 
@@ -836,6 +844,46 @@
 
     await annotateBuildStatusOnPullRequestRow(row, pr);
   }
+
+  function differenceInWeekDays(startDate, endDate) {
+    let days = (endDate - startDate) / (1000.0 * 60 * 60 * 24);
+    const date = new Date(startDate);
+    while (date <= endDate) {
+      if (date.getDay() === 0 || date.getDay() === 6) {
+        days -= 1.0;
+      }
+      date.setDate(date.getDate() + 1);
+    }
+    return days < 0 ? 0 : days.toFixed(1);
+  }
+
+  function annotatePullRequestTitle(row, cssClass, message, tooltip) {
+    const blockingAnnotation = `
+      <div aria-label="Auto-complete" class="${cssClass} flex-noshrink margin-left-4 bolt-pill flex-row flex-center outlined compact" data-focuszone="focuszone-19" role="presentation" title="${tooltip}">
+        <div class="bolt-pill-content text-ellipsis">${message}</div>
+      </div>`;
+    const title = row.querySelector('.body-l');
+    title.insertAdjacentHTML('afterend', blockingAnnotation);
+  }
+
+  function getReviewerAddedOrResetTimestamp(prThreadsNewestFirst, reviewerUniqueName) {
+    for (const thread of prThreadsNewestFirst) {
+      if (thread.properties) {
+        if (Object.prototype.hasOwnProperty.call(thread.properties, 'CodeReviewReviewersUpdatedAddedIdentity')) {
+          const addedReviewer = thread.identities[thread.properties.CodeReviewReviewersUpdatedAddedIdentity.$value];
+          if (addedReviewer.uniqueName === reviewerUniqueName) {
+            return thread.publishedDate;
+          }
+        } else if (Object.prototype.hasOwnProperty.call(thread.properties, 'CodeReviewResetMultipleVotesExampleVoterIdentities')) {
+          if (Object.keys(thread.identities).filter(x => thread.identities[x].uniqueName === reviewerUniqueName)) {
+            return thread.publishedDate;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
 
   function countVotes(pr) {
     const votes = {
@@ -888,7 +936,7 @@
         title += ` (and ${otherHighestSeverityBugsCount} other)`;
       }
 
-      annotatePullRequestTitle(row, `pr-bug-severity-${highestSeverity}`, title, `SEV${highestSeverity}`);
+      annotatePullRequestLabel(row, `pr-bug-severity-${highestSeverity}`, title, `SEV${highestSeverity}`);
     }
   }
 
@@ -915,7 +963,7 @@
     }
 
     const label = `<span class="contributed-icon flex-noshrink fabric-icon ms-Icon--FileCode"></span>&nbsp;${fileCount}`;
-    annotatePullRequestTitle(row, 'file-count', '# of files you need to review', label);
+    annotatePullRequestLabel(row, 'file-count', '# of files you need to review', label);
   }
 
   async function annotateBuildStatusOnPullRequestRow(row, pr) {
@@ -935,10 +983,10 @@
 
     const tooltip = _.map(builds, 'description').join('\n');
     const label = `<span aria-hidden="true" class="contributed-icon flex-noshrink fabric-icon ms-Icon--Build"></span>&nbsp;${state}`;
-    annotatePullRequestTitle(row, 'build-status', tooltip, label);
+    annotatePullRequestLabel(row, 'build-status', tooltip, label);
   }
 
-  function annotatePullRequestTitle(pullRequestRow, cssClass, title, html) {
+  function annotatePullRequestLabel(pullRequestRow, cssClass, title, html) {
     let labels = pullRequestRow.querySelector('.bolt-pill-group-inner');
 
     // The PR may not have any labels to begin with, so we have to construct the label container.
