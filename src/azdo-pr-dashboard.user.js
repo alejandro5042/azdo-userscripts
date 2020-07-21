@@ -837,7 +837,7 @@
         if (weekDays >= 1) {
           const lastInteraction = getReviewerLastInteractionTime(prThreadsNewestFirst, currentUser.uniqueName);
           if (!lastInteraction || new Date(dateAdded) > new Date(lastInteraction)) {
-            annotatePullRequestTitle(row, 'repos-pr-list-late-review-pill', `${weekDays} days old`, "# of week days since you've been added or reset. At NI, reviewers are expected to comment or vote within 1 business day.");
+            annotatePullRequestTitle(row, 'repos-pr-list-late-review-pill', `${weekDays} days old`, "# of week days since you've been added or reset. Reviewers are expected to comment or vote within 1 business day.");
           }
         }
       }
