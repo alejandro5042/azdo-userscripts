@@ -822,6 +822,10 @@
       // TODO: If you press the PR menu button, the PR loses it's styling.
       row.classList.toggle('voted-waiting', votes.userVote === -5);
 
+      await annotateBugsOnPullRequestRow(row, pr);
+      await annotateFileCountOnPullRequestRow(row, pr);
+      await annotateBuildStatusOnPullRequestRow(row, pr);
+
       if (votes.userVote === 0 && votes.missingVotes === 1) {
         annotatePullRequestTitle(row, 'repos-pr-list-late-review-pill', 'Last Reviewer', 'Everyone is waiting on you!');
       }
@@ -837,15 +841,11 @@
           }
         }
       }
-    }
-
-    await annotateBugsOnPullRequestRow(row, pr);
-
-    if (sectionTitle === 'Assigned to me') {
+    } else {
+      await annotateBugsOnPullRequestRow(row, pr);
       await annotateFileCountOnPullRequestRow(row, pr);
+      await annotateBuildStatusOnPullRequestRow(row, pr);
     }
-
-    await annotateBuildStatusOnPullRequestRow(row, pr);
   }
 
   function differenceInWeekDays(startDate, endDate) {
