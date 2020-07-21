@@ -69,13 +69,13 @@
     try {
       // The page may not have refreshed when moving between URLs--sometimes AzDO acts as a single-page application. So we must always check where we are and act accordingly.
       if (/\/(pullrequest)\//i.test(window.location.pathname)) {
-        addCheckboxesToFiles();
         addBaseUpdateSelector();
         makePullRequestDiffEasierToScroll();
         applyStickyPullRequestComments();
         highlightAwaitComments();
         addAccessKeysToPullRequestTabs();
         if (atNI) {
+          addOwnersInfoToFiles();
           conditionallyAddBypassReminderAsync();
         }
         addTrophiesToPullRequest();
@@ -406,58 +406,27 @@
   }
 
   // The func we'll call to continuously add checkboxes to the PR file listing, once initialization is over.
-  let addCheckboxesToNewFilesFunc = () => { };
+  let annotateFilesTreeFunc = () => { };
 
   // If we're on specific PR, add checkboxes to the file listing.
-  function addCheckboxesToFiles() {
-    const hasBuiltInCheckboxes = $('.viewed-icon').length > 0 || window.location.href.match(/\/ni[/.]/);
+  function addOwnersInfoToFiles() {
+    $('.vc-pullrequest-leftpane-section.files-tab').once('annotate-with-owners-info').each(async () => {
+      annotateFilesTreeFunc = () => { };
 
-    $('.vc-pullrequest-leftpane-section.files-tab').once('add-checkbox-support').each(async function () {
-      addCheckboxesToNewFilesFunc = () => { };
-
-      const filesTree = $(this).find('.vc-sparse-files-tree');
-
-      addStyleOnce('pr-file-checkbox-support-css', /* css */ `
+      addStyleOnce('pr-file-tree-annotations-css', /* css */ `
         :root {
           /* Set some constants for our CSS. */
           --file-to-review-color: var(--communication-foreground);
-        }
-        button.file-complete-checkbox {
-          /* Make a checkbox out of a button. */
-          cursor: pointer;
-          width: 15px;
-          height: 15px;
-          line-height: 15px;
-          margin: -3px 8px 0px 0px;
-          padding: 0px;
-          background: var(--palette-black-alpha-6);
-          border-radius: 3px;
-          border: 1px solid var(--palette-black-alpha-10);
-          vertical-align: middle;
-          display: inline-block;
-          font-size: 0.75em;
-          text-align: center;
-          color: var(--text-primary-color);
-        }
-        button.file-complete-checkbox:hover {
-          /* Make a checkbox out of a button. */
-          background: var(--palette-black-alpha-10);
-        }
-        button.file-complete-checkbox.checked:after {
-          /* Make a checkbox out of a button. */
-          content: "✔";
         }
         .vc-sparse-files-tree .tree-row.file-to-review-row,
         .vc-sparse-files-tree .tree-row.file-to-review-row .file-name {
           /* Highlight files I need to review. */
           color: var(--file-to-review-color);
-          transition-duration: 0.2s;
         }
         .vc-sparse-files-tree .tree-row.folder-to-review-row[aria-expanded='false'],
         .vc-sparse-files-tree .tree-row.folder-to-review-row[aria-expanded='false'] .file-name {
           /* Highlight folders that have files I need to review, but only when files are hidden cause the folder is collapsed. */
           color: var(--file-to-review-color);
-          transition-duration: 0.2s;
         }
         .vc-sparse-files-tree .tree-row.file-to-review-row .file-owners-role {
           /* Style the role of the user in the files table. */
@@ -496,34 +465,6 @@
 
       // Get the current iteration of the PR.
       const prUrl = await getCurrentPullRequestUrlAsync();
-      const currentPullRequestIteration = (await $.get(`${prUrl}/iterations?api-version=5.0`)).count;
-
-      // Get the current checkbox state for the PR at this URL.
-      const checkboxStateId = `pr-file-iteration6/${window.location.pathname}`;
-
-      // Stores the checkbox state for the current page. A map of files => iteration it was checked.
-      const filesToIterationReviewed = lscache.get(checkboxStateId) || {};
-
-      // Handle clicking on file checkboxes.
-      filesTree.on('click', 'button.file-complete-checkbox', function (event) {
-        const checkbox = $(this);
-
-        // Toggle the look of the checkbox.
-        checkbox.toggleClass('checked');
-
-        // Save the iteration number the file was checked in our map. To save space, if it is unchecked, simply remove the entry.
-        if (checkbox.hasClass('checked')) {
-          filesToIterationReviewed[checkbox.attr('name')] = currentPullRequestIteration;
-        } else {
-          delete filesToIterationReviewed[checkbox.attr('name')];
-        }
-
-        // Save the current checkbox state to local storage.
-        lscache.set(checkboxStateId, filesToIterationReviewed, 60 * 24 * 21);
-
-        // Stop the click event here to avoid the checkbox click from selecting the PR row underneath, which changes the active diff in the right panel.
-        event.stopPropagation();
-      });
 
       // Get owners info for this PR.
       const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(prUrl);
@@ -550,11 +491,11 @@
         .on('click', (event) => {
           collapseFoldersButton.toggleClass('active');
           collapseFolderButtonClicks += 1;
-          addCheckboxesToNewFilesFunc(); // Kick off the first collapsing, cause this function only runs if something changes in the DOM.
+          annotateFilesTreeFunc(); // Kick off the first collapsing, cause this function only runs if something changes in the DOM.
           event.stopPropagation();
         });
 
-      addCheckboxesToNewFilesFunc = function () {
+      annotateFilesTreeFunc = function () {
         // If we have owners info, tag the diffs that we don't need to review.
         if (hasOwnersInfo) {
           $('.file-container .file-path').once('filter-files-to-review').each(function () {
@@ -563,6 +504,7 @@
             filePathElement.closest('.file-container').toggleClass('file-to-review-diff', ownersInfo.isCurrentUserResponsibleForFile(path));
           });
         }
+
         if (collapseFoldersButton.hasClass('active')) {
           // The toggle folder collapsible button is active. Let's collapse folders that we've marked as collapsible.
           $('.auto-collapsible-folder').once(`collapse-${collapseFolderButtonClicks}`).each(async function () {
@@ -576,7 +518,8 @@
             }
           });
         }
-        $('.vc-sparse-files-tree .vc-tree-cell').once('add-complete-checkbox').each(function () {
+
+        $('.vc-sparse-files-tree .vc-tree-cell').once('annotate-with-owners-info').each(function () {
           const fileCell = $(this);
           const fileRow = fileCell.closest('.tree-row');
           const listItem = fileRow.parent()[0];
@@ -600,17 +543,6 @@
             return;
           }
 
-          if (!hasBuiltInCheckboxes) {
-            const name = fileCell.attr('content'); // The 'content' attribute contains the file operation; e.g. "/src/file.cs [edit]".
-            const iteration = filesToIterationReviewed[name] || 0;
-
-            // Create the checkbox before the type icon.
-            $('<button class="file-complete-checkbox" />')
-              .attr('name', name)
-              .toggleClass('checked', iteration > 0)
-              .insertBefore(typeIcon);
-          }
-
           // If we have owners info, highlight the files we need to review and add role info.
           if (hasOwnersInfo && ownersInfo.isCurrentUserResponsibleForFile(path)) {
             fileRow.addClass('file-to-review-row');
@@ -620,7 +552,7 @@
       };
     });
 
-    addCheckboxesToNewFilesFunc();
+    annotateFilesTreeFunc();
   }
 
   // If we're on specific PR, add a base update selector.
