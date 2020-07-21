@@ -828,10 +828,13 @@
 
       if (atNI && votes.userVote === 0) {
         const prThreadsNewestFirst = (await $.get(`${pr.url}/threads?api-version=5.0`)).value.filter(x => !x.isDeleted).reverse();
-        const dateAdded = getReviewerAddedOrResetTimestamp(prThreadsNewestFirst, currentUser.uniqueName) || pr.createdDate;
+        const dateAdded = getReviewerAddedOrResetTime(prThreadsNewestFirst, currentUser.uniqueName) || pr.createdDate;
         const weekDays = differenceInWeekDays(new Date(dateAdded), new Date());
-        if (weekDays >= 1.0) {
-          annotatePullRequestTitle(row, 'repos-pr-list-late-review-pill', `${weekDays} days old`, "# of week days since you've been added or reset. At NI, reviews should be addressed within 1 business day.");
+        if (weekDays >= 1) {
+          const lastInteraction = getReviewerLastInteractionTime(prThreadsNewestFirst, currentUser.uniqueName);
+          if (!lastInteraction || new Date(dateAdded) > new Date(lastInteraction)) {
+            annotatePullRequestTitle(row, 'repos-pr-list-late-review-pill', `${weekDays} days old`, "# of week days since you've been added or reset. At NI, reviewers are expected to comment or vote within 1 business day.");
+          }
         }
       }
     }
@@ -857,16 +860,7 @@
     return days < 0 ? 0 : days.toFixed(1);
   }
 
-  function annotatePullRequestTitle(row, cssClass, message, tooltip) {
-    const blockingAnnotation = `
-      <div aria-label="Auto-complete" class="${cssClass} flex-noshrink margin-left-4 bolt-pill flex-row flex-center outlined compact" data-focuszone="focuszone-19" role="presentation" title="${tooltip}">
-        <div class="bolt-pill-content text-ellipsis">${message}</div>
-      </div>`;
-    const title = row.querySelector('.body-l');
-    title.insertAdjacentHTML('afterend', blockingAnnotation);
-  }
-
-  function getReviewerAddedOrResetTimestamp(prThreadsNewestFirst, reviewerUniqueName) {
+  function getReviewerAddedOrResetTime(prThreadsNewestFirst, reviewerUniqueName) {
     for (const thread of prThreadsNewestFirst) {
       if (thread.properties) {
         if (Object.prototype.hasOwnProperty.call(thread.properties, 'CodeReviewReviewersUpdatedAddedIdentity')) {
@@ -884,6 +878,17 @@
     return null;
   }
 
+  function getReviewerLastInteractionTime(prThreadsNewestFirst, reviewerUniqueName) {
+    for (const thread of prThreadsNewestFirst) {
+      // This includes both user comments, threads, and votes (since votes post comments).
+      for (const comment of thread.comments) {
+        if (comment.author.uniqueName === reviewerUniqueName) {
+          return comment.publishedDate;
+        }
+      }
+    }
+    return null;
+  }
 
   function countVotes(pr) {
     const votes = {
@@ -984,6 +989,15 @@
     const tooltip = _.map(builds, 'description').join('\n');
     const label = `<span aria-hidden="true" class="contributed-icon flex-noshrink fabric-icon ms-Icon--Build"></span>&nbsp;${state}`;
     annotatePullRequestLabel(row, 'build-status', tooltip, label);
+  }
+
+  function annotatePullRequestTitle(row, cssClass, message, tooltip) {
+    const blockingAnnotation = `
+      <div aria-label="Auto-complete" class="${cssClass} flex-noshrink margin-left-4 bolt-pill flex-row flex-center outlined compact" data-focuszone="focuszone-19" role="presentation" title="${tooltip}">
+        <div class="bolt-pill-content text-ellipsis">${message}</div>
+      </div>`;
+    const title = row.querySelector('.body-l');
+    title.insertAdjacentHTML('afterend', blockingAnnotation);
   }
 
   function annotatePullRequestLabel(pullRequestRow, cssClass, title, html) {

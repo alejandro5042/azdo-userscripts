@@ -24,7 +24,7 @@ By default, Tampermonkey will automatically update scripts from the original ins
 - Reviews show build status (if it's empty, there isn't a merge commit or a build configured)
 - If a PR has bug work items associated with it, we add a label with the severity of such bugs (if SEV == 1 or 2)
 - At NI, some labels get coloring (e.g. "bypass owners" gets a red background)
-- At NI, reviews are annotated with how long you've been on it if it's been over 1 weekday
+- At NI, reviews are annotated with how long you've been on it if it's been over 1 weekday and you haven't voted or commented
 
 ### PR diff improvements
 
