@@ -25,6 +25,10 @@
 // @require      https://cdn.jsdelivr.net/npm/sweetalert2@9.13.1/dist/sweetalert2.all.min.js#sha384-8oDwN6wixJL8kVeuALUvK2VlyyQlpEEN5lg6bG26x2lvYQ1HWAV0k8e2OwiWIX8X
 // @require      https://gist.githubusercontent.com/alejandro5042/af2ee5b0ad92b271cd2c71615a05da2c/raw/easy-userscripts.js?v=71#sha384-wap0YOqYtSdG40UHxvqTwNbx08/Q0qskXT/Kl9uGHwt0f9OIH7pQP7JwT6wod2F2
 
+// @require      https://highlightjs.org/static/highlight.min.js
+// @require      https://cdnjs.cloudflare.com/ajax/libs/js-yaml/3.14.0/js-yaml.min.js#sha512-ia9gcZkLHA+lkNST5XlseHz/No5++YBneMsDp1IZRJSbi1YqQvBeskJuG1kR+PH1w7E0bFgEZegcj0EwpXQnww==
+// @resource     linguistLanguagesYml https://raw.githubusercontent.com/github/linguist/master/lib/linguist/languages.yml?v=1
+
 // ==/UserScript==
 
 (function () {
@@ -55,6 +59,7 @@
     // Invoke our new eus-style features.
     watchPullRequestDashboard();
     watchForNewLabels();
+    watchForNewDiffs();
 
     // Handle any existing elements, flushing it to execute immediately.
     onPageUpdatedThrottled();
@@ -926,6 +931,214 @@
         <div class="bolt-pill-content text-ellipsis">${html}</div>
       </div>`;
     labels.insertAdjacentHTML('beforeend', label);
+  }
+
+  addStyleOnce('highlight', `
+    .hljs {
+        display: block;
+        overflow-x: auto;
+        background: #1e1e1e;
+        color: #dcdcdc;
+    }
+
+    .hljs-keyword,
+    .hljs-literal,
+    .hljs-name,
+    .hljs-symbol {
+        color: #569cd6;
+    }
+
+    .hljs-link {
+        color: #569cd6;
+        text-decoration: underline;
+    }
+
+    .hljs-built_in,
+    .hljs-type {
+        color: #4ec9b0;
+    }
+
+    .hljs-class,
+    .hljs-number {
+        color: #b8d7a3;
+    }
+
+    .hljs-meta-string,
+    .hljs-string {
+        color: #d69d85;
+    }
+
+    .hljs-regexp,
+    .hljs-template-tag {
+        color: #9a5334;
+    }
+
+    .hljs-formula,
+    .hljs-function,
+    .hljs-params,
+    .hljs-subst,
+    .hljs-title {
+        color: var(--text-primary-color, rgba(0, 0, 0, .7));
+    }
+
+    .hljs-comment,
+    .hljs-quote {
+        color: #57a64a;
+        font-style: italic;
+    }
+
+    .hljs-doctag {
+        color: #608b4e;
+    }
+
+    .hljs-meta,
+    .hljs-meta-keyword,
+    .hljs-tag {
+        color: #9b9b9b;
+    }
+    .hljs-meta-keyword {
+      font-weight: bold;
+    }
+
+    .hljs-template-variable,
+    .hljs-variable {
+        color: #bd63c5;
+    }
+
+    .hljs-attr,
+    .hljs-attribute,
+    .hljs-builtin-name {
+        color: #9cdcfe;
+    }
+
+    .hljs-section {
+        color: gold;
+    }
+
+    .hljs-emphasis {
+        font-style: italic;
+    }
+
+    .hljs-strong {
+        font-weight: 700;
+    }
+
+    .hljs-bullet,
+    .hljs-selector-attr,
+    .hljs-selector-class,
+    .hljs-selector-id,
+    .hljs-selector-pseudo,
+    .hljs-selector-tag {
+        color: #d7ba7d;
+    }
+
+    .hljs-addition {
+        background-color: #144212;
+        display: inline-block;
+        width: 100%;
+    }
+
+    .hljs-deletion {
+        background-color: #600;
+        display: inline-block;
+        width: 100%;
+    }`);
+
+  function watchForNewDiffs() {
+    eus.onUrl(/\/pullrequest\//gi, (session, urlMatch) => {
+      let languageDefinitions = null;
+      session.onEveryNew(document, '.text-diff-container', diff => {
+        if (!eus.seen(diff)) return;
+
+        if (!languageDefinitions) {
+          languageDefinitions = parseLanguageDefinitions();
+        }
+
+        session.onFirst(diff.closest('.file-container'), '.file-cell .file-name-link', fileNameLink => {
+          const fileName = fileNameLink.innerText.toLowerCase();
+          const extension = getFileExt(fileName);
+
+          const leftPane = diff.querySelector('.leftPane > div > .side-by-side-diff-container');
+          const rightOrUnifiedPane = diff.querySelector('.rightPane > div > .side-by-side-diff-container') || diff;
+          
+          let language = null;
+          for (const mode of [extension].concat(languageDefinitions.extensionToMode[extension]).concat(languageDefinitions.fileToMode[fileName])) {
+            // Supports languages listed here, without plugins: https://github.com/highlightjs/highlight.js/blob/master/SUPPORTED_LANGUAGES.md
+            if (hljs.getLanguage(mode)) {
+              language = mode;
+              break;
+            }
+          }
+
+          if (!language) {
+            let code = '';
+            for (const line of rightOrUnifiedPane.querySelectorAll('.code-line:not(.deleted-content)')) {
+              code += `${line.innerText}\n`;
+            }
+            // eslint-disable-next-line prefer-destructuring
+            language = hljs.highlightAuto(code).language;
+          }
+
+          if (language) {
+            highlightDiff(language, fileName, 'left', leftPane, '.code-line');
+            highlightDiff(language, fileName, 'right/unified', rightOrUnifiedPane, '.code-line:not(.deleted-content)');
+          } else {
+            console.debug(`Not highlighting <${fileName}>. A language was not auto-detected.`);
+          }
+        });
+      });
+    });
+  }
+
+  // Gets GitHub language definitions to parse extensions and filenames to a "mode" that we can try with highlight.js.
+  function parseLanguageDefinitions() {
+    const languages = jsyaml.load(GM_getResourceText('linguistLanguagesYml'));
+    const extensionToMode = {};
+    const fileToMode = {};
+    for (const language of Object.values(languages)) {
+      const mode = [getFileExt(language.tm_scope), language.ace_mode];
+      if (language.extensions) {
+        for (const extension of language.extensions) {
+          extensionToMode[extension.substring(1)] = mode;
+        }
+      }
+      if (language.filenames) {
+        for (const filename of language.filenames) {
+          fileToMode[filename.toLowerCase()] = mode;
+        }
+      }
+    }
+    return { extensionToMode, fileToMode };
+  }
+
+  function highlightDiff(language, fileName, part, diffContainer, selector) {
+    if (!diffContainer) return;
+
+    // For debugging: console.debug(`Highlighting ${part} of <${fileName}> as ${language}`);
+
+    let stack = null;
+    for (const line of diffContainer.querySelectorAll(selector)) {
+      const result = hljs.highlight(language, line.innerText, true, stack);
+      stack = result.top;
+
+      // We must add the extra span at the end or sometimes, when adding a comment to a line, the highlighting will go away.
+      line.innerHTML = `${result.value}<span>&ZeroWidthSpace;</span>`;
+
+      // We must wrap all text in spans for the comment highlighting to work.
+      for (let i = line.childNodes.length - 1; i > -1; i -= 1) {
+        const fragment = line.childNodes[i];
+        if (fragment.nodeType === Node.TEXT_NODE) {
+          const span = document.createElement('span');
+          span.innerText = fragment.textContent;
+          fragment.parentNode.replaceChild(span, fragment);
+        }
+      }
+    }
+  }
+
+  // Helper function to get the file extension out of a file path; e.g. `cs` from `blah.cs`.
+  function getFileExt(path) {
+    return /(?:\.([^.]+))?$/.exec(path)[1];
   }
 
   // Helper function to avoid adding CSS twice into a document.

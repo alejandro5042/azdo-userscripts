@@ -13,7 +13,9 @@ module.exports = {
     "lscache": "readonly",
     "dateFns": "readonly",
     "eus": "readonly",
-    "_": "readonly"
+    "_": "readonly",
+    "hljs": "readonly",
+    "jsyaml": "readonly"
   },
   "parserOptions": {
     "ecmaVersion": 2018,
