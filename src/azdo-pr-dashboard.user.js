@@ -23,11 +23,13 @@
 // @require      https://cdn.jsdelivr.net/npm/lodash@4.17.11/lodash.min.js#sha256-7/yoZS3548fXSRXqc/xYzjsmuW3sFKzuvOCHd06Pmps=
 
 // @require      https://cdn.jsdelivr.net/npm/sweetalert2@9.13.1/dist/sweetalert2.all.min.js#sha384-8oDwN6wixJL8kVeuALUvK2VlyyQlpEEN5lg6bG26x2lvYQ1HWAV0k8e2OwiWIX8X
-// @require      https://gist.githubusercontent.com/alejandro5042/af2ee5b0ad92b271cd2c71615a05da2c/raw/easy-userscripts.js?v=71#sha384-wap0YOqYtSdG40UHxvqTwNbx08/Q0qskXT/Kl9uGHwt0f9OIH7pQP7JwT6wod2F2
+// @require      https://gist.githubusercontent.com/alejandro5042/af2ee5b0ad92b271cd2c71615a05da2c/raw/67b7203dfbc48f08ebddfc8327c92b2df28a3c4c/easy-userscripts.js?v=72#sha384-OgOM7UvZHxtPUmZoGbYhsgkLPuRj9SFTpO+LqbnaBzLDQaXmYlosSywfsljzjhCI
+
 
 // @require      https://highlightjs.org/static/highlight.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/js-yaml/3.14.0/js-yaml.min.js#sha512-ia9gcZkLHA+lkNST5XlseHz/No5++YBneMsDp1IZRJSbi1YqQvBeskJuG1kR+PH1w7E0bFgEZegcj0EwpXQnww==
 // @resource     linguistLanguagesYml https://raw.githubusercontent.com/github/linguist/master/lib/linguist/languages.yml?v=1
+// @grant        GM_getResourceText
 
 // ==/UserScript==
 
@@ -1048,11 +1050,13 @@
     eus.onUrl(/\/pullrequest\//gi, (session, urlMatch) => {
       let languageDefinitions = null;
       session.onEveryNew(document, '.text-diff-container', diff => {
-        if (!eus.seen(diff)) return;
+        if (eus.seen(diff)) return;
 
         if (!languageDefinitions) {
           languageDefinitions = parseLanguageDefinitions();
         }
+
+        // TODO: Handle new PR experience.
 
         session.onFirst(diff.closest('.file-container'), '.file-cell .file-name-link', fileNameLink => {
           const fileName = fileNameLink.innerText.toLowerCase();
@@ -1060,8 +1064,8 @@
 
           const leftPane = diff.querySelector('.leftPane > div > .side-by-side-diff-container');
           const rightOrUnifiedPane = diff.querySelector('.rightPane > div > .side-by-side-diff-container') || diff;
-          
-          let language = null;
+
+          let language = null; // replace with https://highlightjs.readthedocs.io/en/latest/api.html#registeraliases-alias-aliases-languagename ??
           for (const mode of [extension].concat(languageDefinitions.extensionToMode[extension]).concat(languageDefinitions.fileToMode[fileName])) {
             // Supports languages listed here, without plugins: https://github.com/highlightjs/highlight.js/blob/master/SUPPORTED_LANGUAGES.md
             if (hljs.getLanguage(mode)) {
@@ -1108,6 +1112,7 @@
         }
       }
     }
+    console.debug(`Supporting ${Object.keys(extensionToMode).length} extensions and ${Object.keys(fileToMode).length} special filenames`);
     return { extensionToMode, fileToMode };
   }
 
