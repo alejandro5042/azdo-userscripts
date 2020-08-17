@@ -28,12 +28,6 @@ By default, Tampermonkey will automatically update scripts from the original ins
 
 ### PR diff improvements
 
-You can now mark a file as reviewed with a checkbox! The data persists in local browser storage, so if you come back to the PR later, the checkboxes will still be there (up to 3 weeks).
-
-![Checkboxes in the PR files tree](assets/file-checkboxes.png)
-
-> Note: awesome.visualstudio.com checkbox data is separate from dev.azure.com/awesome checkbox data.
-
 You can now select the base update to compare against with the base update selector:
 
 ![Base update selector](assets/base-update-selector.png)
@@ -72,6 +66,10 @@ PR threads that start with `note:` (case insensitive) will appear expanded on pa
 PR comments that start with `await:` (case insensitive) will appear highlighted. Use this to help developers focus their attention on the comments that you want to see again (e.g. the reason why you voted Waiting on Author or Rejected).
 
 ![Await comments are highlighted.](assets/await-comments.png)
+
+Folder-level PR diffs are now syntax highlighted!
+
+> Note: Not all highlights will be correct; it can only highlight the code that appears in the diff; so multi-line strings may appear weird. Practically, these sorts of issues are rare and overshadowed by the benefit of syntax highlighting in all other cases.
 
 ### Bypass owners reminder
 
