@@ -25,7 +25,6 @@
 // @require      https://cdn.jsdelivr.net/npm/sweetalert2@9.13.1/dist/sweetalert2.all.min.js#sha384-8oDwN6wixJL8kVeuALUvK2VlyyQlpEEN5lg6bG26x2lvYQ1HWAV0k8e2OwiWIX8X
 // @require      https://gist.githubusercontent.com/alejandro5042/af2ee5b0ad92b271cd2c71615a05da2c/raw/67b7203dfbc48f08ebddfc8327c92b2df28a3c4c/easy-userscripts.js?v=72#sha384-OgOM7UvZHxtPUmZoGbYhsgkLPuRj9SFTpO+LqbnaBzLDQaXmYlosSywfsljzjhCI
 
-
 // @require      https://highlightjs.org/static/highlight.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/js-yaml/3.14.0/js-yaml.min.js#sha512-ia9gcZkLHA+lkNST5XlseHz/No5++YBneMsDp1IZRJSbi1YqQvBeskJuG1kR+PH1w7E0bFgEZegcj0EwpXQnww==
 // @resource     linguistLanguagesYml https://raw.githubusercontent.com/github/linguist/master/lib/linguist/languages.yml?v=1
@@ -429,11 +428,13 @@
         .vc-sparse-files-tree .tree-row.file-to-review-row .file-name {
           /* Highlight files I need to review. */
           color: var(--file-to-review-color);
+          transition-duration: 0.2s;
         }
         .vc-sparse-files-tree .tree-row.folder-to-review-row[aria-expanded='false'],
         .vc-sparse-files-tree .tree-row.folder-to-review-row[aria-expanded='false'] .file-name {
           /* Highlight folders that have files I need to review, but only when files are hidden cause the folder is collapsed. */
           color: var(--file-to-review-color);
+          transition-duration: 0.2s;
         }
         .vc-sparse-files-tree .tree-row.file-to-review-row .file-owners-role {
           /* Style the role of the user in the files table. */
