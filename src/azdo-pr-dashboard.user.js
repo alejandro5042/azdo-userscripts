@@ -1053,6 +1053,7 @@
       session.onEveryNew(document, '.text-diff-container', diff => {
         if (eus.seen(diff)) return;
 
+        // Only parse languages if we have something to diff.
         if (!languageDefinitions) {
           languageDefinitions = parseLanguageDefinitions();
         }
@@ -1066,15 +1067,17 @@
           const leftPane = diff.querySelector('.leftPane > div > .side-by-side-diff-container');
           const rightOrUnifiedPane = diff.querySelector('.rightPane > div > .side-by-side-diff-container') || diff;
 
-          let language = null; // replace with https://highlightjs.readthedocs.io/en/latest/api.html#registeraliases-alias-aliases-languagename ??
+          // Guess our language based on our file extension.
+          // Supports languages listed here, without plugins: https://github.com/highlightjs/highlight.js/blob/master/SUPPORTED_LANGUAGES.md
+          let language = null;
           for (const mode of [extension].concat(languageDefinitions.extensionToMode[extension]).concat(languageDefinitions.fileToMode[fileName])) {
-            // Supports languages listed here, without plugins: https://github.com/highlightjs/highlight.js/blob/master/SUPPORTED_LANGUAGES.md
             if (hljs.getLanguage(mode)) {
               language = mode;
               break;
             }
           }
 
+          // If we still don't have a language, try to guess it based on the code.
           if (!language) {
             let code = '';
             for (const line of rightOrUnifiedPane.querySelectorAll('.code-line:not(.deleted-content)')) {
@@ -1084,11 +1087,10 @@
             language = hljs.highlightAuto(code).language;
           }
 
+          // If we have a language, highlight it :)
           if (language) {
             highlightDiff(language, fileName, 'left', leftPane, '.code-line');
             highlightDiff(language, fileName, 'right/unified', rightOrUnifiedPane, '.code-line:not(.deleted-content)');
-          } else {
-            console.debug(`Not highlighting <${fileName}>. A language was not auto-detected.`);
           }
         });
       });
@@ -1100,6 +1102,7 @@
     const languages = jsyaml.load(GM_getResourceText('linguistLanguagesYml'));
     const extensionToMode = {};
     const fileToMode = {};
+
     for (const language of Object.values(languages)) {
       const mode = [getFileExt(language.tm_scope), language.ace_mode];
       if (language.extensions) {
@@ -1113,7 +1116,8 @@
         }
       }
     }
-    console.debug(`Supporting ${Object.keys(extensionToMode).length} extensions and ${Object.keys(fileToMode).length} special filenames`);
+
+    // For debugging: console.debug(`Supporting ${Object.keys(extensionToMode).length} extensions and ${Object.keys(fileToMode).length} special filenames`);
     return { extensionToMode, fileToMode };
   }
 
@@ -1128,7 +1132,7 @@
       stack = result.top;
 
       // We must add the extra span at the end or sometimes, when adding a comment to a line, the highlighting will go away.
-      line.innerHTML = `${result.value}<span>&ZeroWidthSpace;</span>`;
+      line.innerHTML = `${result.value}<span style="user-select: none">&ZeroWidthSpace;</span>`;
 
       // We must wrap all text in spans for the comment highlighting to work.
       for (let i = line.childNodes.length - 1; i > -1; i -= 1) {
