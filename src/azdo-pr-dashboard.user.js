@@ -1053,7 +1053,6 @@
       session.onEveryNew(document, '.text-diff-container', diff => {
         if (eus.seen(diff)) return;
 
-        // Only parse languages if we have something to diff.
         if (!languageDefinitions) {
           languageDefinitions = parseLanguageDefinitions();
         }
@@ -1067,7 +1066,7 @@
           const leftPane = diff.querySelector('.leftPane > div > .side-by-side-diff-container');
           const rightOrUnifiedPane = diff.querySelector('.rightPane > div > .side-by-side-diff-container') || diff;
 
-          // Guess our language based on our file extension.
+          // Guess our language based on our file extension. The GitHub language definition keywords and the highlight.js language keywords are different, and may not match. This loop is a heuristic to find a language match.
           // Supports languages listed here, without plugins: https://github.com/highlightjs/highlight.js/blob/master/SUPPORTED_LANGUAGES.md
           let language = null;
           for (const mode of [extension].concat(languageDefinitions.extensionToMode[extension]).concat(languageDefinitions.fileToMode[fileName])) {
