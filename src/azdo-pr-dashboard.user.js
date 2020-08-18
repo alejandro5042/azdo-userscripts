@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.47.0
+// @version      2.47.1
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -54,13 +54,16 @@
     const pageData = JSON.parse(document.getElementById('dataProviders').innerHTML).data;
     currentUser = pageData['ms.vss-web.page-data'].user;
 
+    const theme = pageData['ms.vss-web.theme-data'].requestedThemeId;
+    const isDarkTheme = /(dark|night|neptune)/i.test(theme);
+
     // Because of CORS, we need to make sure we're querying the same hostname for our AzDO APIs.
     azdoApiBaseUrl = `${window.location.origin}${pageData['ms.vss-tfs-web.header-action-data'].suiteHomeUrl}`;
 
     // Invoke our new eus-style features.
     watchPullRequestDashboard();
     watchForNewLabels();
-    watchForNewDiffs();
+    watchForNewDiffs(isDarkTheme);
 
     // Handle any existing elements, flushing it to execute immediately.
     onPageUpdatedThrottled();
@@ -936,118 +939,124 @@
     labels.insertAdjacentHTML('beforeend', label);
   }
 
-  addStyleOnce('highlight', `
-    .hljs {
-        display: block;
-        overflow-x: auto;
-        background: #1e1e1e;
-        color: #dcdcdc;
+  function watchForNewDiffs(isDarkTheme) {
+    if (isDarkTheme) {
+      addStyleOnce('highlight', `
+        .hljs {
+            display: block;
+            overflow-x: auto;
+            background: #1e1e1e;
+            color: #dcdcdc;
+        }
+
+        .hljs-keyword,
+        .hljs-literal,
+        .hljs-name,
+        .hljs-symbol {
+            color: #569cd6;
+        }
+
+        .hljs-link {
+            color: #569cd6;
+            text-decoration: underline;
+        }
+
+        .hljs-built_in,
+        .hljs-type {
+            color: #4ec9b0;
+        }
+
+        .hljs-class,
+        .hljs-number {
+            color: #b8d7a3;
+        }
+
+        .hljs-meta-string,
+        .hljs-string {
+            color: #d69d85;
+        }
+
+        .hljs-regexp,
+        .hljs-template-tag {
+            color: #9a5334;
+        }
+
+        .hljs-formula,
+        .hljs-function,
+        .hljs-params,
+        .hljs-subst,
+        .hljs-title {
+            color: var(--text-primary-color, rgba(0, 0, 0, .7));
+        }
+
+        .hljs-comment,
+        .hljs-quote {
+            color: #57a64a;
+            font-style: italic;
+        }
+
+        .hljs-doctag {
+            color: #608b4e;
+        }
+
+        .hljs-meta,
+        .hljs-meta-keyword,
+        .hljs-tag {
+            color: #9b9b9b;
+        }
+        .hljs-meta-keyword {
+          font-weight: bold;
+        }
+
+        .hljs-template-variable,
+        .hljs-variable {
+            color: #bd63c5;
+        }
+
+        .hljs-attr,
+        .hljs-attribute,
+        .hljs-builtin-name {
+            color: #9cdcfe;
+        }
+
+        .hljs-section {
+            color: gold;
+        }
+
+        .hljs-emphasis {
+            font-style: italic;
+        }
+
+        .hljs-strong {
+            font-weight: 700;
+        }
+
+        .hljs-bullet,
+        .hljs-selector-attr,
+        .hljs-selector-class,
+        .hljs-selector-id,
+        .hljs-selector-pseudo,
+        .hljs-selector-tag {
+            color: #d7ba7d;
+        }
+
+        .hljs-addition {
+            background-color: #144212;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .hljs-deletion {
+            background-color: #600;
+            display: inline-block;
+            width: 100%;
+        }`);
+    } else {
+      addStyleOnce('highlight', `
+        .hljs{display:block;overflow-x:auto;padding:.5em;background:#fff;color:#000}.hljs-comment,.hljs-quote,.hljs-variable{color:green}.hljs-built_in,.hljs-keyword,.hljs-name,.hljs-selector-tag,.hljs-tag{color:#00f}.hljs-addition,.hljs-attribute,.hljs-literal,.hljs-section,.hljs-string,.hljs-template-tag,.hljs-template-variable,.hljs-title,.hljs-type{color:#a31515}.hljs-deletion,.hljs-meta,.hljs-selector-attr,.hljs-selector-pseudo{color:#2b91af}.hljs-doctag{color:grey}.hljs-attr{color:red}.hljs-bullet,.hljs-link,.hljs-symbol{color:#00b0e8}.hljs-emphasis{font-style:italic}.hljs-strong{font-weight:700}
+      `);
     }
 
-    .hljs-keyword,
-    .hljs-literal,
-    .hljs-name,
-    .hljs-symbol {
-        color: #569cd6;
-    }
-
-    .hljs-link {
-        color: #569cd6;
-        text-decoration: underline;
-    }
-
-    .hljs-built_in,
-    .hljs-type {
-        color: #4ec9b0;
-    }
-
-    .hljs-class,
-    .hljs-number {
-        color: #b8d7a3;
-    }
-
-    .hljs-meta-string,
-    .hljs-string {
-        color: #d69d85;
-    }
-
-    .hljs-regexp,
-    .hljs-template-tag {
-        color: #9a5334;
-    }
-
-    .hljs-formula,
-    .hljs-function,
-    .hljs-params,
-    .hljs-subst,
-    .hljs-title {
-        color: var(--text-primary-color, rgba(0, 0, 0, .7));
-    }
-
-    .hljs-comment,
-    .hljs-quote {
-        color: #57a64a;
-        font-style: italic;
-    }
-
-    .hljs-doctag {
-        color: #608b4e;
-    }
-
-    .hljs-meta,
-    .hljs-meta-keyword,
-    .hljs-tag {
-        color: #9b9b9b;
-    }
-    .hljs-meta-keyword {
-      font-weight: bold;
-    }
-
-    .hljs-template-variable,
-    .hljs-variable {
-        color: #bd63c5;
-    }
-
-    .hljs-attr,
-    .hljs-attribute,
-    .hljs-builtin-name {
-        color: #9cdcfe;
-    }
-
-    .hljs-section {
-        color: gold;
-    }
-
-    .hljs-emphasis {
-        font-style: italic;
-    }
-
-    .hljs-strong {
-        font-weight: 700;
-    }
-
-    .hljs-bullet,
-    .hljs-selector-attr,
-    .hljs-selector-class,
-    .hljs-selector-id,
-    .hljs-selector-pseudo,
-    .hljs-selector-tag {
-        color: #d7ba7d;
-    }
-
-    .hljs-addition {
-        background-color: #144212;
-        display: inline-block;
-        width: 100%;
-    }
-
-    .hljs-deletion {
-        background-color: #600;
-        display: inline-block;
-        width: 100%;
-    }`);
-
-  function watchForNewDiffs() {
     eus.onUrl(/\/pullrequest\//gi, (session, urlMatch) => {
       let languageDefinitions = null;
       session.onEveryNew(document, '.text-diff-container', diff => {
