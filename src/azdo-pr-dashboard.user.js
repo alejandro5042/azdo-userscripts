@@ -165,7 +165,7 @@
       display: inline;
       position: absolute;
       top: 38px;
-      left: -240px;
+      left: -450px;
       z-index: 1000;
       background-color: #E6B307;
       padding: 6px 12px;
