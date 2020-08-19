@@ -165,7 +165,7 @@
       display: inline;
       position: absolute;
       top: 38px;
-      left: -240px;
+      left: -450px;
       z-index: 1000;
       background-color: #E6B307;
       padding: 6px 12px;
@@ -319,7 +319,7 @@
 
     const banner = document.createElement('div');
     banner.classList.add('bypass-reminder');
-    banner.appendChild(document.createTextNode('If you vouch for the whole PR, please bypass owners.'));
+    banner.appendChild(document.createTextNode('If you are confident the change needs no further review by others, please bypass owners.'));
 
     if ($('.repos-pr-header-vote-button').length === 0) {
       // "old" PR experience
