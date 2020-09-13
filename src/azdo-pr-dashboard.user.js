@@ -212,10 +212,14 @@
 
   function watchForShowMoreButtons() {
     // Press all show more buttons in work item forms, until they disappear.
-    eus.globalSession.onEveryNew(document, 'div[role="button"].la-show-more, a[role="button"].see-more-items', showMoreButton => {
+    eus.globalSession.onEveryNew(document, 'div[role="button"].la-show-more', async showMoreButton => {
       if (eus.seen(showMoreButton)) return;
+
       while (document.body.contains(showMoreButton)) {
         showMoreButton.click();
+
+        // eslint-disable-next-line no-await-in-loop
+        await sleep(100);
       }
     });
 
