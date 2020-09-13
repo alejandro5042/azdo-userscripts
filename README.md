@@ -71,6 +71,8 @@ Folder-level PR diffs are now syntax highlighted!
 
 > Note: Not all highlights will be correct; it can only highlight the code that appears in the diff; so multi-line strings may appear weird. Practically, these sorts of issues are rare and overshadowed by the benefit of syntax highlighting in all other cases.
 
+PR comment statuses (e.g. Active or Resolved) will have additional annotations to make it easy to scan a PR feed for active comments.
+
 ### Bypass owners reminder
 
 For PRs into branches requiring a passing ni/owners-approved status, hovering over the Approve button pops up a reminder to consider bypassing owners.

@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.47.2
+// @version      2.49.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -64,6 +64,7 @@
     watchPullRequestDashboard();
     watchForNewLabels();
     watchForNewDiffs(isDarkTheme);
+    watchForPullRequestCommentStatuses();
 
     // Handle any existing elements, flushing it to execute immediately.
     onPageUpdatedThrottled();
@@ -206,6 +207,47 @@
       if (!label.ariaLabel) return;
       const subClass = stringToCssIdentifier(label.ariaLabel);
       label.classList.add(`label--${subClass}`);
+    });
+  }
+
+  function watchForPullRequestCommentStatuses() {
+    eus.globalSession.onAnyChangeTo = function(node, callback) {
+        callback(node, false);
+        const observer = new MutationObserver(function(mutations) {
+            try {
+                this.disconnect();
+                callback(node, true);
+            } finally {
+                this.observe(node, { subtree: true, childList: true, characterData: true });
+            }
+        });
+        observer.observe(node, { subtree: true, childList: true, characterData: true });
+        this.cleanupFuncs.push(() => observer.disconnect());
+        return observer;
+    };
+
+    addStyleOnce('discussion-threads', /* css */ `
+      button.vc-discussion-thread-status-menu-button > div[data-content="Active"]:before {
+        content: "⭕ ";
+      }
+      button.vc-discussion-thread-status-menu-button > div[data-content="Pending"]:before {
+        content: "🛠️ ";
+      }
+      button.vc-discussion-thread-status-menu-button > div[data-content="Resolved"]:before {
+        content: "✔ ";
+      }
+      button.vc-discussion-thread-status-menu-button > div[data-content="Won't fix"]:before {
+        content: "✖ ";
+      }
+      button.vc-discussion-thread-status-menu-button > div[data-content="Closed"]:before {
+        content: "✔ ";
+      }`);
+
+    eus.globalSession.onEveryNew(document, 'button.vc-discussion-thread-status-menu-button > div', button => {
+      if (eus.seen(button)) return;
+      eus.globalSession.onAnyChangeTo(button, () => {
+        button.dataset.content = button.innerText;
+      });
     });
   }
 
