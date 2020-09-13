@@ -211,8 +211,16 @@
   }
 
   function watchForShowMoreButtons() {
-    // Press all show more buttons in work item forms and Kanban boards.
+    // Press all show more buttons in work item forms, until they disappear.
     eus.globalSession.onEveryNew(document, 'div[role="button"].la-show-more, a[role="button"].see-more-items', showMoreButton => {
+      if (eus.seen(showMoreButton)) return;
+      while (document.body.contains(showMoreButton)) {
+        showMoreButton.click();
+      }
+    });
+
+    // Press the Show More button on Kanban boards. Note: Since there's no way to know how many times to press this (the link doesn't go away if there aren't any more), we will only press it once.
+    eus.globalSession.onEveryNew(document, 'a[role="button"].see-more-items', showMoreButton => {
       if (eus.seen(showMoreButton)) return;
       showMoreButton.click();
     });
