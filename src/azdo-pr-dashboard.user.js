@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.47.2
+// @version      2.48.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -64,6 +64,7 @@
     watchPullRequestDashboard();
     watchForNewLabels();
     watchForNewDiffs(isDarkTheme);
+    watchForShowMoreButtons();
 
     // Handle any existing elements, flushing it to execute immediately.
     onPageUpdatedThrottled();
@@ -206,6 +207,14 @@
       if (!label.ariaLabel) return;
       const subClass = stringToCssIdentifier(label.ariaLabel);
       label.classList.add(`label--${subClass}`);
+    });
+  }
+
+  function watchForShowMoreButtons() {
+    // Press all show more buttons in work item forms and Kanban boards.
+    eus.globalSession.onEveryNew(document, 'div[role="button"].la-show-more, a[role="button"].see-more-items', showMoreButton => {
+      if (eus.seen(showMoreButton)) return;
+      showMoreButton.click();
     });
   }
 
