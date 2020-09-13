@@ -211,19 +211,24 @@
   }
 
   function watchForShowMoreButtons() {
-    // Press all show more buttons in work item forms, until they disappear.
+    // Press Show More buttons on work item forms, until they disappear or until we've pressed it 10 times (a reasonable limit which will still bring in 60 more items into view).
     eus.globalSession.onEveryNew(document, 'div[role="button"].la-show-more', async showMoreButton => {
       if (eus.seen(showMoreButton)) return;
 
+      let clicks = 0;
       while (document.body.contains(showMoreButton)) {
         showMoreButton.click();
+
+        clicks += 1;
+        if (clicks >= 10) break;
 
         // eslint-disable-next-line no-await-in-loop
         await sleep(100);
       }
     });
 
-    // Press the Show More button on Kanban boards. Note: Since there's no way to know how many times to press this (the link doesn't go away if there aren't any more), we will only press it once.
+    // Press Show More buttons on Kanban boards.
+    // Note: Since there's no way to know how many times to press this (the link doesn't go away if there aren't any more), we will only press it once. This loads many more work items that it's unlikely you will see another Show More button unless your backlog is HUGE (in which case, loading all of them may make your UI very slow, so pressing it again is undesirable).
     eus.globalSession.onEveryNew(document, 'a[role="button"].see-more-items', showMoreButton => {
       if (eus.seen(showMoreButton)) return;
       showMoreButton.click();
