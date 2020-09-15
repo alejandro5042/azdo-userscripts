@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.47.2
+// @version      2.48.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -64,6 +64,7 @@
     watchPullRequestDashboard();
     watchForNewLabels();
     watchForNewDiffs(isDarkTheme);
+    watchForShowMoreButtons();
 
     // Handle any existing elements, flushing it to execute immediately.
     onPageUpdatedThrottled();
@@ -206,6 +207,44 @@
       if (!label.ariaLabel) return;
       const subClass = stringToCssIdentifier(label.ariaLabel);
       label.classList.add(`label--${subClass}`);
+    });
+  }
+
+  function watchForShowMoreButtons() {
+    // Auto-click Show More buttons on work item forms, until they disappear or until we've pressed it 10 times (a reasonable limit which will still bring in 60 more items into view).
+    eus.globalSession.onEveryNew(document, 'div[role="button"].la-show-more', async showMoreButton => {
+      if (eus.seen(showMoreButton)) return;
+
+      let clicks = 0;
+      while (document.body.contains(showMoreButton)) {
+        showMoreButton.click();
+
+        clicks += 1;
+        if (clicks >= 10) break;
+
+        // eslint-disable-next-line no-await-in-loop
+        await sleep(100);
+      }
+    });
+
+    // Auto-click Show More buttons on Kanban boards, until they disappear, are hidden, or until we've pressed it 5 times (a reasonable limit which will still bring in hundreds of items into view).
+    eus.globalSession.onEveryNew(document, 'a[role="button"].see-more-items', async showMoreButton => {
+      if (eus.seen(showMoreButton)) return;
+
+      const container = showMoreButton.closest('.page-items-container');
+      let clicks = 0;
+
+      while (document.body.contains(showMoreButton) && container.style.display !== 'none') {
+        if (showMoreButton.style.display !== 'none') {
+          showMoreButton.click();
+
+          clicks += 1;
+          if (clicks >= 5) break;
+        }
+
+        // eslint-disable-next-line no-await-in-loop
+        await sleep(1000);
+      }
     });
   }
 
