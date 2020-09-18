@@ -212,11 +212,10 @@
   }
 
   function watchForWorkItemForms() {
-    // Give all tags a CSS class based on their name.
+    // Annotate work items (under the comment box) with who is following it.
     eus.globalSession.onEveryNew(document, '.discussion-messages-right', async commentEditor => {
-      const container = commentEditor.closest('.witform-layout');
-      const id = container.querySelector('.work-item-form-id > span').innerText;
-      const result = await fetch('https://ni.visualstudio.com/_apis/notification/subscriptionquery?api-version=6.0', {
+      const workItemId = commentEditor.closest('.witform-layout').querySelector('.work-item-form-id > span').innerText;
+      const queryResponse = await fetch(`${azdoApiBaseUrl}/_apis/notification/subscriptionquery?api-version=6.0`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -227,19 +226,32 @@
               filter: {
                 type: 'Artifact',
                 eventType: '',
-                artifactId: id,
+                artifactId: workItemId,
                 artifactType: 'WorkItem',
               },
             },
           ],
         }),
-      },
-      );
-      const json = await result.json();
-      console.log(json);
-      const followers = json.value.map(s => `<a href="mailto:${s.subscriber.uniqueName}">${s.subscriber.displayName}</a>`).join(', ') || 'Nobody';
-      commentEditor.insertAdjacentHTML('BeforeEnd', `<div style="margin: 0.5em 0em; opacity: 0.8"><span class="menu-item-icon bowtie-icon bowtie-watch-eye-fill" aria-hidden="true"></span> ${followers}</div>`);
+      });
+
+      const followers = (await queryResponse.json()).value.sort(s => s.subscriber.displayName);
+
+      const commentFollowers = followers
+        .filter(workItemSubscriptionFollowsEverything)
+        .map(s => `<a href="mailto:${s.subscriber.uniqueName}">${s.subscriber.displayName}</a>`)
+        .join(', ')
+        || 'Nobody';
+
+      const fieldFollowerCount = followers.filter(s => !workItemSubscriptionFollowsEverything(s)).length;
+      const fieldFollowers = fieldFollowerCount ? `(${fieldFollowerCount} field follower${fieldFollowerCount > 1 ? 's' : ''})` : '';
+
+      const annotation = `<div style="margin: 0.5em 0em; opacity: 0.8"><span class="menu-item-icon bowtie-icon bowtie-watch-eye-fill" aria-hidden="true"></span> ${commentFollowers} ${fieldFollowers}</div>`;
+      commentEditor.insertAdjacentHTML('BeforeEnd', annotation);
     });
+  }
+
+  function workItemSubscriptionFollowsEverything(subscription) {
+    return subscription.description.startsWith("Following 'WorkItem' artifact");
   }
 
   function watchForShowMoreButtons() {
