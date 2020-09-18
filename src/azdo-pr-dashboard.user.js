@@ -234,7 +234,7 @@
         }),
       });
 
-      const followers = (await queryResponse.json()).value.sort(s => s.subscriber.displayName);
+      const followers = [...(await queryResponse.json()).value].sort((a, b) => a.subscriber.displayName.localeCompare(b.subscriber.displayName));
 
       const commentFollowers = followers
         .filter(workItemSubscriptionFollowsEverything)
