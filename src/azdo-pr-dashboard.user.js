@@ -245,7 +245,7 @@
       const fieldFollowerCount = followers.filter(s => !workItemSubscriptionFollowsEverything(s)).length;
       const fieldFollowers = fieldFollowerCount ? `(and ${fieldFollowerCount} field follower${fieldFollowerCount > 1 ? 's' : ''})` : '';
 
-      const annotation = `<div style="margin: 0.5em 0em; opacity: 0.8"><span class="menu-item-icon bowtie-icon bowtie-watch-eye-fill" aria-hidden="true"></span> ${commentFollowers} ${fieldFollowers}</div>`;
+      const annotation = `<div style="margin: 1em 0em; opacity: 0.8"><span class="menu-item-icon bowtie-icon bowtie-watch-eye-fill" aria-hidden="true"></span> ${commentFollowers} ${fieldFollowers}</div>`;
       commentEditor.insertAdjacentHTML('BeforeEnd', annotation);
     });
   }
