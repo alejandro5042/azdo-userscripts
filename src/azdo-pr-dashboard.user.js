@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.48.0
+// @version      2.49.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -63,6 +63,7 @@
     // Invoke our new eus-style features.
     watchPullRequestDashboard();
     watchForNewLabels();
+    watchForWorkItemForms();
     watchForNewDiffs(isDarkTheme);
     watchForShowMoreButtons();
 
@@ -208,6 +209,49 @@
       const subClass = stringToCssIdentifier(label.ariaLabel);
       label.classList.add(`label--${subClass}`);
     });
+  }
+
+  function watchForWorkItemForms() {
+    // Annotate work items (under the comment box) with who is following it.
+    eus.globalSession.onEveryNew(document, '.discussion-messages-right', async commentEditor => {
+      const workItemId = commentEditor.closest('.witform-layout').querySelector('.work-item-form-id > span').innerText;
+      const queryResponse = await fetch(`${azdoApiBaseUrl}/_apis/notification/subscriptionquery?api-version=6.0`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          conditions: [
+            {
+              filter: {
+                type: 'Artifact',
+                eventType: '',
+                artifactId: workItemId,
+                artifactType: 'WorkItem',
+              },
+            },
+          ],
+        }),
+      });
+
+      const followers = [...(await queryResponse.json()).value].sort((a, b) => a.subscriber.displayName.localeCompare(b.subscriber.displayName));
+
+      const commentFollowers = followers
+        .filter(workItemSubscriptionFollowsEverything)
+        .map(s => `<a href="mailto:${s.subscriber.uniqueName}">${s.subscriber.displayName}</a>`)
+        .join(', ')
+        || 'Nobody';
+
+      const fieldFollowerCount = followers.filter(s => !workItemSubscriptionFollowsEverything(s)).length;
+      const fieldFollowers = fieldFollowerCount ? `(and ${fieldFollowerCount} field follower${fieldFollowerCount > 1 ? 's' : ''})` : '';
+
+      const annotation = `<div style="margin: 1em 0em; opacity: 0.8"><span class="menu-item-icon bowtie-icon bowtie-watch-eye-fill" aria-hidden="true"></span> ${commentFollowers} ${fieldFollowers}</div>`;
+      commentEditor.insertAdjacentHTML('BeforeEnd', annotation);
+    });
+  }
+
+  function workItemSubscriptionFollowsEverything(subscription) {
+    return subscription.description.startsWith("Following 'WorkItem' artifact");
   }
 
   function watchForShowMoreButtons() {
