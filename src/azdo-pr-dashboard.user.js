@@ -63,6 +63,7 @@
     // Invoke our new eus-style features.
     watchPullRequestDashboard();
     watchForNewLabels();
+    watchForWorkItemForms();
     watchForNewDiffs(isDarkTheme);
     watchForShowMoreButtons();
 
@@ -207,6 +208,37 @@
       if (!label.ariaLabel) return;
       const subClass = stringToCssIdentifier(label.ariaLabel);
       label.classList.add(`label--${subClass}`);
+    });
+  }
+
+  function watchForWorkItemForms() {
+    // Give all tags a CSS class based on their name.
+    eus.globalSession.onEveryNew(document, '.discussion-messages-right', async commentEditor => {
+      const container = commentEditor.closest('.witform-layout');
+      const id = container.querySelector('.work-item-form-id > span').innerText;
+      const result = await fetch('https://ni.visualstudio.com/_apis/notification/subscriptionquery?api-version=6.0', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          conditions: [
+            {
+              filter: {
+                type: 'Artifact',
+                eventType: '',
+                artifactId: id,
+                artifactType: 'WorkItem',
+              },
+            },
+          ],
+        }),
+      },
+      );
+      const json = await result.json();
+      console.log(json);
+      const followers = json.value.map(s => `<a href="mailto:${s.subscriber.uniqueName}">${s.subscriber.displayName}</a>`).join(', ') || 'Nobody';
+      commentEditor.insertAdjacentHTML('BeforeEnd', `<div style="margin: 0.5em 0em; opacity: 0.8"><span class="menu-item-icon bowtie-icon bowtie-watch-eye-fill" aria-hidden="true"></span> ${followers}</div>`);
     });
   }
 
