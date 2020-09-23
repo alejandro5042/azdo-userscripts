@@ -121,7 +121,6 @@ Also:
 
 - Drop down menus are bigger!
 - Prompts to add links to work items are much less prominent, unless hovered over
-- "Show More" buttons on work item forms and on Kanban boards are auto-clicked for you!
 - Work item forms show under the comment box who else is following the work item
 
 ## Documentation
