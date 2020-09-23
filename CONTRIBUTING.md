@@ -63,4 +63,4 @@ To test the changes in a pull request:
 - Blocks of code are commented
 - Follow the conventions as specified in eslint config (roughly, Airbnb JS style)
 - All `@require` and `@resource` URLs must have subresource-intregity hashes ([use this hashing tool](https://www.srihash.org/))
-- Vanilla JS is OK if you don't want to use JQuery
+- Vanilla JS is preferred. JQuery usage is deprecated and will be removed in the future
