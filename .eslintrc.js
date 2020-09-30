@@ -6,7 +6,7 @@ module.exports = {
     "greasemonkey": true,
     "jquery": true
   },
-  "extends": "airbnb",
+  "extends": "@ni",
   "globals": {
     "Atomics": "readonly",
     "SharedArrayBuffer": "readonly",
