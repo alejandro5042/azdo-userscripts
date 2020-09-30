@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.49.0
+// @version      2.49.1
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -271,9 +271,12 @@
       }
     });
 
-    // Auto-click Show More buttons on Kanban boards, until they disappear, are hidden, or until we've pressed it 5 times (a reasonable limit which will still bring in hundreds of items into view).
+    // Auto-click Show More buttons on Kanban boards, until they disappear, are hidden, or until we've pressed it 2 times (a reasonable limit which will still bring in hundreds of items into view).
     eus.globalSession.onEveryNew(document, 'a[role="button"].see-more-items', async showMoreButton => {
       if (eus.seen(showMoreButton)) return;
+
+      // Don't expand unless the New column is visible.
+      if (!document.querySelector('#boardContainer .header-container i[aria-label="Collapse New column"]')) return;
 
       const container = showMoreButton.closest('.page-items-container');
       let clicks = 0;
@@ -283,7 +286,7 @@
           showMoreButton.click();
 
           clicks += 1;
-          if (clicks >= 5) break;
+          if (clicks > 2) break;
         }
 
         // eslint-disable-next-line no-await-in-loop
