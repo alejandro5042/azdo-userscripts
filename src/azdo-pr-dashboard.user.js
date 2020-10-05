@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.49.1
+// @version      2.50.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -685,7 +685,7 @@
     `);
 
     const session = new eus.ObserverSession();
-    let languageDefinitions = parseLanguageDefinitions();
+    const languageDefinitions = parseLanguageDefinitions();
     session.onEveryNew(document, '[class*="contentStateBodyText"]', contentStateBody => {
       contentStateBodyChanged(contentStateBody, languageDefinitions);
       session.onAnyChangeTo(contentStateBody, () => contentStateBodyChanged(contentStateBody, languageDefinitions));
@@ -693,7 +693,7 @@
   }
 
   function contentStateBodyChanged(contentStateBody, languageDefinitions) {
-    var resetParagraphs = false;
+    let resetParagraphs = false;
     // When `see more` is toggled, the number of lines changes, so we should remove the highlighted snippet and recreate a new one
     for (const codeSnippet of contentStateBody.querySelectorAll('[class*="yammerCodeSnippet"]')) {
       codeSnippet.remove();
@@ -704,95 +704,100 @@
     let snippetStarted = false;
     let language = null;
     let lastParagraph = null;
-    for(const paragraph of contentStateBody.querySelectorAll('[class*="paragraph"]')) {
-      if(resetParagraphs) {
+    for (const paragraph of contentStateBody.querySelectorAll('[class*="paragraph"]')) {
+      if (resetParagraphs) {
         paragraph.style.display = 'block';
       }
 
-      let match = paragraph.innerText.match(/^(```)(.*)/);
-      if(match) {
+      const match = paragraph.innerText.match(/^```(.*)/);
+      if (match) {
+        [, language] = match;
         // If no language was specified, just use `sh` as a default
-        if(!snippetStarted && !match[2]) {
-          match[2] = 'sh';
+        if (!snippetStarted && !language) {
+          language = 'sh';
         }
-        if(match[2]) {
+        if (language) {
           snippetStarted = true;
-          language = match[2];
         } else {
           snippetStarted = false;
           wrapSnippetParagraphs(snippetParagraphs, paragraph, language, languageDefinitions);
         }
         snippetParagraphs = [];
       }
-      if(snippetStarted) {
-        snippetParagraphs.push(paragraph)
+      if (snippetStarted) {
+        snippetParagraphs.push(paragraph);
       }
       lastParagraph = paragraph;
     }
 
-    if(lastParagraph && snippetStarted) {
+    if (lastParagraph && snippetStarted) {
       wrapSnippetParagraphs(snippetParagraphs, lastParagraph, language, languageDefinitions);
     }
   }
 
   function wrapSnippetParagraphs(snippetParagraphs, lastParagraph, language, languageDefinitions) {
-    let firstParagraph = snippetParagraphs.shift()
-    if(firstParagraph) {
+    const firstParagraph = snippetParagraphs.shift();
+    if (firstParagraph) {
       // Make sure the language exists, if not use `sh` as a default
-      language = languageDefinitions.extensionToMode[language] ? language : "sh";
+      const mode = languageDefinitions.extensionToMode[language] ? language : 'sh';
 
-      let codeSnippetText = ""
-      snippetParagraphs.forEach(function(paragraph, idx, array) {
-          // We do not want an extra line at the end of the snippet
-          codeSnippetText += paragraph.innerText + ((idx === array.length - 1) ? '': '\n');
-          paragraph.style.display = 'none';
-      });
+      let codeSnippetText = '';
+      for (const [idx, paragraph] of snippetParagraphs.entries()) {
+        // We do not want an extra line at the end of the snippet
+        codeSnippetText += paragraph.innerText + ((idx === snippetParagraphs.length - 1) ? '' : '\n');
+        paragraph.style.display = 'none';
+      }
 
-      // Hide first and last paragraphs, which should be the snippet identifiers -> (```<language>) and (```)
+      // Hide first and last paragraphs, which should be the snippet identifiers -> (```<mode>) and (```)
       firstParagraph.style.display = 'none';
+      // eslint-disable-next-line no-param-reassign
       lastParagraph.style.display = 'none';
 
-      let codeSnippet = document.createElement('pre');
+      const codeSnippet = document.createElement('pre');
       codeSnippet.classList.add('hljs');
       codeSnippet.innerText = codeSnippetText;
 
-      let wordWrapButton = document.createElement('input');
-      wordWrapButton.type = 'button'
-      wordWrapButton.value = '⮒'
-      wordWrapButton.title = 'Enable Word Wrap'
+      const wordWrapButton = document.createElement('input');
+      wordWrapButton.type = 'button';
+      wordWrapButton.value = '⮒';
+      wordWrapButton.title = 'Enable Word Wrap';
       wordWrapButton.style.float = 'left';
       wordWrapButton.style.position = 'absolute';
       wordWrapButton.style.width = '23px';
       wordWrapButton.onclick = function () {
-          toggleCodeSnippetWordWrap(this);
+        toggleCodeSnippetWordWrap(this);
       };
 
-      let codeSnippetWrapper = document.createElement('p');
+      const codeSnippetWrapper = document.createElement('p');
       codeSnippetWrapper.classList.add('yammerCodeSnippet');
       codeSnippetWrapper.append(wordWrapButton);
       codeSnippetWrapper.append(codeSnippet);
 
       firstParagraph.parentNode.insertBefore(codeSnippetWrapper, firstParagraph);
-      highlightDiff(language, 'YammerCodeSnippet', 'N/A', codeSnippetWrapper, 'pre');
+      highlightDiff(mode, 'YammerCodeSnippet', 'N/A', codeSnippetWrapper, 'pre');
 
-      if(!elementOverflowsHorizontally(codeSnippet)) {
+      if (!elementOverflowsHorizontally(codeSnippet)) {
         wordWrapButton.style.display = 'none';
       }
     }
   }
 
   function toggleCodeSnippetWordWrap(button) {
-    let codeSnippet = $(button).parent()[0]
-    let hljsFound = codeSnippet.getElementsByClassName("hljs")
-    if(hljsFound.length) {
-      if(hljsFound[0].style.whiteSpace == 'break-spaces') {
-        hljsFound[0].style.whiteSpace  = 'pre';
+    const codeSnippet = $(button).parent()[0];
+    const hljsFound = codeSnippet.getElementsByClassName('hljs');
+    if (hljsFound.length) {
+      if (hljsFound[0].style.whiteSpace === 'break-spaces') {
+        hljsFound[0].style.whiteSpace = 'pre';
+        /* eslint-disable no-param-reassign */
         button.value = '⮒';
         button.title = 'Enable Word Wrap';
+        /* eslint-enable no-param-reassign */
       } else {
-        hljsFound[0].style.whiteSpace  = 'break-spaces';
+        hljsFound[0].style.whiteSpace = 'break-spaces';
+        /* eslint-disable no-param-reassign */
         button.value = '⥱';
         button.title = 'Disable Word Wrap';
+        /* eslint-enable no-param-reassign */
       }
     }
   }
