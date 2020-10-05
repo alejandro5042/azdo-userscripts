@@ -14,6 +14,7 @@
 
 // @include      https://dev.azure.com/*
 // @include      https://*.visualstudio.com/*
+// @include      https://*.yammer.com/*
 
 // @run-at       document-body
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js#sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=
@@ -50,29 +51,33 @@
   const atNI = /^ni\./i.test(window.location.hostname) || /^\/ni\//i.test(window.location.pathname);
 
   function onReady() {
-    // Find out who is our current user. In general, we should avoid using pageData because it doesn't always get updated when moving between page-to-page in AzDO's single-page application flow. Instead, rely on the AzDO REST APIs to get information from stuff you find on the page or the URL. Some things are OK to get from pageData; e.g. stuff like the user which is available on all pages.
-    const pageData = JSON.parse(document.getElementById('dataProviders').innerHTML).data;
-    currentUser = pageData['ms.vss-web.page-data'].user;
+    if (/\.yammer\./i.test(window.location.host)) {
+      watchForYammerSnippets();
+    } else {
+      // Find out who is our current user. In general, we should avoid using pageData because it doesn't always get updated when moving between page-to-page in AzDO's single-page application flow. Instead, rely on the AzDO REST APIs to get information from stuff you find on the page or the URL. Some things are OK to get from pageData; e.g. stuff like the user which is available on all pages.
+      const pageData = JSON.parse(document.getElementById('dataProviders').innerHTML).data;
+      currentUser = pageData['ms.vss-web.page-data'].user;
 
-    const theme = pageData['ms.vss-web.theme-data'].requestedThemeId;
-    const isDarkTheme = /(dark|night|neptune)/i.test(theme);
+      const theme = pageData['ms.vss-web.theme-data'].requestedThemeId;
+      const isDarkTheme = /(dark|night|neptune)/i.test(theme);
 
-    // Because of CORS, we need to make sure we're querying the same hostname for our AzDO APIs.
-    azdoApiBaseUrl = `${window.location.origin}${pageData['ms.vss-tfs-web.header-action-data'].suiteHomeUrl}`;
+      // Because of CORS, we need to make sure we're querying the same hostname for our AzDO APIs.
+      azdoApiBaseUrl = `${window.location.origin}${pageData['ms.vss-tfs-web.header-action-data'].suiteHomeUrl}`;
 
-    // Invoke our new eus-style features.
-    watchPullRequestDashboard();
-    watchForNewLabels();
-    watchForWorkItemForms();
-    watchForNewDiffs(isDarkTheme);
-    watchForShowMoreButtons();
+      // Invoke our new eus-style features.
+      watchPullRequestDashboard();
+      watchForNewLabels();
+      watchForWorkItemForms();
+      watchForNewDiffs(isDarkTheme);
+      watchForShowMoreButtons();
 
-    // Handle any existing elements, flushing it to execute immediately.
-    onPageUpdatedThrottled();
-    onPageUpdatedThrottled.flush();
+      // Handle any existing elements, flushing it to execute immediately.
+      onPageUpdatedThrottled();
+      onPageUpdatedThrottled.flush();
 
-    // Call our event handler if we notice new elements being inserted into the DOM. This happens as the page is loading or updating dynamically based on user activity.
-    $('body > div.full-size')[0].addEventListener('DOMNodeInserted', onPageUpdatedThrottled);
+      // Call our event handler if we notice new elements being inserted into the DOM. This happens as the page is loading or updating dynamically based on user activity.
+      $('body > div.full-size')[0].addEventListener('DOMNodeInserted', onPageUpdatedThrottled);
+    }
   }
 
   // This is "main()" for this script. Runs periodically when the page updates.
@@ -367,10 +372,10 @@
         height: 15px;
       }
       ::-webkit-scrollbar-track, ::-webkit-scrollbar-corner {
-        background: rgb(var(--palette-neutral-4));
+        background: rgb(var(--palette-neutral-4, 41, 40, 39));
       }
       ::-webkit-scrollbar-thumb {
-        background: rgb(var(--palette-neutral-20));
+        background: rgb(var(--palette-neutral-20, 96, 94, 92));
       }
       /* Bigger dropdown menus */
       .identity-picker-dropdown ul.items, .scroll-tree-overflow-box, .ui-autocomplete, .vss-PickList--items {
@@ -650,6 +655,150 @@
     });
 
     annotateFilesTreeFunc();
+  }
+
+  function watchForYammerSnippets() {
+    // Use DarkTheme always
+    addHighlightStyle(true);
+
+    // Overwrite some of the highlight settings
+    addStyleOnce('highlight-yammer', `
+      .hljs {
+          display: block;
+          overflow-x: auto;
+          background: #1e1e1e;
+          color: #dcdcdc;
+          padding: 5px;
+          border-left-style: solid;
+          border-left-color: #03b585;
+          border-left-width: 25px;
+          margin: 0px;
+      }
+
+      .hljs-formula,
+      .hljs-function,
+      .hljs-params,
+      .hljs-subst,
+      .hljs-title {
+          color: var(--text-primary-color, #d69d85);
+      }
+    `);
+
+    const session = new eus.ObserverSession();
+    let languageDefinitions = parseLanguageDefinitions();
+    session.onEveryNew(document, '[class*="contentStateBodyText"]', contentStateBody => {
+      contentStateBodyChanged(contentStateBody, languageDefinitions);
+      session.onAnyChangeTo(contentStateBody, () => contentStateBodyChanged(contentStateBody, languageDefinitions));
+    });
+  }
+
+  function contentStateBodyChanged(contentStateBody, languageDefinitions) {
+    var resetParagraphs = false;
+    // When `see more` is toggled, the number of lines changes, so we should remove the highlighted snippet and recreate a new one
+    for (const codeSnippet of contentStateBody.querySelectorAll('[class*="yammerCodeSnippet"]')) {
+      codeSnippet.remove();
+      resetParagraphs = true;
+    }
+
+    let snippetParagraphs = [];
+    let snippetStarted = false;
+    let language = null;
+    let lastParagraph = null;
+    for(const paragraph of contentStateBody.querySelectorAll('[class*="paragraph"]')) {
+      if(resetParagraphs) {
+        paragraph.style.display = 'block';
+      }
+
+      let match = paragraph.innerText.match(/^(```)(.*)/);
+      if(match) {
+        // If no language was specified, just use `sh` as a default
+        if(!snippetStarted && !match[2]) {
+          match[2] = 'sh';
+        }
+        if(match[2]) {
+          snippetStarted = true;
+          language = match[2];
+        } else {
+          snippetStarted = false;
+          wrapSnippetParagraphs(snippetParagraphs, paragraph, language, languageDefinitions);
+        }
+        snippetParagraphs = [];
+      }
+      if(snippetStarted) {
+        snippetParagraphs.push(paragraph)
+      }
+      lastParagraph = paragraph;
+    }
+
+    if(lastParagraph && snippetStarted) {
+      wrapSnippetParagraphs(snippetParagraphs, lastParagraph, language, languageDefinitions);
+    }
+  }
+
+  function wrapSnippetParagraphs(snippetParagraphs, lastParagraph, language, languageDefinitions) {
+    let firstParagraph = snippetParagraphs.shift()
+    if(firstParagraph) {
+      // Make sure the language exists, if not use `sh` as a default
+      language = languageDefinitions.extensionToMode[language] ? language : "sh";
+
+      let codeSnippetText = ""
+      snippetParagraphs.forEach(function(paragraph, idx, array) {
+          // We do not want an extra line at the end of the snippet
+          codeSnippetText += paragraph.innerText + ((idx === array.length - 1) ? '': '\n');
+          paragraph.style.display = 'none';
+      });
+
+      // Hide first and last paragraphs, which should be the snippet identifiers -> (```<language>) and (```)
+      firstParagraph.style.display = 'none';
+      lastParagraph.style.display = 'none';
+
+      let codeSnippet = document.createElement('pre');
+      codeSnippet.classList.add('hljs');
+      codeSnippet.innerText = codeSnippetText;
+
+      let wordWrapButton = document.createElement('input');
+      wordWrapButton.type = 'button'
+      wordWrapButton.value = '⮒'
+      wordWrapButton.title = 'Enable Word Wrap'
+      wordWrapButton.style.float = 'left';
+      wordWrapButton.style.position = 'absolute';
+      wordWrapButton.style.width = '23px';
+      wordWrapButton.onclick = function () {
+          toggleCodeSnippetWordWrap(this);
+      };
+
+      let codeSnippetWrapper = document.createElement('p');
+      codeSnippetWrapper.classList.add('yammerCodeSnippet');
+      codeSnippetWrapper.append(wordWrapButton);
+      codeSnippetWrapper.append(codeSnippet);
+
+      firstParagraph.parentNode.insertBefore(codeSnippetWrapper, firstParagraph);
+      highlightDiff(language, 'YammerCodeSnippet', 'N/A', codeSnippetWrapper, 'pre');
+
+      if(!elementOverflowsHorizontally(codeSnippet)) {
+        wordWrapButton.style.display = 'none';
+      }
+    }
+  }
+
+  function toggleCodeSnippetWordWrap(button) {
+    let codeSnippet = $(button).parent()[0]
+    let hljsFound = codeSnippet.getElementsByClassName("hljs")
+    if(hljsFound.length) {
+      if(hljsFound[0].style.whiteSpace == 'break-spaces') {
+        hljsFound[0].style.whiteSpace  = 'pre';
+        button.value = '⮒';
+        button.title = 'Enable Word Wrap';
+      } else {
+        hljsFound[0].style.whiteSpace  = 'break-spaces';
+        button.value = '⥱';
+        button.title = 'Disable Word Wrap';
+      }
+    }
+  }
+
+  function elementOverflowsHorizontally(element) {
+    return element.scrollWidth > element.clientWidth;
   }
 
   // If we're on specific PR, add a base update selector.
@@ -1025,7 +1174,7 @@
     labels.insertAdjacentHTML('beforeend', label);
   }
 
-  function watchForNewDiffs(isDarkTheme) {
+  function addHighlightStyle(isDarkTheme) {
     if (isDarkTheme) {
       addStyleOnce('highlight', `
         .hljs {
@@ -1139,9 +1288,74 @@
         }`);
     } else {
       addStyleOnce('highlight', `
-        .hljs{display:block;overflow-x:auto;padding:.5em;background:#fff;color:#000}.hljs-comment,.hljs-quote,.hljs-variable{color:green}.hljs-built_in,.hljs-keyword,.hljs-name,.hljs-selector-tag,.hljs-tag{color:#00f}.hljs-addition,.hljs-attribute,.hljs-literal,.hljs-section,.hljs-string,.hljs-template-tag,.hljs-template-variable,.hljs-title,.hljs-type{color:#a31515}.hljs-deletion,.hljs-meta,.hljs-selector-attr,.hljs-selector-pseudo{color:#2b91af}.hljs-doctag{color:grey}.hljs-attr{color:red}.hljs-bullet,.hljs-link,.hljs-symbol{color:#00b0e8}.hljs-emphasis{font-style:italic}.hljs-strong{font-weight:700}
+        .hljs {
+            display: block;
+            overflow-x: auto;
+            padding: .5em;
+            background: #fff;
+            color: #000
+        }
+
+        .hljs-comment,
+        .hljs-quote,
+        .hljs-variable {
+            color: green
+        }
+
+        .hljs-built_in,
+        .hljs-keyword,
+        .hljs-name,
+        .hljs-selector-tag,
+        .hljs-tag {
+            color: #00f
+        }
+
+        .hljs-addition,
+        .hljs-attribute,
+        .hljs-literal,
+        .hljs-section,
+        .hljs-string,
+        .hljs-template-tag,
+        .hljs-template-variable,
+        .hljs-title,
+        .hljs-type {
+            color: #a31515
+        }
+
+        .hljs-deletion,
+        .hljs-meta,
+        .hljs-selector-attr,
+        .hljs-selector-pseudo {
+            color: #2b91af
+        }
+
+        .hljs-doctag {
+            color: grey
+        }
+
+        .hljs-attr {
+            color: red
+        }
+
+        .hljs-bullet,
+        .hljs-link,
+        .hljs-symbol {
+            color: #00b0e8
+        }
+
+        .hljs-emphasis {
+            font-style: italic
+        }
+
+        .hljs-strong {
+            font-weight: 700
+        }
       `);
     }
+  }
+
+  function watchForNewDiffs(isDarkTheme) {
+    addHighlightStyle(isDarkTheme);
 
     eus.onUrl(/\/pullrequest\//gi, (session, urlMatch) => {
       let languageDefinitions = null;
