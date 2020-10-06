@@ -711,13 +711,14 @@
 
       const match = paragraph.innerText.match(/^```(.*)/);
       if (match) {
-        [, language] = match;
+        let [, matchedLanguage] = match;
         // If no language was specified, just use `sh` as a default
-        if (!snippetStarted && !language) {
-          language = 'sh';
+        if (!snippetStarted && !matchedLanguage) {
+          matchedLanguage = 'sh';
         }
-        if (language) {
+        if (matchedLanguage) {
           snippetStarted = true;
+          language = matchedLanguage;
         } else {
           snippetStarted = false;
           wrapSnippetParagraphs(snippetParagraphs, paragraph, language, languageDefinitions);
