@@ -23,17 +23,12 @@ module.exports = {
     },
     "rules": {
         // Tech debt. Remove or reconsider one day:
-        // "no-unused-vars": ["error", { "args": "none" }],
+        "no-unused-vars": ["error", { "args": "none" }],
         "func-names": "off",
         "no-use-before-define": ["error", "nofunc"],
         "max-len": "off",
         "no-restricted-syntax": ["error", "ForInStatement", "LabeledStatement", "WithStatement"],
-        "strict": "off",
-        // "require-await": "error",
-        // "require-yield": "error",
-        // "linebreak-style": "off",
-        // "arrow-parens": "off",
-        "no-unused-vars": "off"
+        "strict": "off"
     },
     "overrides": [{
         "files": [".*.js"],

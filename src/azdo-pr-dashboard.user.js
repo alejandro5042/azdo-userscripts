@@ -1011,7 +1011,6 @@
 
         // The PR may not have any labels to begin with, so we have to construct the label container.
         if (!labels) {
-            // eslint-disable-next-line prefer-destructuring
             const labelContainer = $(`
         <div class="userscript-bolt-pill-group margin-left-8 bolt-pill-group flex-row">
           <div class="bolt-pill-overflow flex-row">
@@ -1183,7 +1182,6 @@
                         for (const line of rightOrUnifiedPane.querySelectorAll('.code-line:not(.deleted-content)')) {
                             code += `${line.innerText}\n`;
                         }
-                        // eslint-disable-next-line prefer-destructuring
                         language = hljs.highlightAuto(code).language;
                     }
 
