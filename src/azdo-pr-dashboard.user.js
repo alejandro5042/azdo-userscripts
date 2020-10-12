@@ -215,7 +215,7 @@
     eus.globalSession.onEveryNew(document, '.menu-item.follow-item-menu-item-gray', followButton => {
       followButton.addEventListener('click', async _ => {
         await sleep(100); // We need to allow the other handlers to send the request to follow/unfollow. After the request is sent, we can annotate our follows list correctly.
-        await annotateWorkItemWithFollowerList(document.getElementsByClassName('discussion-messages-right')[0]);
+        await annotateWorkItemWithFollowerList(document.querySelector('.discussion-messages-right'));
       });
     });
     // Annotate work items (under the comment box) with who is following it.
