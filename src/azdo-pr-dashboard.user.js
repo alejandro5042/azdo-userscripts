@@ -36,9 +36,7 @@
     'use strict';
 
     // All REST API calls should fail after a timeout, instead of going on forever.
-    $.ajaxSetup({
-        timeout: 5000
-    });
+    $.ajaxSetup({ timeout: 5000 });
 
     lscache.setBucket('acb-azdo/');
 
@@ -127,76 +125,76 @@
     enhanceOverallUX();
 
     addStyleOnce('labels', /* css */ `
-      /* Known bug severities we should style. */
-      .pr-bug-severity-1 {
-        background: #a008 !important;
-      }
-      .pr-bug-severity-2 {
-        background: #fd38 !important;
-      }
-      /* Align labels to the right and give them a nice border. */
-      .repos-pr-list .bolt-pill-group {
-        flex-grow: 1;
-        justify-content: flex-end;
-      }
-      .bolt-pill {
-        border: 1px solid #0001;
-      }
-      /* Known labels we should style. */
-      .pr-annotation:not([title=""]) {
-        cursor: help !important;
-      }
-      .pr-annotation.file-count,
-      .pr-annotation.build-status {
-        background: #fff4 !important;
-        min-width: 8ex;
-      }`);
+        /* Known bug severities we should style. */
+        .pr-bug-severity-1 {
+            background: #a008 !important;
+        }
+        .pr-bug-severity-2 {
+            background: #fd38 !important;
+        }
+        /* Align labels to the right and give them a nice border. */
+        .repos-pr-list .bolt-pill-group {
+            flex-grow: 1;
+            justify-content: flex-end;
+        }
+        .bolt-pill {
+            border: 1px solid #0001;
+        }
+        /* Known labels we should style. */
+        .pr-annotation:not([title=""]) {
+            cursor: help !important;
+        }
+        .pr-annotation.file-count,
+        .pr-annotation.build-status {
+            background: #fff4 !important;
+            min-width: 8ex;
+        }`);
 
     if (atNI) {
         addStyleOnce('ni-labels', /* css */ `
-          /* Known labels we should style. */
-          .label--owners {
-          }
-          .label--draft {
-            background: #8808 !important;
-          }
-          .label--tiny {
-            background: #0a08 !important;
-          }
-          .label--bypassowners {
-          }`);
+            /* Known labels we should style. */
+            .label--owners {
+            }
+            .label--draft {
+                background: #8808 !important;
+            }
+            .label--tiny {
+                background: #0a08 !important;
+            }
+            .label--bypassowners {
+            }`);
     }
 
     addStyleOnce('bypassOwnersPrompt', /* css */ `
-      .bypass-reminder {
-        display: inline;
-        position: absolute;
-        top: 38px;
-        left: -450px;
-        z-index: 1000;
-        background-color: #E6B307;
-        padding: 6px 12px;
-        border-radius: 6px;
-        box-shadow: 4px 4px 4px #18181888;
-        opacity: 0;
-        transition: 0.3s;
-      }
-      .bypass-reminder-container {
-        position: relative;
-        display: inline-flex;
-        flex-direction: column;
-      }
-      .vote-button-wrapper {
-        border: 3px solid transparent;
-        border-radius: 4px;
-        transition: 0.3s;
-      }
-      .vote-button-wrapper:hover {
-        border-color: #E6B307;
-      }
-      .vote-button-wrapper:hover ~ .bypass-reminder {
-        opacity: 1;
-      }`);
+        .bypass-reminder {
+            display: inline;
+            position: absolute;
+            top: 38px;
+            left: -450px;
+            z-index: 1000;
+            background-color: #E6B307;
+            padding: 6px 12px;
+            border-radius: 6px;
+            box-shadow: 4px 4px 4px #18181888;
+            opacity: 0;
+            transition: 0.3s;
+        }
+        .bypass-reminder-container {
+            position: relative;
+            display: inline-flex;
+            flex-direction: column;
+        }
+        .vote-button-wrapper {
+            border: 3px solid transparent;
+            border-radius: 4px;
+            transition: 0.3s;
+        }
+        .vote-button-wrapper:hover {
+            border-color: #E6B307;
+        }
+        .vote-button-wrapper:hover ~ .bypass-reminder {
+            opacity: 1;
+        }`);
 
     function styleLabels() {
         // Give all tags a CSS class based on their name.
@@ -321,12 +319,12 @@
         const lowerCasePrefix = 'await:';
 
         addStyleOnce('highlight-await-comments', /* css */ `
-      .vc-discussion-thread-box .vc-discussion-thread-comment .vc-discussion-thread-renderparent[content^="${lowerCasePrefix}" i] {
-        border: 2px solid rgb(var(--palette-accent3));
-        border-radius: 5px;
-        margin: 7px 0px;
-        padding: 10px 15px;
-      }`);
+            .vc-discussion-thread-box .vc-discussion-thread-comment .vc-discussion-thread-renderparent[content^="${lowerCasePrefix}" i] {
+                border: 2px solid rgb(var(--palette-accent3));
+                border-radius: 5px;
+                margin: 7px 0px;
+                padding: 10px 15px;
+            }`);
     }
 
     function applyStickyPullRequestComments() {
@@ -334,12 +332,12 @@
         const lowerCasePrefix = 'note:';
 
         addStyleOnce('sticky-comments', /* css */ `
-      .vc-discussion-thread-box .vc-discussion-thread-comment:first-of-type .vc-discussion-thread-renderparent[content^="${lowerCasePrefix}" i] {
-        border: 2px solid var(--palette-black-alpha-20);
-        border-radius: 5px;
-        margin: 7px 0px;
-        padding: 10px 15px;
-      }`);
+            .vc-discussion-thread-box .vc-discussion-thread-comment:first-of-type .vc-discussion-thread-renderparent[content^="${lowerCasePrefix}" i] {
+                border: 2px solid var(--palette-black-alpha-20);
+                border-radius: 5px;
+                margin: 7px 0px;
+                padding: 10px 15px;
+            }`);
 
         // Expand threads that have the sticky prefix.
         const lowerCasePrefixCssSelector = CSS.escape(`: "${lowerCasePrefix}`);
@@ -419,6 +417,7 @@
         } else {
             // "new" PR experience
             const voteButton = document.getElementsByClassName('repos-pr-header-vote-button')[0];
+
             // We cannot change the parent of voteButton, or we get an error when pressing the approve button.
             // Instead, we'll wedge our "container" div between the voteButton and its children.
             // Because the voteButton's children will be moved under our container, we'll need to create a new wrapping element (by cloning the old parent) to keep them laid-out properly.
@@ -479,25 +478,25 @@
 
     function makePullRequestDiffEasierToScroll() {
         addStyleOnce('pr-diff-improvements', /* css */ `
-      .vc-change-summary-files .file-container {
-        /* Make the divs float but clear them so they get stacked on top of each other. We float so that the divs expand to take up the width of the text in it. Finally, we remove the overflow property so that they don't have scrollbars and also such that we can have sticky elements (apparently, sticky elements don't work if the div has overflow). */
-        float: left;
-        clear: both;
-        min-width: 95%;
-        overflow: initial;
-      }
-      .vc-change-summary-files .file-row {
-        /* Let the file name section of each diff stick to the top of the page if we're scrolling. */
-        position: sticky;
-        top: 0;
-        z-index: 100000;
-        padding-bottom: 10px;
-        background: var(--background-color,rgba(255, 255, 255, 1));
-      }
-      .vc-change-summary-files .vc-diff-viewer {
-        /* We borrowed padding from the diff to give to the bottom of the file row. So adjust accordingly (this value was originally 20px). */
-        padding-top: 10px;
-      }`);
+            .vc-change-summary-files .file-container {
+                /* Make the divs float but clear them so they get stacked on top of each other. We float so that the divs expand to take up the width of the text in it. Finally, we remove the overflow property so that they don't have scrollbars and also such that we can have sticky elements (apparently, sticky elements don't work if the div has overflow). */
+                float: left;
+                clear: both;
+                min-width: 95%;
+                overflow: initial;
+            }
+            .vc-change-summary-files .file-row {
+                /* Let the file name section of each diff stick to the top of the page if we're scrolling. */
+                position: sticky;
+                top: 0;
+                z-index: 100000;
+                padding-bottom: 10px;
+                background: var(--background-color,rgba(255, 255, 255, 1));
+            }
+            .vc-change-summary-files .vc-diff-viewer {
+                /* We borrowed padding from the diff to give to the bottom of the file row. So adjust accordingly (this value was originally 20px). */
+                padding-top: 10px;
+            }`);
     }
 
     // The func we'll call to continuously add checkboxes to the PR file listing, once initialization is over.
@@ -510,54 +509,54 @@
 
             addStyleOnce('pr-file-tree-annotations-css', /* css */ `
                 :root {
-                /* Set some constants for our CSS. */
-                --file-to-review-color: var(--communication-foreground);
+                    /* Set some constants for our CSS. */
+                    --file-to-review-color: var(--communication-foreground);
                 }
                 .vc-sparse-files-tree .tree-row.file-to-review-row,
                 .vc-sparse-files-tree .tree-row.file-to-review-row .file-name {
-                /* Highlight files I need to review. */
-                color: var(--file-to-review-color);
-                transition-duration: 0.2s;
+                    /* Highlight files I need to review. */
+                    color: var(--file-to-review-color);
+                    transition-duration: 0.2s;
                 }
                 .vc-sparse-files-tree .tree-row.folder-to-review-row[aria-expanded='false'],
                 .vc-sparse-files-tree .tree-row.folder-to-review-row[aria-expanded='false'] .file-name {
-                /* Highlight folders that have files I need to review, but only when files are hidden cause the folder is collapsed. */
-                color: var(--file-to-review-color);
-                transition-duration: 0.2s;
+                    /* Highlight folders that have files I need to review, but only when files are hidden cause the folder is collapsed. */
+                    color: var(--file-to-review-color);
+                    transition-duration: 0.2s;
                 }
                 .vc-sparse-files-tree .tree-row.file-to-review-row .file-owners-role {
-                /* Style the role of the user in the files table. */
-                font-weight: bold;
-                padding: 7px 10px;
-                position: absolute;
-                z-index: 100;
-                float: right;
+                    /* Style the role of the user in the files table. */
+                    font-weight: bold;
+                    padding: 7px 10px;
+                    position: absolute;
+                    z-index: 100;
+                    float: right;
                 }
                 .file-to-review-diff {
-                /* Highlight files I need to review. */
-                border-left: 3px solid var(--file-to-review-color) !important;
-                padding-left: 7px;
+                    /* Highlight files I need to review. */
+                    border-left: 3px solid var(--file-to-review-color) !important;
+                    padding-left: 7px;
                 }
                 .files-container.hide-files-not-to-review .file-container:not(.file-to-review-diff) {
-                /* Fade the header for files I don't have to review. */
-                opacity: 0.2;
+                    /* Fade the header for files I don't have to review. */
+                    opacity: 0.2;
                 }
                 .files-container.hide-files-not-to-review .file-container:not(.file-to-review-diff) .item-details-body {
-                /* Hide the diff for files I don't have to review. */
-                display: none;
+                    /* Hide the diff for files I don't have to review. */
+                    display: none;
                 }
                 .toolbar-button {
-                background: transparent;
-                color: var(--text-primary-color);
-                border: 1px solid transparent;
-                border-radius: 3px;
-                margin: 0px 2px;
+                    background: transparent;
+                    color: var(--text-primary-color);
+                    border: 1px solid transparent;
+                    border-radius: 3px;
+                    margin: 0px 2px;
                 }
                 .toolbar-button:hover {
-                border: 1px solid var(--palette-black-alpha-20);
+                    border: 1px solid var(--palette-black-alpha-20);
                 }
                 .toolbar-button.active {
-                color: var(--communication-foreground);
+                    color: var(--communication-foreground);
                 }`);
 
             // Get the current iteration of the PR.
@@ -662,28 +661,28 @@
             const toolbar = $(this);
 
             addStyleOnce('base-selector-css', /* css */ `
-        .base-selector {
-          color: var(--text-secondary-color);
-          margin: 0px 5px 0px 0px;
-        }
-        .base-selector select {
-          border: 1px solid transparent;
-          padding: 2px 4px;
-          width: 3em;
-          height: 100%;
-          text-align: center;
-        }
-        .base-selector select:hover {
-          border-color: var(--palette-black-alpha-20);
-        }
-        .base-selector select option {
-          background: var(--callout-background-color);
-          color: var(--text-primary-color);
-          font-family: Consolas, monospace;
-        }
-        .base-selector select option:disabled {
-          display: none;
-        }`);
+                .base-selector {
+                    color: var(--text-secondary-color);
+                    margin: 0px 5px 0px 0px;
+                }
+                .base-selector select {
+                    border: 1px solid transparent;
+                    padding: 2px 4px;
+                    width: 3em;
+                    height: 100%;
+                    text-align: center;
+                }
+                .base-selector select:hover {
+                    border-color: var(--palette-black-alpha-20);
+                }
+                .base-selector select option {
+                    background: var(--callout-background-color);
+                    color: var(--text-primary-color);
+                    font-family: Consolas, monospace;
+                }
+                .base-selector select option:disabled {
+                    display: none;
+                }`);
 
             // Get the PR iterations.
             const prUrl = await getCurrentPullRequestUrlAsync();
@@ -760,20 +759,20 @@
     }
 
     addStyleOnce('pr-dashboard-css', /* css */ `
-    table.repos-pr-list tbody > a {
-      transition: 0.2s;
-    }
-    table.repos-pr-list tbody > a.voted-waiting > td > * {
-      opacity: 0.15;
-    }
-    .repos-pr-list-late-review-pill.outlined {
-      border-color: #f00;
-      border-color: var(--status-error-text,rgba(177, 133, 37, 1));
-      color: #f00;
-      color: var(--status-error-text,rgba(177, 133, 37, 1));
-      background: var(--status-error-background,rgba(177, 133, 37, 1));
-      cursor: help;
-    }`);
+        table.repos-pr-list tbody > a {
+            transition: 0.2s;
+        }
+        table.repos-pr-list tbody > a.voted-waiting > td > * {
+            opacity: 0.15;
+        }
+        .repos-pr-list-late-review-pill.outlined {
+            border-color: #f00;
+            border-color: var(--status-error-text,rgba(177, 133, 37, 1));
+            color: #f00;
+            color: var(--status-error-text,rgba(177, 133, 37, 1));
+            background: var(--status-error-background,rgba(177, 133, 37, 1));
+            cursor: help;
+        }`);
 
     function watchPullRequestDashboard() {
         eus.onUrl(/\/(_pulls|pullrequests)/gi, (session, _urlMatch) => {
@@ -999,9 +998,9 @@
 
     function annotatePullRequestTitle(row, cssClass, message, tooltip) {
         const blockingAnnotation = `
-      <div aria-label="Auto-complete" class="${cssClass} flex-noshrink margin-left-4 bolt-pill flex-row flex-center outlined compact" data-focuszone="focuszone-19" role="presentation" title="${tooltip}">
-        <div class="bolt-pill-content text-ellipsis">${message}</div>
-      </div>`;
+            <div aria-label="Auto-complete" class="${cssClass} flex-noshrink margin-left-4 bolt-pill flex-row flex-center outlined compact" data-focuszone="focuszone-19" role="presentation" title="${tooltip}">
+                <div class="bolt-pill-content text-ellipsis">${message}</div>
+            </div>`;
         const title = row.querySelector('.body-l');
         title.insertAdjacentHTML('afterend', blockingAnnotation);
     }
@@ -1012,140 +1011,139 @@
         // The PR may not have any labels to begin with, so we have to construct the label container.
         if (!labels) {
             const labelContainer = $(`
-        <div class="userscript-bolt-pill-group margin-left-8 bolt-pill-group flex-row">
-          <div class="bolt-pill-overflow flex-row">
-            <div class="bolt-pill-group-inner flex-row">
-            </div>
-            <div class="bolt-pill-observe"></div>
-          </div>
-        </div>`)[0];
+                <div class="userscript-bolt-pill-group margin-left-8 bolt-pill-group flex-row">
+                    <div class="bolt-pill-overflow flex-row">
+                        <div class="bolt-pill-group-inner flex-row">
+                        </div>
+                        <div class="bolt-pill-observe"></div>
+                    </div>
+                </div>`)[0];
             pullRequestRow.querySelector('.body-l').insertAdjacentElement('afterend', labelContainer);
             labels = pullRequestRow.querySelector('.bolt-pill-group-inner');
         }
 
         const label = `
-      <div class="pr-annotation bolt-pill flex-row flex-center standard compact ${cssClass}" data-focuszone="focuszone-75" role="presentation" title="${escapeStringForHtml(title)}">
-        <div class="bolt-pill-content text-ellipsis">${html}</div>
-      </div>`;
+            <div class="pr-annotation bolt-pill flex-row flex-center standard compact ${cssClass}" data-focuszone="focuszone-75" role="presentation" title="${escapeStringForHtml(title)}">
+                <div class="bolt-pill-content text-ellipsis">${html}</div>
+            </div>`;
         labels.insertAdjacentHTML('beforeend', label);
     }
 
     function watchForNewDiffs(isDarkTheme) {
         if (isDarkTheme) {
-            addStyleOnce('highlight', `
-        .hljs {
-            display: block;
-            overflow-x: auto;
-            background: #1e1e1e;
-            color: #dcdcdc;
-        }
+            addStyleOnce('highlight', /* css */ `
+                .hljs {
+                    display: block;
+                    overflow-x: auto;
+                    background: #1e1e1e;
+                    color: #dcdcdc;
+                }
 
-        .hljs-keyword,
-        .hljs-literal,
-        .hljs-name,
-        .hljs-symbol {
-            color: #569cd6;
-        }
+                .hljs-keyword,
+                .hljs-literal,
+                .hljs-name,
+                .hljs-symbol {
+                    color: #569cd6;
+                }
 
-        .hljs-link {
-            color: #569cd6;
-            text-decoration: underline;
-        }
+                .hljs-link {
+                    color: #569cd6;
+                    text-decoration: underline;
+                }
 
-        .hljs-built_in,
-        .hljs-type {
-            color: #4ec9b0;
-        }
+                .hljs-built_in,
+                .hljs-type {
+                    color: #4ec9b0;
+                }
 
-        .hljs-class,
-        .hljs-number {
-            color: #b8d7a3;
-        }
+                .hljs-class,
+                .hljs-number {
+                    color: #b8d7a3;
+                }
 
-        .hljs-meta-string,
-        .hljs-string {
-            color: #d69d85;
-        }
+                .hljs-meta-string,
+                .hljs-string {
+                    color: #d69d85;
+                }
 
-        .hljs-regexp,
-        .hljs-template-tag {
-            color: #9a5334;
-        }
+                .hljs-regexp,
+                .hljs-template-tag {
+                    color: #9a5334;
+                }
 
-        .hljs-formula,
-        .hljs-function,
-        .hljs-params,
-        .hljs-subst,
-        .hljs-title {
-            color: var(--text-primary-color, rgba(0, 0, 0, .7));
-        }
+                .hljs-formula,
+                .hljs-function,
+                .hljs-params,
+                .hljs-subst,
+                .hljs-title {
+                    color: var(--text-primary-color, rgba(0, 0, 0, .7));
+                }
 
-        .hljs-comment,
-        .hljs-quote {
-            color: #57a64a;
-            font-style: italic;
-        }
+                .hljs-comment,
+                .hljs-quote {
+                    color: #57a64a;
+                    font-style: italic;
+                }
 
-        .hljs-doctag {
-            color: #608b4e;
-        }
+                .hljs-doctag {
+                    color: #608b4e;
+                }
 
-        .hljs-meta,
-        .hljs-meta-keyword,
-        .hljs-tag {
-            color: #9b9b9b;
-        }
-        .hljs-meta-keyword {
-          font-weight: bold;
-        }
+                .hljs-meta,
+                .hljs-meta-keyword,
+                .hljs-tag {
+                    color: #9b9b9b;
+                }
+                .hljs-meta-keyword {
+                font-weight: bold;
+                }
 
-        .hljs-template-variable,
-        .hljs-variable {
-            color: #bd63c5;
-        }
+                .hljs-template-variable,
+                .hljs-variable {
+                    color: #bd63c5;
+                }
 
-        .hljs-attr,
-        .hljs-attribute,
-        .hljs-builtin-name {
-            color: #9cdcfe;
-        }
+                .hljs-attr,
+                .hljs-attribute,
+                .hljs-builtin-name {
+                    color: #9cdcfe;
+                }
 
-        .hljs-section {
-            color: gold;
-        }
+                .hljs-section {
+                    color: gold;
+                }
 
-        .hljs-emphasis {
-            font-style: italic;
-        }
+                .hljs-emphasis {
+                    font-style: italic;
+                }
 
-        .hljs-strong {
-            font-weight: 700;
-        }
+                .hljs-strong {
+                    font-weight: 700;
+                }
 
-        .hljs-bullet,
-        .hljs-selector-attr,
-        .hljs-selector-class,
-        .hljs-selector-id,
-        .hljs-selector-pseudo,
-        .hljs-selector-tag {
-            color: #d7ba7d;
-        }
+                .hljs-bullet,
+                .hljs-selector-attr,
+                .hljs-selector-class,
+                .hljs-selector-id,
+                .hljs-selector-pseudo,
+                .hljs-selector-tag {
+                    color: #d7ba7d;
+                }
 
-        .hljs-addition {
-            background-color: #144212;
-            display: inline-block;
-            width: 100%;
-        }
+                .hljs-addition {
+                    background-color: #144212;
+                    display: inline-block;
+                    width: 100%;
+                }
 
-        .hljs-deletion {
-            background-color: #600;
-            display: inline-block;
-            width: 100%;
-        }`);
+                .hljs-deletion {
+                    background-color: #600;
+                    display: inline-block;
+                    width: 100%;
+                }`);
         } else {
-            addStyleOnce('highlight', `
-        .hljs{display:block;overflow-x:auto;padding:.5em;background:#fff;color:#000}.hljs-comment,.hljs-quote,.hljs-variable{color:green}.hljs-built_in,.hljs-keyword,.hljs-name,.hljs-selector-tag,.hljs-tag{color:#00f}.hljs-addition,.hljs-attribute,.hljs-literal,.hljs-section,.hljs-string,.hljs-template-tag,.hljs-template-variable,.hljs-title,.hljs-type{color:#a31515}.hljs-deletion,.hljs-meta,.hljs-selector-attr,.hljs-selector-pseudo{color:#2b91af}.hljs-doctag{color:grey}.hljs-attr{color:red}.hljs-bullet,.hljs-link,.hljs-symbol{color:#00b0e8}.hljs-emphasis{font-style:italic}.hljs-strong{font-weight:700}
-      `);
+            addStyleOnce('highlight', /* css */ `
+                .hljs{display:block;overflow-x:auto;padding:.5em;background:#fff;color:#000}.hljs-comment,.hljs-quote,.hljs-variable{color:green}.hljs-built_in,.hljs-keyword,.hljs-name,.hljs-selector-tag,.hljs-tag{color:#00f}.hljs-addition,.hljs-attribute,.hljs-literal,.hljs-section,.hljs-string,.hljs-template-tag,.hljs-template-variable,.hljs-title,.hljs-type{color:#a31515}.hljs-deletion,.hljs-meta,.hljs-selector-attr,.hljs-selector-pseudo{color:#2b91af}.hljs-doctag{color:grey}.hljs-attr{color:red}.hljs-bullet,.hljs-link,.hljs-symbol{color:#00b0e8}.hljs-emphasis{font-style:italic}.hljs-strong{font-weight:700}`);
         }
 
         eus.onUrl(/\/pullrequest\//gi, (session, _urlMatch) => {
