@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.49.1
+// @version      2.49.2
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -231,27 +231,19 @@
               },
             },
           ],
+          queryFlags: 'alwaysReturnBasicInformation',
         }),
       });
 
       const followers = [...(await queryResponse.json()).value].sort((a, b) => a.subscriber.displayName.localeCompare(b.subscriber.displayName));
-
-      const commentFollowers = followers
-        .filter(workItemSubscriptionFollowsEverything)
+      const followerList = followers
         .map(s => `<a href="mailto:${s.subscriber.uniqueName}">${s.subscriber.displayName}</a>`)
         .join(', ')
         || 'Nobody';
 
-      const fieldFollowerCount = followers.filter(s => !workItemSubscriptionFollowsEverything(s)).length;
-      const fieldFollowers = fieldFollowerCount ? `(and ${fieldFollowerCount} field follower${fieldFollowerCount > 1 ? 's' : ''})` : '';
-
-      const annotation = `<div style="margin: 1em 0em; opacity: 0.8"><span class="menu-item-icon bowtie-icon bowtie-watch-eye-fill" aria-hidden="true"></span> ${commentFollowers} ${fieldFollowers}</div>`;
+      const annotation = `<div style="margin: 1em 0em; opacity: 0.8"><span class="menu-item-icon bowtie-icon bowtie-watch-eye-fill" aria-hidden="true"></span> ${followerList}</div>`;
       commentEditor.insertAdjacentHTML('BeforeEnd', annotation);
     });
-  }
-
-  function workItemSubscriptionFollowsEverything(subscription) {
-    return subscription.description.startsWith("Following 'WorkItem' artifact");
   }
 
   function watchForShowMoreButtons() {
