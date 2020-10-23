@@ -442,7 +442,7 @@
   // Adds a "Trophies" section to the Overview tab of a PR for a qualifying PR number
   function addTrophiesToPullRequest() {
     // Pull request author is sometimes undefined on first call. Only add trophies if we can get the author name.
-    const pullRequestAuthor = $('div.ms-TooltipHost.host_e6f6b93f.created-by-label').children('span').text();
+    const pullRequestAuthor = $('div.vc-pullrequest-created-by-section.row-group').children('div.ms-TooltipHost').children('span').text();
 
     // Only create the trophies section once.
     if ($('#trophies-section').length === 0 && pullRequestAuthor.length !== 0) {
