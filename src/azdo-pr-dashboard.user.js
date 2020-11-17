@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.50.0
+// @version      2.51.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -1405,7 +1405,7 @@
         const owner = reviewProperties.reviewerIdentities[file.owner - 1] || {};
         const alternate = reviewProperties.reviewerIdentities[file.alternate - 1] || {}; // handle nulls everywhere
 
-        // We support both reviewers and experts for now. Once the role rename at NI is done, we'll combine reviewers into experts and show them only as "E:".
+        // As of 2020-11-16, Reviewer is now a synonym for Expert. We'll look at both arrays and annotate them the same way.
         const reviewers = file.reviewers ? (file.reviewers.map(r => reviewProperties.reviewerIdentities[r - 1] || {}) || []) : [];
         const experts = file.experts ? (file.experts.map(r => reviewProperties.reviewerIdentities[r - 1] || {}) || []) : [];
 
@@ -1417,11 +1417,7 @@
           ownersInfo.currentUserFilesToRole[file.path] = 'A';
           ownersInfo.currentUserFileCount += 1;
           // eslint-disable-next-line no-loop-func
-        } else if (_(reviewers).some(r => r.email === currentUser.uniqueName)) {
-          ownersInfo.currentUserFilesToRole[file.path] = 'R';
-          ownersInfo.currentUserFileCount += 1;
-          // eslint-disable-next-line no-loop-func
-        } else if (_(experts).some(r => r.email === currentUser.uniqueName)) {
+        } else if (_(experts).some(r => r.email === currentUser.uniqueName) || _(reviewers).some(r => r.email === currentUser.uniqueName)) {
           ownersInfo.currentUserFilesToRole[file.path] = 'E';
           ownersInfo.currentUserFileCount += 1;
         }
