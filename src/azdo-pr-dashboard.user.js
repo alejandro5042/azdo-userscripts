@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.51.0
+// @version      2.52.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -31,6 +31,8 @@
 // @grant        GM_getResourceText
 
 // ==/UserScript==
+
+/* global swal */
 
 (function () {
   'use strict';
@@ -88,7 +90,7 @@
         if (atNI) {
           addOwnersInfoToFiles();
           conditionallyAddBypassReminderAsync();
-          addNiBinaryDiffButton();
+          addNIBinaryDiffButton();
         }
         addTrophiesToPullRequest();
         if (atNI && /\/DevCentral\/_git\/ASW\//i.test(window.location.pathname)) {
@@ -482,10 +484,10 @@
     }
   }
 
-  async function addNiBinaryDiffButton() {
+  async function addNIBinaryDiffButton() {
     addStyleOnce('ni-binary-git-diff', /* css */ `
       .ni-binary-git-diff-button {
-        argin-right: 2px;
+        margin-right: 2px;
         border-color: #03b585;
         border-radius: 2px;
         border-style: solid;
@@ -524,7 +526,6 @@
       const launchDiffToolBar = $('<div class="flex-row" style="margin-bottom: 5px"></div>');
       const launchDiffButton = $('<button class="bolt-button flex-grow-2 ni-binary-git-diff-button">Launch NI Binary Git Diff ▶</button>');
       const helpButton = $('<button class="bolt-button flex-grow-1 ni-binary-git-diff-button">?</button>');
-      const helpDialog = $('<p class="message-area-control.warning-message ni-binary-git-diff-dialog">To launch the NI Binary Git Diff, you need to install the "NIBinary.GitDiff.reg" Protocol Handler.</p>');
 
       launchDiffButton.on('click', (event) => {
         const currentUrl = new URL(window.location.href);
@@ -535,27 +536,32 @@
         } else {
           iterationIndex = iterations.length - 1;
         }
-        const nextCommitId = iterations[iterationIndex].sourceRefCommit.commitId;
+        const afterCommitId = iterations[iterationIndex].sourceRefCommit.commitId;
 
-        let prevCommitId = iterations[0].commonRefCommit.commitId;
+        let beforeCommitId = iterations[0].commonRefCommit.commitId;
         let baseIndex = currentUrl.searchParams.get('base');
         if (baseIndex) {
           baseIndex -= 1;
           if (baseIndex >= 0) {
-            prevCommitId = iterations[baseIndex].sourceRefCommit.commitId;
+            beforeCommitId = iterations[baseIndex].sourceRefCommit.commitId;
           }
         }
-        const protocolHandlerAddress = `NIBinary.GitDiff:${filePath} ${prevCommitId} ${nextCommitId}`;
+        const protocolHandlerAddress = `NIBinary.GitDiff:${filePath},${beforeCommitId},${afterCommitId}`;
         window.location = protocolHandlerAddress;
       });
 
       helpButton.on('click', (event) => {
-        helpDialog.toggle();
+        swal.fire({
+          title: 'This is a preview feature!',
+          icon: 'warning',
+          text: 'You need to install the "NIBinary.GitDiff.reg" Protocol Handler first. Please talk to Humberto Garza to get it.',
+          confirmButtonColor: '#03b585',
+          confirmButtonText: 'Close',
+        });
       });
 
       launchDiffToolBar.append(launchDiffButton);
       launchDiffToolBar.append(helpButton);
-      $(diffWarningMessage).before(helpDialog);
       $(diffWarningMessage).parent().prepend(launchDiffToolBar);
     });
   }
