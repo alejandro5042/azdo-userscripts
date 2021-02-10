@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.51.0
+// @version      2.52.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -31,6 +31,8 @@
 // @grant        GM_getResourceText
 
 // ==/UserScript==
+
+/* global swal */
 
 (function () {
   'use strict';
@@ -88,6 +90,7 @@
         if (atNI) {
           addOwnersInfoToFiles();
           conditionallyAddBypassReminderAsync();
+          addNIBinaryDiffButton();
         }
         addTrophiesToPullRequest();
         if (atNI && /\/DevCentral\/_git\/ASW\//i.test(window.location.pathname)) {
@@ -479,6 +482,88 @@
         $('div.overview-tab-pane').append(trophiesLeftPaneSection);
       }
     }
+  }
+
+  async function addNIBinaryDiffButton() {
+    addStyleOnce('ni-binary-git-diff', /* css */ `
+      .ni-binary-git-diff-button {
+        margin-right: 2px;
+        border-color: #03b585;
+        border-radius: 2px;
+        border-style: solid;
+        border-width: 1px;
+        color: #03b585;
+        margin-right: 2px;
+      }
+      .ni-binary-git-diff-dialog{
+        border-color: #03b585;
+        border-style: solid;
+        border-width: 1px;
+        display: none;
+        padding: 10px;
+      }`);
+
+    const supportedFileExtensions = ['vi', 'vim', 'vit', 'ctt', 'ctl'];
+    const prUrl = await getCurrentPullRequestUrlAsync();
+    const iterations = (await $.get(`${prUrl}/iterations?api-version=5.0`)).value;
+
+    eus.globalSession.onEveryNew(document, '.diff-message.binary, .vc-builtin-file-viewer-message-area .warning-message', diffWarningMessage => {
+      if (eus.seen(diffWarningMessage)) return;
+
+      // NI Binary Diff is only supported on Windows
+      if (navigator.userAgent.indexOf('Windows') === -1) return;
+
+      let filePath;
+      let fileContainer = $(diffWarningMessage).closest('.file-container');
+      if (fileContainer.length > 0) {
+        filePath = fileContainer[0].querySelector('.file-path').innerText;
+      } else {
+        fileContainer = $(diffWarningMessage).closest('.files-main-viewer-container');
+        filePath = fileContainer[0].querySelector('.full-path').innerText;
+      }
+      if (!supportedFileExtensions.includes(getFileExt(filePath))) return;
+
+      const launchDiffToolBar = $('<div class="flex-row" style="margin-bottom: 5px"></div>');
+      const launchDiffButton = $('<button class="bolt-button flex-grow-2 ni-binary-git-diff-button">Launch NI Binary Git Diff ▶</button>');
+      const helpButton = $('<button class="bolt-button flex-grow-1 ni-binary-git-diff-button">?</button>');
+
+      launchDiffButton.on('click', (event) => {
+        const currentUrl = new URL(window.location.href);
+
+        let iterationIndex = currentUrl.searchParams.get('iteration');
+        if (iterationIndex) {
+          iterationIndex -= 1;
+        } else {
+          iterationIndex = iterations.length - 1;
+        }
+        const afterCommitId = iterations[iterationIndex].sourceRefCommit.commitId;
+
+        let beforeCommitId = iterations[0].commonRefCommit.commitId;
+        let baseIndex = currentUrl.searchParams.get('base');
+        if (baseIndex) {
+          baseIndex -= 1;
+          if (baseIndex >= 0) {
+            beforeCommitId = iterations[baseIndex].sourceRefCommit.commitId;
+          }
+        }
+        const protocolHandlerAddress = `NIBinary.GitDiff:${filePath},${beforeCommitId},${afterCommitId}`;
+        window.location = protocolHandlerAddress;
+      });
+
+      helpButton.on('click', (event) => {
+        swal.fire({
+          title: 'This is a preview feature!',
+          icon: 'warning',
+          text: 'You need to install the "NIBinary.GitDiff.reg" Protocol Handler first. Please talk to Humberto Garza to get it.',
+          confirmButtonColor: '#03b585',
+          confirmButtonText: 'Close',
+        });
+      });
+
+      launchDiffToolBar.append(launchDiffButton);
+      launchDiffToolBar.append(helpButton);
+      $(diffWarningMessage).parent().prepend(launchDiffToolBar);
+    });
   }
 
   function makePullRequestDiffEasierToScroll() {
