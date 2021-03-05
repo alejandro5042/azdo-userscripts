@@ -966,10 +966,10 @@
     labels.insertAdjacentHTML('beforeend', label);
   }
 
-  let ownersInfo;
+  let globalOwnersInfo;
 
   function onFilesTreeChange() {
-    const hasOwnersInfo = ownersInfo && ownersInfo.currentUserFileCount > 0;
+    const hasOwnersInfo = globalOwnersInfo && globalOwnersInfo.currentUserFileCount > 0;
 
     $('.repos-changes-explorer-tree .bolt-tree-row').each(function () {
       const fileRow = $(this);
@@ -983,16 +983,16 @@
       const isFolder = item[0].children[0].classList.contains('repos-folder-icon');
 
       // If we have owners info, mark folders that have files we need to review. This will allow us to highlight them if they are collapsed.
-      const folderContainsFilesToReview = hasOwnersInfo && isFolder && ownersInfo.isCurrentUserResponsibleForFileInFolderPath(`${path}/`);
+      const folderContainsFilesToReview = hasOwnersInfo && isFolder && globalOwnersInfo.isCurrentUserResponsibleForFileInFolderPath(`${path}/`);
       fileRow.toggleClass('folder-to-review-row', folderContainsFilesToReview);
       fileRow.toggleClass('auto-collapsible-folder', !folderContainsFilesToReview);
 
       // If we have owners info, highlight the files we need to review and add role info.
-      const isFileToReview = hasOwnersInfo && !isFolder && ownersInfo.isCurrentUserResponsibleForFile(path);
+      const isFileToReview = hasOwnersInfo && !isFolder && globalOwnersInfo.isCurrentUserResponsibleForFile(path);
       item.parent().toggleClass('file-to-review-row', isFileToReview);
       if (isFileToReview) {
         if (fileRow.find('.file-owners-role').length === 0) {
-          $('<div class="file-owners-role" />').text(`${ownersInfo.currentUserFilesToRole[path]}:`).prependTo(item.parent());
+          $('<div class="file-owners-role" />').text(`${globalOwnersInfo.currentUserFilesToRole[path]}:`).prependTo(item.parent());
         }
       } else {
         fileRow.find('.file-owners-role').remove();
@@ -1038,7 +1038,7 @@
 
         if (hasOwnersInfo) {
           const onFilesTreeChangeThrottled = _.throttle(onFilesTreeChange, 400, { leading: false, trailing: true });
-          session.onAnyChangeTo(tree, tree => {
+          session.onAnyChangeTo(tree, t => {
             onFilesTreeChangeThrottled();
           });
           onFilesTreeChangeThrottled();
