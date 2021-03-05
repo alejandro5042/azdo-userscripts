@@ -1032,9 +1032,9 @@
         // Get the current iteration of the PR.
         const prUrl = await getCurrentPullRequestUrlAsync();
         // Get owners info for this PR.
-        ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(prUrl);
+        globalOwnersInfo = await getNationalInstrumentsPullRequestOwnersInfo(prUrl);
 
-        const hasOwnersInfo = ownersInfo && ownersInfo.currentUserFileCount > 0;
+        const hasOwnersInfo = globalOwnersInfo && globalOwnersInfo.currentUserFileCount > 0;
 
         if (hasOwnersInfo) {
           const onFilesTreeChangeThrottled = _.throttle(onFilesTreeChange, 400, { leading: false, trailing: true });
