@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.52.0
+// @version      2.52.1
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -487,13 +487,11 @@
   async function addNIBinaryDiffButton() {
     addStyleOnce('ni-binary-git-diff', /* css */ `
       .ni-binary-git-diff-button {
-        margin-right: 2px;
         border-color: #03b585;
         border-radius: 2px;
         border-style: solid;
         border-width: 1px;
         color: #03b585;
-        margin-right: 2px;
       }
       .ni-binary-git-diff-dialog{
         border-color: #03b585;
@@ -507,23 +505,18 @@
     const prUrl = await getCurrentPullRequestUrlAsync();
     const iterations = (await $.get(`${prUrl}/iterations?api-version=5.0`)).value;
 
-    eus.globalSession.onEveryNew(document, '.diff-message.binary, .vc-builtin-file-viewer-message-area .warning-message', diffWarningMessage => {
-      if (eus.seen(diffWarningMessage)) return;
+    eus.globalSession.onEveryNew(document, '.bolt-messagebar.severity-info .bolt-messagebar-buttons', boltMessageBarButtons => {
+      if (eus.seen(boltMessageBarButtons)) return;
 
       // NI Binary Diff is only supported on Windows
       if (navigator.userAgent.indexOf('Windows') === -1) return;
 
-      let filePath;
-      let fileContainer = $(diffWarningMessage).closest('.file-container');
-      if (fileContainer.length > 0) {
-        filePath = fileContainer[0].querySelector('.file-path').innerText;
-      } else {
-        fileContainer = $(diffWarningMessage).closest('.files-main-viewer-container');
-        filePath = fileContainer[0].querySelector('.full-path').innerText;
-      }
+      const reposSummaryHeader = $(boltMessageBarButtons).closest('.repos-summary-header');
+      const filePath = (reposSummaryHeader.length > 0 ? reposSummaryHeader : $('.repos-compare-toolbar'))
+        .find('.secondary-text.text-ellipsis')[0].innerText;
+
       if (!supportedFileExtensions.includes(getFileExt(filePath))) return;
 
-      const launchDiffToolBar = $('<div class="flex-row" style="margin-bottom: 5px"></div>');
       const launchDiffButton = $('<button class="bolt-button flex-grow-2 ni-binary-git-diff-button">Launch NI Binary Git Diff ▶</button>');
       const helpButton = $('<button class="bolt-button flex-grow-1 ni-binary-git-diff-button">?</button>');
 
@@ -560,9 +553,8 @@
         });
       });
 
-      launchDiffToolBar.append(launchDiffButton);
-      launchDiffToolBar.append(helpButton);
-      $(diffWarningMessage).parent().prepend(launchDiffToolBar);
+      $(boltMessageBarButtons).append(launchDiffButton);
+      $(boltMessageBarButtons).append(helpButton);
     });
   }
 
