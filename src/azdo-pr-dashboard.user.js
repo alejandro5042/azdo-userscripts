@@ -977,6 +977,7 @@
       const text = fileRow.find('span.text-ellipsis');
       const item = text.parent();
 
+      /* eslint no-underscore-dangle: ["error", { "allow": ["_owner"] }] */
       const pathAndChangeType = getPropertyThatStartsWith(text[0], '__reactInternalInstance$').memoizedProps.children._owner.stateNode.props.data.path;
       const pathWithLeadingSlash = pathAndChangeType.replace(/ \[[a-z]+\]( renamed from .+)?$/, '');
       const path = pathWithLeadingSlash.substring(1); // Remove leading slash.
