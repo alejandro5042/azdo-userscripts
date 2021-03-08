@@ -70,7 +70,7 @@
     watchForShowMoreButtons();
 
     if (atNI) {
-      watchFilesTree();
+      watchForDiffHeaders();
     }
 
     // Handle any existing elements, flushing it to execute immediately.
@@ -966,6 +966,8 @@
     labels.insertAdjacentHTML('beforeend', label);
   }
 
+  /*
+   File tree highlighting doesn't quite work reliably. The react properties don't seem to reliably give the item path.
   let globalOwnersInfo;
 
   function onFilesTreeChange() {
@@ -1001,25 +1003,21 @@
   }
 
   function watchFilesTree() {
-    addStyleOnce('pr-file-tree-annotations-css', /* css */ `
+    addStyleOnce('pr-file-tree-annotations-css', `
         :root {
-          /* Set some constants for our CSS. */
           --file-to-review-color: var(--communication-foreground);
         }
         .repos-changes-explorer-tree .file-to-review-row,
         .repos-changes-explorer-tree .file-to-review-row .text-ellipsis {
-          /* Highlight files I need to review. */
           color: var(--file-to-review-color) !important;
           transition-duration: 0.2s;
         }
         .repos-changes-explorer-tree .folder-to-review-row[aria-expanded='false'],
         .repos-changes-explorer-tree .folder-to-review-row[aria-expanded='false'] .text-ellipsis {
-          /* Highlight folders that have files I need to review, but only when files are hidden cause the folder is collapsed. */
           color: var(--file-to-review-color);
           transition-duration: 0.2s;
         }
         .repos-changes-explorer-tree .file-to-review-row .file-owners-role {
-          /* Style the role of the user in the files table. */
           font-weight: bold;
           padding: 7px 10px;
           position: absolute;
@@ -1042,6 +1040,48 @@
             onFilesTreeChangeThrottled();
           });
           onFilesTreeChangeThrottled();
+        }
+      });
+    });
+  }
+  */
+
+  function watchForDiffHeaders() {
+    addStyleOnce('pr-file-diff-annotations-css', /* css */ `
+        :root {
+          /* Set some constants for our CSS. */
+          --file-to-review-color: var(--palette-primary-darken-6);
+        }
+        div .flex-row.file-to-review-header {
+          /* Highlight files I need to review. */
+          background-color: var(--file-to-review-color) !important;
+          transition-duration: 0.2s;
+        }
+        .file-owners-role-header {
+          /* Style the role of the user in the files table. */
+          font-weight: bold;
+          padding: 7px 10px;
+        }`);
+
+    eus.onUrl(/\/pullrequest\//gi, async (session, urlMatch) => {
+      // Get the current iteration of the PR.
+      const prUrl = await getCurrentPullRequestUrlAsync();
+      // Get owners info for this PR.
+      const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(prUrl);
+      const hasOwnersInfo = ownersInfo && ownersInfo.currentUserFileCount > 0;
+
+      session.onEveryNew(document, '.repos-summary-header', diff => {
+        const header = diff.children[0];
+        const pathWithLeadingSlash = $(header).find('.secondary-text.text-ellipsis')[0].textContent;
+        const path = pathWithLeadingSlash.substring(1); // Remove leading slash.
+
+        const isFileToReview = hasOwnersInfo && ownersInfo.isCurrentUserResponsibleForFile(path);
+        if (isFileToReview) {
+          $(header).addClass('file-to-review-header');
+          $(header.children[1]).addClass('file-to-review-header');
+
+
+          $('<div class="file-owners-role-header" />').text(`${ownersInfo.currentUserFilesToRole[path]}:`).prependTo(header.children[1]);
         }
       });
     });
