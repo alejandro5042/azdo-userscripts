@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.52.1
+// @version      2.53.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -69,6 +69,11 @@
     watchForNewDiffs(isDarkTheme);
     watchForShowMoreButtons();
 
+    if (atNI) {
+      watchForDiffHeaders();
+      watchFilesTree();
+    }
+
     // Handle any existing elements, flushing it to execute immediately.
     onPageUpdatedThrottled();
     onPageUpdatedThrottled.flush();
@@ -88,7 +93,6 @@
         highlightAwaitComments();
         addAccessKeysToPullRequestTabs();
         if (atNI) {
-          addOwnersInfoToFiles();
           conditionallyAddBypassReminderAsync();
           addNIBinaryDiffButton();
         }
@@ -581,157 +585,6 @@
       }`);
   }
 
-  // The func we'll call to continuously add checkboxes to the PR file listing, once initialization is over.
-  let annotateFilesTreeFunc = () => { };
-
-  // If we're on specific PR, add checkboxes to the file listing.
-  function addOwnersInfoToFiles() {
-    $('.vc-pullrequest-leftpane-section.files-tab').once('annotate-with-owners-info').each(async () => {
-      annotateFilesTreeFunc = () => { };
-
-      addStyleOnce('pr-file-tree-annotations-css', /* css */ `
-        :root {
-          /* Set some constants for our CSS. */
-          --file-to-review-color: var(--communication-foreground);
-        }
-        .vc-sparse-files-tree .tree-row.file-to-review-row,
-        .vc-sparse-files-tree .tree-row.file-to-review-row .file-name {
-          /* Highlight files I need to review. */
-          color: var(--file-to-review-color);
-          transition-duration: 0.2s;
-        }
-        .vc-sparse-files-tree .tree-row.folder-to-review-row[aria-expanded='false'],
-        .vc-sparse-files-tree .tree-row.folder-to-review-row[aria-expanded='false'] .file-name {
-          /* Highlight folders that have files I need to review, but only when files are hidden cause the folder is collapsed. */
-          color: var(--file-to-review-color);
-          transition-duration: 0.2s;
-        }
-        .vc-sparse-files-tree .tree-row.file-to-review-row .file-owners-role {
-          /* Style the role of the user in the files table. */
-          font-weight: bold;
-          padding: 7px 10px;
-          position: absolute;
-          z-index: 100;
-          float: right;
-        }
-        .file-to-review-diff {
-          /* Highlight files I need to review. */
-          border-left: 3px solid var(--file-to-review-color) !important;
-          padding-left: 7px;
-        }
-        .files-container.hide-files-not-to-review .file-container:not(.file-to-review-diff) {
-          /* Fade the header for files I don't have to review. */
-          opacity: 0.2;
-        }
-        .files-container.hide-files-not-to-review .file-container:not(.file-to-review-diff) .item-details-body {
-          /* Hide the diff for files I don't have to review. */
-          display: none;
-        }
-        .toolbar-button {
-          background: transparent;
-          color: var(--text-primary-color);
-          border: 1px solid transparent;
-          border-radius: 3px;
-          margin: 0px 2px;
-        }
-        .toolbar-button:hover {
-          border: 1px solid var(--palette-black-alpha-20);
-        }
-        .toolbar-button.active {
-          color: var(--communication-foreground);
-        }`);
-
-      // Get the current iteration of the PR.
-      const prUrl = await getCurrentPullRequestUrlAsync();
-
-      // Get owners info for this PR.
-      const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(prUrl);
-      const hasOwnersInfo = ownersInfo && ownersInfo.currentUserFileCount > 0;
-
-      // If we have owners info, add a button to filter out diffs that we don't need to review.
-      if (hasOwnersInfo) {
-        $('.changed-files-summary-toolbar').once('add-other-files-button').each(function () {
-          $(this)
-            .find('ul')
-            .prepend('<li class="menu-item" role="button"><a href="#">Toggle other files</a></li>')
-            .click(event => {
-              $('.files-container').toggleClass('hide-files-not-to-review');
-            });
-        });
-      }
-
-      // If the user presses this button, it will auto-collapse folders in the files tree. Useful for large reviews.
-      let collapseFolderButtonClicks = 0;
-      const collapseFoldersButton = $('<button class="toolbar-button" />')
-        .text('⇐')
-        .attr('title', 'Toggle auto-collapsing folders.')
-        .insertAfter($('.vc-iteration-selector'))
-        .on('click', (event) => {
-          collapseFoldersButton.toggleClass('active');
-          collapseFolderButtonClicks += 1;
-          annotateFilesTreeFunc(); // Kick off the first collapsing, cause this function only runs if something changes in the DOM.
-          event.stopPropagation();
-        });
-
-      annotateFilesTreeFunc = function () {
-        // If we have owners info, tag the diffs that we don't need to review.
-        if (hasOwnersInfo) {
-          $('.file-container .file-path').once('filter-files-to-review').each(function () {
-            const filePathElement = $(this);
-            const path = filePathElement.text().replace(/\//, '');
-            filePathElement.closest('.file-container').toggleClass('file-to-review-diff', ownersInfo.isCurrentUserResponsibleForFile(path));
-          });
-        }
-
-        if (collapseFoldersButton.hasClass('active')) {
-          // The toggle folder collapsible button is active. Let's collapse folders that we've marked as collapsible.
-          $('.auto-collapsible-folder').once(`collapse-${collapseFolderButtonClicks}`).each(async function () {
-            const row = $(this);
-            let attemptsLeft = 3; // This is gross, but sometimes the folder doesn't actually collapse. So let's wait a bit and check again.
-            while (attemptsLeft > 0 && row.attr('aria-expanded') === 'true') {
-              row.find('.expand-icon').click();
-              // eslint-disable-next-line no-await-in-loop
-              await sleep(300);
-              attemptsLeft -= 1;
-            }
-          });
-        }
-
-        $('.vc-sparse-files-tree .vc-tree-cell').once('annotate-with-owners-info').each(function () {
-          const fileCell = $(this);
-          const fileRow = fileCell.closest('.tree-row');
-          const listItem = fileRow.parent()[0];
-          const typeIcon = fileRow.find('.type-icon');
-
-          const { fullName: pathWithLeadingSlash, isFolder, depth } = getPropertyThatStartsWith(listItem, '__reactEventHandlers$').children.props.item;
-          const path = pathWithLeadingSlash.substring(1); // Remove leading slash.
-
-          // Don't do anything at the root.
-          if (depth === 0) {
-            return;
-          }
-
-          // If we have owners info, mark folders that have files we need to review. This will allow us to highlight them if they are collapsed.
-          const folderContainsFilesToReview = hasOwnersInfo && isFolder && ownersInfo.isCurrentUserResponsibleForFileInFolderPath(`${path}/`);
-          fileRow.toggleClass('folder-to-review-row', folderContainsFilesToReview);
-          fileRow.toggleClass('auto-collapsible-folder', !folderContainsFilesToReview);
-
-          // Don't put checkboxes on rows that don't represent files.
-          if (!/bowtie-file\b/i.test(typeIcon.attr('class'))) {
-            return;
-          }
-
-          // If we have owners info, highlight the files we need to review and add role info.
-          if (hasOwnersInfo && ownersInfo.isCurrentUserResponsibleForFile(path)) {
-            fileRow.addClass('file-to-review-row');
-            $('<div class="file-owners-role" />').text(`${ownersInfo.currentUserFilesToRole[path]}:`).prependTo(fileRow);
-          }
-        });
-      };
-    });
-
-    annotateFilesTreeFunc();
-  }
 
   // If we're on specific PR, add a base update selector.
   function addBaseUpdateSelector() {
@@ -1104,6 +957,125 @@
         <div class="bolt-pill-content text-ellipsis">${html}</div>
       </div>`;
     labels.insertAdjacentHTML('beforeend', label);
+  }
+
+  let globalOwnersInfo;
+
+  function onFilesTreeChange() {
+    const hasOwnersInfo = globalOwnersInfo && globalOwnersInfo.currentUserFileCount > 0;
+
+    $('.repos-changes-explorer-tree .bolt-tree-row').each(function () {
+      const fileRow = $(this);
+      const text = fileRow.find('span.text-ellipsis');
+      const item = text.parent();
+
+      /* eslint no-underscore-dangle: ["error", { "allow": ["_owner"] }] */
+      const pathAndChangeType = getPropertyThatStartsWith(text[0], '__reactInternalInstance$').memoizedProps.children._owner.stateNode.props.data.path;
+      const pathWithLeadingSlash = pathAndChangeType.replace(/ \[[a-z]+\]( renamed from .+)?$/, '');
+      const path = pathWithLeadingSlash.substring(1); // Remove leading slash.
+
+      const isFolder = item[0].children[0].classList.contains('repos-folder-icon');
+
+      // If we have owners info, mark folders that have files we need to review. This will allow us to highlight them if they are collapsed.
+      const folderContainsFilesToReview = hasOwnersInfo && isFolder && globalOwnersInfo.isCurrentUserResponsibleForFileInFolderPath(`${path}/`);
+      fileRow.toggleClass('folder-to-review-row', folderContainsFilesToReview);
+      fileRow.toggleClass('auto-collapsible-folder', !folderContainsFilesToReview);
+
+      // If we have owners info, highlight the files we need to review and add role info.
+      const isFileToReview = hasOwnersInfo && !isFolder && globalOwnersInfo.isCurrentUserResponsibleForFile(path);
+      item.parent().toggleClass('file-to-review-row', isFileToReview);
+      if (isFileToReview) {
+        if (fileRow.find('.file-owners-role').length === 0) {
+          $('<div class="file-owners-role" />').text(`${globalOwnersInfo.currentUserFilesToRole[path]}:`).prependTo(item.parent());
+        }
+      } else {
+        fileRow.find('.file-owners-role').remove();
+      }
+    });
+  }
+
+  function watchFilesTree() {
+    addStyleOnce('pr-file-tree-annotations-css', `
+        :root {
+          --file-to-review-color: var(--communication-foreground);
+        }
+        .repos-changes-explorer-tree .file-to-review-row,
+        .repos-changes-explorer-tree .file-to-review-row .text-ellipsis {
+          color: var(--file-to-review-color) !important;
+          transition-duration: 0.2s;
+        }
+        .repos-changes-explorer-tree .folder-to-review-row[aria-expanded='false'],
+        .repos-changes-explorer-tree .folder-to-review-row[aria-expanded='false'] .text-ellipsis {
+          color: var(--file-to-review-color);
+          transition-duration: 0.2s;
+        }
+        .repos-changes-explorer-tree .file-to-review-row .file-owners-role {
+          font-weight: bold;
+          padding: 7px 10px;
+          position: absolute;
+          z-index: 100;
+          float: right;
+        }`);
+
+    eus.onUrl(/\/pullrequest\//gi, (session, urlMatch) => {
+      session.onEveryNew(document, '.repos-changes-explorer-tree', async tree => {
+        // Get the current iteration of the PR.
+        const prUrl = await getCurrentPullRequestUrlAsync();
+        // Get owners info for this PR.
+        globalOwnersInfo = await getNationalInstrumentsPullRequestOwnersInfo(prUrl);
+
+        const hasOwnersInfo = globalOwnersInfo && globalOwnersInfo.currentUserFileCount > 0;
+
+        if (hasOwnersInfo) {
+          const onFilesTreeChangeThrottled = _.throttle(onFilesTreeChange, 50, { leading: false, trailing: true });
+          session.onAnyChangeTo(tree, t => {
+            onFilesTreeChangeThrottled();
+          });
+          onFilesTreeChangeThrottled();
+        }
+      });
+    });
+  }
+
+  function watchForDiffHeaders() {
+    addStyleOnce('pr-file-diff-annotations-css', /* css */ `
+        :root {
+          /* Set some constants for our CSS. */
+          --file-to-review-header-color: var(--palette-primary-darken-6);
+        }
+        div .flex-row.file-to-review-header {
+          /* Highlight files I need to review. */
+          background-color: var(--file-to-review-header-color) !important;
+          transition-duration: 0.2s;
+        }
+        .file-owners-role-header {
+          /* Style the role of the user in the files table. */
+          font-weight: bold;
+          padding: 7px 10px;
+        }`);
+
+    eus.onUrl(/\/pullrequest\//gi, async (session, urlMatch) => {
+      // Get the current iteration of the PR.
+      const prUrl = await getCurrentPullRequestUrlAsync();
+      // Get owners info for this PR.
+      const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(prUrl);
+      const hasOwnersInfo = ownersInfo && ownersInfo.currentUserFileCount > 0;
+
+      session.onEveryNew(document, '.repos-summary-header', diff => {
+        const header = diff.children[0];
+        const pathWithLeadingSlash = $(header).find('.secondary-text.text-ellipsis')[0].textContent;
+        const path = pathWithLeadingSlash.substring(1); // Remove leading slash.
+
+        const isFileToReview = hasOwnersInfo && ownersInfo.isCurrentUserResponsibleForFile(path);
+        if (isFileToReview) {
+          $(header).addClass('file-to-review-header');
+          $(header.children[1]).addClass('file-to-review-header');
+
+
+          $('<div class="file-owners-role-header" />').text(`${ownersInfo.currentUserFilesToRole[path]}:`).prependTo(header.children[1]);
+        }
+      });
+    });
   }
 
   function watchForNewDiffs(isDarkTheme) {
