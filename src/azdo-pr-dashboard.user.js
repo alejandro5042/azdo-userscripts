@@ -71,6 +71,7 @@
 
     if (atNI) {
       watchForDiffHeaders();
+      watchFilesTree();
     }
 
     // Handle any existing elements, flushing it to execute immediately.
@@ -966,8 +967,6 @@
     labels.insertAdjacentHTML('beforeend', label);
   }
 
-  /*
-   File tree highlighting doesn't quite work reliably. The react properties don't seem to reliably give the item path.
   let globalOwnersInfo;
 
   function onFilesTreeChange() {
@@ -975,10 +974,10 @@
 
     $('.repos-changes-explorer-tree .bolt-tree-row').each(function () {
       const fileRow = $(this);
-      const text = $(this).find('span.text-ellipsis');
+      const text = fileRow.find('span.text-ellipsis');
       const item = text.parent();
 
-      const pathAndChangeType = getPropertyThatStartsWith(item[0], '__reactInternalInstance$').memoizedProps.children[1].props.text;
+      const pathAndChangeType = getPropertyThatStartsWith(text[0], '__reactInternalInstance$').memoizedProps.children._owner.stateNode.props.data.path;
       const pathWithLeadingSlash = pathAndChangeType.replace(/ \[[a-z]+\]( renamed from .+)?$/, '');
       const path = pathWithLeadingSlash.substring(1); // Remove leading slash.
 
@@ -1035,7 +1034,7 @@
         const hasOwnersInfo = globalOwnersInfo && globalOwnersInfo.currentUserFileCount > 0;
 
         if (hasOwnersInfo) {
-          const onFilesTreeChangeThrottled = _.throttle(onFilesTreeChange, 400, { leading: false, trailing: true });
+          const onFilesTreeChangeThrottled = _.throttle(onFilesTreeChange, 50, { leading: false, trailing: true });
           session.onAnyChangeTo(tree, t => {
             onFilesTreeChangeThrottled();
           });
@@ -1044,17 +1043,16 @@
       });
     });
   }
-  */
 
   function watchForDiffHeaders() {
     addStyleOnce('pr-file-diff-annotations-css', /* css */ `
         :root {
           /* Set some constants for our CSS. */
-          --file-to-review-color: var(--palette-primary-darken-6);
+          --file-to-review-header-color: var(--palette-primary-darken-6);
         }
         div .flex-row.file-to-review-header {
           /* Highlight files I need to review. */
-          background-color: var(--file-to-review-color) !important;
+          background-color: var(--file-to-review-header-color) !important;
           transition-duration: 0.2s;
         }
         .file-owners-role-header {
