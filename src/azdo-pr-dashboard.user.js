@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.53.0
+// @version      2.53.1
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -968,6 +968,11 @@
       const fileRow = $(this);
       const text = fileRow.find('span.text-ellipsis');
       const item = text.parent();
+
+      // For non-file/folder items in the tree (e.g. comments), we won't find a text span
+      if (text.length === 0) {
+        return;
+      }
 
       /* eslint no-underscore-dangle: ["error", { "allow": ["_owner"] }] */
       const pathAndChangeType = getPropertyThatStartsWith(text[0], '__reactInternalInstance$').memoizedProps.children._owner.stateNode.props.data.path;
