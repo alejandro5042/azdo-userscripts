@@ -72,6 +72,7 @@
     if (atNI) {
       watchForDiffHeaders();
       watchFilesTree();
+      watchForKnownBuildErrors();
     }
 
     // Handle any existing elements, flushing it to execute immediately.
@@ -1079,6 +1080,167 @@
 
           $('<div class="file-owners-role-header" />').text(`${ownersInfo.currentUserFilesToRole[path]}:`).prependTo(header.children[1]);
         }
+      });
+    });
+  }
+
+  function watchForKnownBuildErrors() {
+    addStyleOnce('known-build-errors-css', /* css */ `
+      .infra-errors-card h3 {
+        margin-top: 0;
+        display: inline-block;
+      }
+      .loading-indicator {
+        margin-left: 3ch;
+      }
+      .task-list {
+        margin-top: 0;
+      }
+      .infra-errors-card ul {
+        margin-bottom: 0;
+        margin-left: 4ch;
+      }
+      .infra-errors-card li {
+        margin-bottom: 0.5em;
+        list-style-type: disc;
+      }
+      .infra-errors-card li li {
+        margin-bottom: 0;
+        list-style-type: disc;
+        opacity: 0.7;
+      }
+      .infra-errors-card li span {
+        margin-bottom: 0.5em;
+      }`);
+    eus.onUrl(/\/_build\/results\?buildId=\d+&view=results/gi, (session, urlMatch) => {
+      session.onEveryNew(document, '.run-details-tab-content', async tabContent => {
+        const pageData = JSON.parse(document.getElementById('dataProviders').innerHTML).data;
+        console.log(pageData);
+
+        const runDetails = pageData['ms.vss-build-web.run-details-data-provider'];
+        const projectId = pageData['ms.vss-tfs-web.page-data'].project.id;
+        const buildId = runDetails.id;
+        const pipelineName = runDetails.pipeline.name;
+
+        const actualBuildId = parseInt(urlMatch[0].match(/\d+/)[0], 10);
+        if (buildId !== actualBuildId) {
+          // eslint-disable-next-line no-restricted-globals
+          location.reload();
+        }
+
+        if (!runDetails.issues) {
+          return; // do not even add an empty section
+        }
+
+        let queryResponse = await fetch(`${azdoApiBaseUrl}/DevCentral/_apis/git/repositories/tools/items?path=/report/build_failure_analysis/pipeline-results/known-issues.json&api-version=6.0`);
+        const knownIssues = await queryResponse.json();
+
+        if (!(new RegExp(knownIssues.pipeline_match).test(pipelineName))) {
+          return; // do not even add an empty section
+        }
+
+        const flexColumn = tabContent.children[0];
+        const summaryCard = flexColumn.children[1];
+        const newCard = $('<div class="infra-errors-card margin-top-16 depth-8 bolt-card bolt-card-white"><div>')[0];
+        const newCardContent = $('<div class="bolt-card-content bolt-default-horizontal-spacing"><div>');
+        newCardContent.appendTo(newCard);
+        summaryCard.insertAdjacentElement('afterend', newCard);
+        $('<h3>Known Infrastructure Errors</h3><span class="loading-indicator">Loading...</span>').appendTo(newCardContent);
+
+        // Fetch build timeline (which contains records with log urls)
+        queryResponse = await fetch(`${azdoApiBaseUrl}/${projectId}/_apis/build/builds/${buildId}/timeline?api-version=6.0`);
+        const timeline = await queryResponse.json();
+
+        // Fetch build timeline (which contains records with log urls)
+        queryResponse = await fetch(`${azdoApiBaseUrl}/${projectId}/_apis/build/builds/${buildId}/logs?api-version=6.0`);
+        const logsJson = (await queryResponse.json()).value;
+
+        const infraErrorsList = $('<ul class="task-list"></ul>');
+        infraErrorsList.appendTo(newCardContent);
+
+        const tasksWithInfraErrors = [];
+        let numTasksAdded = 0;
+
+        // For each task with issues
+        for (let i = 0; i < runDetails.issues.length; i += 1) {
+          let infraErrorCount = 0;
+          const taskWithIssues = runDetails.issues[i];
+          const componentListItem = $(`<li>${taskWithIssues.taskName}</li>`);
+          const componentSublist = $('<ul></ul>');
+          componentSublist.appendTo(componentListItem);
+
+          // Find the timeline record for the task, then get the log url
+          for (let j = 0; j < timeline.records.length; j += 1) {
+            if (timeline.records[j].task != null && timeline.records[j].id === taskWithIssues.taskId) {
+              const logUrl = timeline.records[j].log.url;
+              const logId = timeline.records[j].log.id;
+              let logLines = 0;
+              for (let k = 0; k < logsJson.length; k += 1) {
+                if (logsJson[k].id === logId) {
+                  logLines = logsJson[k].lineCount;
+                  break;
+                }
+              }
+
+              if (logLines > 100000) {
+                const content = '<li>⚠️<i>Warning: log file too large to parse</i></li>';
+                $(`<span>${content}</span>`).appendTo(componentSublist);
+                infraErrorCount += 1;
+                break;
+              }
+
+              // Fetch the log
+              // eslint-disable-next-line no-await-in-loop
+              queryResponse = await fetch(logUrl);
+              // eslint-disable-next-line no-await-in-loop
+              const log = await queryResponse.text();
+
+              // Test all patterns against log
+              const knownBuildErrors = knownIssues.log_patterns;
+              for (let j = 0; j < knownBuildErrors.length; j += 1) {
+                if (knownBuildErrors[j].category === 'Infrastructure' && new RegExp(knownBuildErrors[j].pipeline_match).test(pipelineName)) {
+                  let matchString = knownBuildErrors[j].match;
+                  if (knownBuildErrors[j].match_flag === 'dotmatchall') {
+                    matchString = matchString.replace('.', '[\\s\\S]');
+                  }
+                  const matches = log.match(new RegExp(matchString, 'g')) || [];
+                  if (matches.length) {
+                    let content = `${knownBuildErrors[j].cause} (x${matches.length})`;
+                    if (knownBuildErrors[j].public_comment) {
+                      content = `${content}<br>${knownBuildErrors[j].public_comment}`;
+                    }
+                    $(`<li>${content}</li>`).appendTo(componentSublist);
+                    infraErrorCount += 1;
+                    tasksWithInfraErrors.push(taskWithIssues.taskName);
+                  }
+                }
+              }
+              break;
+            }
+          }
+
+          if (infraErrorCount) {
+            componentListItem.appendTo(infraErrorsList);
+            numTasksAdded += 1;
+          }
+        }
+
+        if (numTasksAdded === 0) {
+          $('<p>None</p>').appendTo(newCardContent);
+        }
+
+        if (knownIssues.more_info_html) {
+          $(knownIssues.more_info_html).appendTo(newCardContent);
+        }
+
+        session.onEveryNew(document, '.issues-card-content .secondary-text', secondaryText => {
+          const taskName = secondaryText.textContent.split(' • ')[1];
+          if (tasksWithInfraErrors.includes(taskName)) {
+            $('<span>⚠️POSSIBLE INFRA ERROR</span>').appendTo(secondaryText);
+          }
+        });
+
+        newCardContent.find('.loading-indicator').remove();
       });
     });
   }
