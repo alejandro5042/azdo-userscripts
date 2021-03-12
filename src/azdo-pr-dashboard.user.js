@@ -1197,17 +1197,17 @@
 
               // Test all patterns against log
               const knownBuildErrors = knownIssues.log_patterns;
-              for (let j = 0; j < knownBuildErrors.length; j += 1) {
-                if (knownBuildErrors[j].category === 'Infrastructure' && new RegExp(knownBuildErrors[j].pipeline_match).test(pipelineName)) {
-                  let matchString = knownBuildErrors[j].match;
-                  if (knownBuildErrors[j].match_flag === 'dotmatchall') {
+              for (let k = 0; k < knownBuildErrors.length; k += 1) {
+                if (knownBuildErrors[k].category === 'Infrastructure' && new RegExp(knownBuildErrors[k].pipeline_match).test(pipelineName)) {
+                  let matchString = knownBuildErrors[k].match;
+                  if (knownBuildErrors[k].match_flag === 'dotmatchall') {
                     matchString = matchString.replace('.', '[\\s\\S]');
                   }
                   const matches = log.match(new RegExp(matchString, 'g')) || [];
                   if (matches.length) {
-                    let content = `${knownBuildErrors[j].cause} (x${matches.length})`;
-                    if (knownBuildErrors[j].public_comment) {
-                      content = `${content}<br>${knownBuildErrors[j].public_comment}`;
+                    let content = `${knownBuildErrors[k].cause} (x${matches.length})`;
+                    if (knownBuildErrors[k].public_comment) {
+                      content = `${content}<br>${knownBuildErrors[k].public_comment}`;
                     }
                     $(`<li>${content}</li>`).appendTo(componentSublist);
                     infraErrorCount += 1;
