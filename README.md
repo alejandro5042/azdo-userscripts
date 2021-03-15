@@ -143,6 +143,10 @@ This button will be added to binary files with these extensions only:
 >
 > This is a preview feature. Please contact Humberto Garza for more details and instructions.
 
+### Augmented build results view
+
+At NI, the build results view will have an additional "Known Infrastructure Errors" section that lists known infrastructure errors under the build step that they occurred in. Additionally, in the Errors section, each error item from a build step that had infrastucture errors will be decorated with a warning indicator. All this is intended to make it easier to tell which errors are actual developer errors that need to be fixed.
+
 ## Documentation
 
 - [Support and troubleshooting](SUPPORT.md)
