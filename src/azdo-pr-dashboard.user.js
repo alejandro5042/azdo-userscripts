@@ -1114,7 +1114,6 @@
       }`);
     eus.onUrl(/\/_build\/results\?buildId=\d+&view=results/gi, (session, urlMatch) => {
       session.onEveryNew(document, '.run-details-tab-content', async tabContent => {
-
         const runDetails = pageData['ms.vss-build-web.run-details-data-provider'];
         const projectId = pageData['ms.vss-tfs-web.page-data'].project.id;
         const buildId = runDetails.id;
@@ -1134,7 +1133,7 @@
         try {
           queryResponse = await fetch(`${azdoApiBaseUrl}/DevCentral/_apis/git/repositories/tools/items?path=/report/build_failure_analysis/pipeline-results/known-issues.json&api-version=6.0`);
         } catch (err) {
-          console.warn("Could not fetch known issues file from AzDO");
+          console.warn('Could not fetch known issues file from AzDO');
           return;
         }
         const knownIssues = await queryResponse.json();
