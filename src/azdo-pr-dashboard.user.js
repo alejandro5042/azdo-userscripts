@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.53.1
+// @version      2.54.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -72,7 +72,7 @@
     if (atNI) {
       watchForDiffHeaders();
       watchFilesTree();
-      watchForKnownBuildErrors();
+      watchForKnownBuildErrors(pageData);
     }
 
     // Handle any existing elements, flushing it to execute immediately.
@@ -1084,7 +1084,7 @@
     });
   }
 
-  function watchForKnownBuildErrors() {
+  function watchForKnownBuildErrors(pageData) {
     addStyleOnce('known-build-errors-css', /* css */ `
       .infra-errors-card h3 {
         margin-top: 0;
@@ -1114,8 +1114,6 @@
       }`);
     eus.onUrl(/\/_build\/results\?buildId=\d+&view=results/gi, (session, urlMatch) => {
       session.onEveryNew(document, '.run-details-tab-content', async tabContent => {
-        const pageData = JSON.parse(document.getElementById('dataProviders').innerHTML).data;
-        console.log(pageData);
 
         const runDetails = pageData['ms.vss-build-web.run-details-data-provider'];
         const projectId = pageData['ms.vss-tfs-web.page-data'].project.id;
@@ -1132,8 +1130,18 @@
           return; // do not even add an empty section
         }
 
-        let queryResponse = await fetch(`${azdoApiBaseUrl}/DevCentral/_apis/git/repositories/tools/items?path=/report/build_failure_analysis/pipeline-results/known-issues.json&api-version=6.0`);
+        let queryResponse;
+        try {
+          queryResponse = await fetch(`${azdoApiBaseUrl}/DevCentral/_apis/git/repositories/tools/items?path=/report/build_failure_analysis/pipeline-results/known-issues.json&api-version=6.0`);
+        } catch (err) {
+          console.warn("Could not fetch known issues file from AzDO");
+          return;
+        }
         const knownIssues = await queryResponse.json();
+        if (!knownIssues.version.match(/^1(\.\d+)?$/)) {
+          console.warn(`Version ${knownIssues.version} of known-issues.json is not one I know what to do with`);
+          return;
+        }
 
         if (!(new RegExp(knownIssues.pipeline_match).test(pipelineName))) {
           return; // do not even add an empty section
@@ -1151,7 +1159,7 @@
         queryResponse = await fetch(`${azdoApiBaseUrl}/${projectId}/_apis/build/builds/${buildId}/timeline?api-version=6.0`);
         const timeline = await queryResponse.json();
 
-        // Fetch build timeline (which contains records with log urls)
+        // Fetch build logs, which give us line counts
         queryResponse = await fetch(`${azdoApiBaseUrl}/${projectId}/_apis/build/builds/${buildId}/logs?api-version=6.0`);
         const logsJson = (await queryResponse.json()).value;
 
@@ -1184,7 +1192,7 @@
 
               if (logLines > 100000) {
                 const content = '<li>⚠️<i>Warning: log file too large to parse</i></li>';
-                $(`<span>${content}</span>`).appendTo(componentSublist);
+                $(content).appendTo(componentSublist);
                 infraErrorCount += 1;
                 break;
               }
@@ -1236,7 +1244,7 @@
         session.onEveryNew(document, '.issues-card-content .secondary-text', secondaryText => {
           const taskName = secondaryText.textContent.split(' • ')[1];
           if (tasksWithInfraErrors.includes(taskName)) {
-            $('<span>⚠️POSSIBLE INFRA ERROR</span>').appendTo(secondaryText);
+            $('<span> ⚠️POSSIBLE INFRA ERROR</span>').appendTo(secondaryText);
           }
         });
 
