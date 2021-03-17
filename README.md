@@ -124,6 +124,29 @@ Also:
 - "Show More" buttons on work item forms and on Kanban boards are auto-clicked for you! (But only if the New column is expanded.)
 - Work item forms show under the comment box who else is following the work item (disclaimer: also shows people that are only following state changes)
 
+### Launch a protocol handler to diff NI Binaries
+
+It is not an easy task to review binary files like LabVIEW VIs from AzDO.
+
+When using the azdo-userscript on Windows, a button to launch the "NI Binary Git Diff" protocol handler will be displayed.
+
+![Launch NI Binary Git Diff Button.](assets/launch-ni-binary-git-diff.png)
+
+This button will be added to binary files with these extensions only:
+- 'vi'
+- 'vim'
+- 'vit'
+- 'ctt'
+- 'ctl'
+
+> ℹ **Note:**
+>
+> This is a preview feature. Please contact Humberto Garza for more details and instructions.
+
+### Augmented build results view
+
+At NI, the build results view will have an additional "Known Infrastructure Errors" section that lists known infrastructure errors under the build step that they occurred in. Additionally, in the Errors section, each error item from a build step that had infrastucture errors will be decorated with a warning indicator. All this is intended to make it easier to tell which errors are actual developer errors that need to be fixed.
+
 ## Documentation
 
 - [Support and troubleshooting](SUPPORT.md)

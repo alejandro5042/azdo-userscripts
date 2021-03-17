@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.51.0
+// @version      2.54.0
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -31,6 +31,8 @@
 // @grant        GM_getResourceText
 
 // ==/UserScript==
+
+/* global swal */
 
 (function () {
   'use strict';
@@ -67,6 +69,12 @@
     watchForNewDiffs(isDarkTheme);
     watchForShowMoreButtons();
 
+    if (atNI) {
+      watchForDiffHeaders();
+      watchFilesTree();
+      watchForKnownBuildErrors(pageData);
+    }
+
     // Handle any existing elements, flushing it to execute immediately.
     onPageUpdatedThrottled();
     onPageUpdatedThrottled.flush();
@@ -86,8 +94,8 @@
         highlightAwaitComments();
         addAccessKeysToPullRequestTabs();
         if (atNI) {
-          addOwnersInfoToFiles();
           conditionallyAddBypassReminderAsync();
+          addNIBinaryDiffButton();
         }
         addTrophiesToPullRequest();
         if (atNI && /\/DevCentral\/_git\/ASW\//i.test(window.location.pathname)) {
@@ -481,6 +489,80 @@
     }
   }
 
+  async function addNIBinaryDiffButton() {
+    addStyleOnce('ni-binary-git-diff', /* css */ `
+      .ni-binary-git-diff-button {
+        border-color: #03b585;
+        border-radius: 2px;
+        border-style: solid;
+        border-width: 1px;
+        color: #03b585;
+      }
+      .ni-binary-git-diff-dialog{
+        border-color: #03b585;
+        border-style: solid;
+        border-width: 1px;
+        display: none;
+        padding: 10px;
+      }`);
+
+    const supportedFileExtensions = ['vi', 'vim', 'vit', 'ctt', 'ctl'];
+    const prUrl = await getCurrentPullRequestUrlAsync();
+    const iterations = (await $.get(`${prUrl}/iterations?api-version=5.0`)).value;
+
+    eus.globalSession.onEveryNew(document, '.bolt-messagebar.severity-info .bolt-messagebar-buttons', boltMessageBarButtons => {
+      if (eus.seen(boltMessageBarButtons)) return;
+
+      // NI Binary Diff is only supported on Windows
+      if (navigator.userAgent.indexOf('Windows') === -1) return;
+
+      const reposSummaryHeader = $(boltMessageBarButtons).closest('.repos-summary-header');
+      const filePath = (reposSummaryHeader.length > 0 ? reposSummaryHeader : $('.repos-compare-toolbar'))
+        .find('.secondary-text.text-ellipsis')[0].innerText;
+
+      if (!supportedFileExtensions.includes(getFileExt(filePath))) return;
+
+      const launchDiffButton = $('<button class="bolt-button flex-grow-2 ni-binary-git-diff-button">Launch NI Binary Git Diff ▶</button>');
+      const helpButton = $('<button class="bolt-button flex-grow-1 ni-binary-git-diff-button">?</button>');
+
+      launchDiffButton.on('click', (event) => {
+        const currentUrl = new URL(window.location.href);
+
+        let iterationIndex = currentUrl.searchParams.get('iteration');
+        if (iterationIndex) {
+          iterationIndex -= 1;
+        } else {
+          iterationIndex = iterations.length - 1;
+        }
+        const afterCommitId = iterations[iterationIndex].sourceRefCommit.commitId;
+
+        let beforeCommitId = iterations[0].commonRefCommit.commitId;
+        let baseIndex = currentUrl.searchParams.get('base');
+        if (baseIndex) {
+          baseIndex -= 1;
+          if (baseIndex >= 0) {
+            beforeCommitId = iterations[baseIndex].sourceRefCommit.commitId;
+          }
+        }
+        const protocolHandlerAddress = `NIBinary.GitDiff:${filePath},${beforeCommitId},${afterCommitId}`;
+        window.location = protocolHandlerAddress;
+      });
+
+      helpButton.on('click', (event) => {
+        swal.fire({
+          title: 'This is a preview feature!',
+          icon: 'warning',
+          text: 'You need to install the "NIBinary.GitDiff.reg" Protocol Handler first. Please talk to Humberto Garza to get it.',
+          confirmButtonColor: '#03b585',
+          confirmButtonText: 'Close',
+        });
+      });
+
+      $(boltMessageBarButtons).append(launchDiffButton);
+      $(boltMessageBarButtons).append(helpButton);
+    });
+  }
+
   function makePullRequestDiffEasierToScroll() {
     addStyleOnce('pr-diff-improvements', /* css */ `
       .vc-change-summary-files .file-container {
@@ -504,157 +586,6 @@
       }`);
   }
 
-  // The func we'll call to continuously add checkboxes to the PR file listing, once initialization is over.
-  let annotateFilesTreeFunc = () => { };
-
-  // If we're on specific PR, add checkboxes to the file listing.
-  function addOwnersInfoToFiles() {
-    $('.vc-pullrequest-leftpane-section.files-tab').once('annotate-with-owners-info').each(async () => {
-      annotateFilesTreeFunc = () => { };
-
-      addStyleOnce('pr-file-tree-annotations-css', /* css */ `
-        :root {
-          /* Set some constants for our CSS. */
-          --file-to-review-color: var(--communication-foreground);
-        }
-        .vc-sparse-files-tree .tree-row.file-to-review-row,
-        .vc-sparse-files-tree .tree-row.file-to-review-row .file-name {
-          /* Highlight files I need to review. */
-          color: var(--file-to-review-color);
-          transition-duration: 0.2s;
-        }
-        .vc-sparse-files-tree .tree-row.folder-to-review-row[aria-expanded='false'],
-        .vc-sparse-files-tree .tree-row.folder-to-review-row[aria-expanded='false'] .file-name {
-          /* Highlight folders that have files I need to review, but only when files are hidden cause the folder is collapsed. */
-          color: var(--file-to-review-color);
-          transition-duration: 0.2s;
-        }
-        .vc-sparse-files-tree .tree-row.file-to-review-row .file-owners-role {
-          /* Style the role of the user in the files table. */
-          font-weight: bold;
-          padding: 7px 10px;
-          position: absolute;
-          z-index: 100;
-          float: right;
-        }
-        .file-to-review-diff {
-          /* Highlight files I need to review. */
-          border-left: 3px solid var(--file-to-review-color) !important;
-          padding-left: 7px;
-        }
-        .files-container.hide-files-not-to-review .file-container:not(.file-to-review-diff) {
-          /* Fade the header for files I don't have to review. */
-          opacity: 0.2;
-        }
-        .files-container.hide-files-not-to-review .file-container:not(.file-to-review-diff) .item-details-body {
-          /* Hide the diff for files I don't have to review. */
-          display: none;
-        }
-        .toolbar-button {
-          background: transparent;
-          color: var(--text-primary-color);
-          border: 1px solid transparent;
-          border-radius: 3px;
-          margin: 0px 2px;
-        }
-        .toolbar-button:hover {
-          border: 1px solid var(--palette-black-alpha-20);
-        }
-        .toolbar-button.active {
-          color: var(--communication-foreground);
-        }`);
-
-      // Get the current iteration of the PR.
-      const prUrl = await getCurrentPullRequestUrlAsync();
-
-      // Get owners info for this PR.
-      const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(prUrl);
-      const hasOwnersInfo = ownersInfo && ownersInfo.currentUserFileCount > 0;
-
-      // If we have owners info, add a button to filter out diffs that we don't need to review.
-      if (hasOwnersInfo) {
-        $('.changed-files-summary-toolbar').once('add-other-files-button').each(function () {
-          $(this)
-            .find('ul')
-            .prepend('<li class="menu-item" role="button"><a href="#">Toggle other files</a></li>')
-            .click(event => {
-              $('.files-container').toggleClass('hide-files-not-to-review');
-            });
-        });
-      }
-
-      // If the user presses this button, it will auto-collapse folders in the files tree. Useful for large reviews.
-      let collapseFolderButtonClicks = 0;
-      const collapseFoldersButton = $('<button class="toolbar-button" />')
-        .text('⇐')
-        .attr('title', 'Toggle auto-collapsing folders.')
-        .insertAfter($('.vc-iteration-selector'))
-        .on('click', (event) => {
-          collapseFoldersButton.toggleClass('active');
-          collapseFolderButtonClicks += 1;
-          annotateFilesTreeFunc(); // Kick off the first collapsing, cause this function only runs if something changes in the DOM.
-          event.stopPropagation();
-        });
-
-      annotateFilesTreeFunc = function () {
-        // If we have owners info, tag the diffs that we don't need to review.
-        if (hasOwnersInfo) {
-          $('.file-container .file-path').once('filter-files-to-review').each(function () {
-            const filePathElement = $(this);
-            const path = filePathElement.text().replace(/\//, '');
-            filePathElement.closest('.file-container').toggleClass('file-to-review-diff', ownersInfo.isCurrentUserResponsibleForFile(path));
-          });
-        }
-
-        if (collapseFoldersButton.hasClass('active')) {
-          // The toggle folder collapsible button is active. Let's collapse folders that we've marked as collapsible.
-          $('.auto-collapsible-folder').once(`collapse-${collapseFolderButtonClicks}`).each(async function () {
-            const row = $(this);
-            let attemptsLeft = 3; // This is gross, but sometimes the folder doesn't actually collapse. So let's wait a bit and check again.
-            while (attemptsLeft > 0 && row.attr('aria-expanded') === 'true') {
-              row.find('.expand-icon').click();
-              // eslint-disable-next-line no-await-in-loop
-              await sleep(300);
-              attemptsLeft -= 1;
-            }
-          });
-        }
-
-        $('.vc-sparse-files-tree .vc-tree-cell').once('annotate-with-owners-info').each(function () {
-          const fileCell = $(this);
-          const fileRow = fileCell.closest('.tree-row');
-          const listItem = fileRow.parent()[0];
-          const typeIcon = fileRow.find('.type-icon');
-
-          const { fullName: pathWithLeadingSlash, isFolder, depth } = getPropertyThatStartsWith(listItem, '__reactEventHandlers$').children.props.item;
-          const path = pathWithLeadingSlash.substring(1); // Remove leading slash.
-
-          // Don't do anything at the root.
-          if (depth === 0) {
-            return;
-          }
-
-          // If we have owners info, mark folders that have files we need to review. This will allow us to highlight them if they are collapsed.
-          const folderContainsFilesToReview = hasOwnersInfo && isFolder && ownersInfo.isCurrentUserResponsibleForFileInFolderPath(`${path}/`);
-          fileRow.toggleClass('folder-to-review-row', folderContainsFilesToReview);
-          fileRow.toggleClass('auto-collapsible-folder', !folderContainsFilesToReview);
-
-          // Don't put checkboxes on rows that don't represent files.
-          if (!/bowtie-file\b/i.test(typeIcon.attr('class'))) {
-            return;
-          }
-
-          // If we have owners info, highlight the files we need to review and add role info.
-          if (hasOwnersInfo && ownersInfo.isCurrentUserResponsibleForFile(path)) {
-            fileRow.addClass('file-to-review-row');
-            $('<div class="file-owners-role" />').text(`${ownersInfo.currentUserFilesToRole[path]}:`).prependTo(fileRow);
-          }
-        });
-      };
-    });
-
-    annotateFilesTreeFunc();
-  }
 
   // If we're on specific PR, add a base update selector.
   function addBaseUpdateSelector() {
@@ -1027,6 +958,298 @@
         <div class="bolt-pill-content text-ellipsis">${html}</div>
       </div>`;
     labels.insertAdjacentHTML('beforeend', label);
+  }
+
+  let globalOwnersInfo;
+
+  function onFilesTreeChange() {
+    const hasOwnersInfo = globalOwnersInfo && globalOwnersInfo.currentUserFileCount > 0;
+
+    $('.repos-changes-explorer-tree .bolt-tree-row').each(function () {
+      const fileRow = $(this);
+      const text = fileRow.find('span.text-ellipsis');
+      const item = text.parent();
+
+      // For non-file/folder items in the tree (e.g. comments), we won't find a text span
+      if (text.length === 0) {
+        return;
+      }
+
+      /* eslint no-underscore-dangle: ["error", { "allow": ["_owner"] }] */
+      const pathAndChangeType = getPropertyThatStartsWith(text[0], '__reactInternalInstance$').memoizedProps.children._owner.stateNode.props.data.path;
+      const pathWithLeadingSlash = pathAndChangeType.replace(/ \[[a-z]+\]( renamed from .+)?$/, '');
+      const path = pathWithLeadingSlash.substring(1); // Remove leading slash.
+
+      const isFolder = item[0].children[0].classList.contains('repos-folder-icon');
+
+      // If we have owners info, mark folders that have files we need to review. This will allow us to highlight them if they are collapsed.
+      const folderContainsFilesToReview = hasOwnersInfo && isFolder && globalOwnersInfo.isCurrentUserResponsibleForFileInFolderPath(`${path}/`);
+      fileRow.toggleClass('folder-to-review-row', folderContainsFilesToReview);
+      fileRow.toggleClass('auto-collapsible-folder', !folderContainsFilesToReview);
+
+      // If we have owners info, highlight the files we need to review and add role info.
+      const isFileToReview = hasOwnersInfo && !isFolder && globalOwnersInfo.isCurrentUserResponsibleForFile(path);
+      item.parent().toggleClass('file-to-review-row', isFileToReview);
+      if (isFileToReview) {
+        if (fileRow.find('.file-owners-role').length === 0) {
+          $('<div class="file-owners-role" />').text(`${globalOwnersInfo.currentUserFilesToRole[path]}:`).prependTo(item.parent());
+        }
+      } else {
+        fileRow.find('.file-owners-role').remove();
+      }
+    });
+  }
+
+  function watchFilesTree() {
+    addStyleOnce('pr-file-tree-annotations-css', `
+        :root {
+          --file-to-review-color: var(--communication-foreground);
+        }
+        .repos-changes-explorer-tree .file-to-review-row,
+        .repos-changes-explorer-tree .file-to-review-row .text-ellipsis {
+          color: var(--file-to-review-color) !important;
+          transition-duration: 0.2s;
+        }
+        .repos-changes-explorer-tree .folder-to-review-row[aria-expanded='false'],
+        .repos-changes-explorer-tree .folder-to-review-row[aria-expanded='false'] .text-ellipsis {
+          color: var(--file-to-review-color);
+          transition-duration: 0.2s;
+        }
+        .repos-changes-explorer-tree .file-to-review-row .file-owners-role {
+          font-weight: bold;
+          padding: 7px 10px;
+          position: absolute;
+          z-index: 100;
+          float: right;
+        }`);
+
+    eus.onUrl(/\/pullrequest\//gi, (session, urlMatch) => {
+      session.onEveryNew(document, '.repos-changes-explorer-tree', async tree => {
+        // Get the current iteration of the PR.
+        const prUrl = await getCurrentPullRequestUrlAsync();
+        // Get owners info for this PR.
+        globalOwnersInfo = await getNationalInstrumentsPullRequestOwnersInfo(prUrl);
+
+        const hasOwnersInfo = globalOwnersInfo && globalOwnersInfo.currentUserFileCount > 0;
+
+        if (hasOwnersInfo) {
+          const onFilesTreeChangeThrottled = _.throttle(onFilesTreeChange, 50, { leading: false, trailing: true });
+          session.onAnyChangeTo(tree, t => {
+            onFilesTreeChangeThrottled();
+          });
+          onFilesTreeChangeThrottled();
+        }
+      });
+    });
+  }
+
+  function watchForDiffHeaders() {
+    addStyleOnce('pr-file-diff-annotations-css', /* css */ `
+        :root {
+          /* Set some constants for our CSS. */
+          --file-to-review-header-color: var(--palette-primary-darken-6);
+        }
+        div .flex-row.file-to-review-header {
+          /* Highlight files I need to review. */
+          background-color: var(--file-to-review-header-color) !important;
+          transition-duration: 0.2s;
+        }
+        .file-owners-role-header {
+          /* Style the role of the user in the files table. */
+          font-weight: bold;
+          padding: 7px 10px;
+        }`);
+
+    eus.onUrl(/\/pullrequest\//gi, async (session, urlMatch) => {
+      // Get the current iteration of the PR.
+      const prUrl = await getCurrentPullRequestUrlAsync();
+      // Get owners info for this PR.
+      const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(prUrl);
+      const hasOwnersInfo = ownersInfo && ownersInfo.currentUserFileCount > 0;
+
+      session.onEveryNew(document, '.repos-summary-header', diff => {
+        const header = diff.children[0];
+        const pathWithLeadingSlash = $(header).find('.secondary-text.text-ellipsis')[0].textContent;
+        const path = pathWithLeadingSlash.substring(1); // Remove leading slash.
+
+        const isFileToReview = hasOwnersInfo && ownersInfo.isCurrentUserResponsibleForFile(path);
+        if (isFileToReview) {
+          $(header).addClass('file-to-review-header');
+          $(header.children[1]).addClass('file-to-review-header');
+
+
+          $('<div class="file-owners-role-header" />').text(`${ownersInfo.currentUserFilesToRole[path]}:`).prependTo(header.children[1]);
+        }
+      });
+    });
+  }
+
+  function watchForKnownBuildErrors(pageData) {
+    addStyleOnce('known-build-errors-css', /* css */ `
+      .infra-errors-card h3 {
+        margin-top: 0;
+        display: inline-block;
+      }
+      .loading-indicator {
+        margin-left: 3ch;
+      }
+      .task-list {
+        margin-top: 0;
+      }
+      .infra-errors-card ul {
+        margin-bottom: 0;
+        margin-left: 4ch;
+      }
+      .infra-errors-card li {
+        margin-bottom: 0.5em;
+        list-style-type: disc;
+      }
+      .infra-errors-card li li {
+        margin-bottom: 0;
+        list-style-type: disc;
+        opacity: 0.7;
+      }
+      .infra-errors-card li span {
+        margin-bottom: 0.5em;
+      }`);
+    eus.onUrl(/\/_build\/results\?buildId=\d+&view=results/gi, (session, urlMatch) => {
+      session.onEveryNew(document, '.run-details-tab-content', async tabContent => {
+        const runDetails = pageData['ms.vss-build-web.run-details-data-provider'];
+        const projectId = pageData['ms.vss-tfs-web.page-data'].project.id;
+        const buildId = runDetails.id;
+        const pipelineName = runDetails.pipeline.name;
+
+        const actualBuildId = parseInt(urlMatch[0].match(/\d+/)[0], 10);
+        if (buildId !== actualBuildId) {
+          // eslint-disable-next-line no-restricted-globals
+          location.reload();
+        }
+
+        if (!runDetails.issues) {
+          return; // do not even add an empty section
+        }
+
+        let queryResponse;
+        try {
+          queryResponse = await fetch(`${azdoApiBaseUrl}/DevCentral/_apis/git/repositories/tools/items?path=/report/build_failure_analysis/pipeline-results/known-issues.json&api-version=6.0`);
+        } catch (err) {
+          console.warn('Could not fetch known issues file from AzDO');
+          return;
+        }
+        const knownIssues = await queryResponse.json();
+        if (!knownIssues.version.match(/^1(\.\d+)?$/)) {
+          console.warn(`Version ${knownIssues.version} of known-issues.json is not one I know what to do with`);
+          return;
+        }
+
+        if (!(new RegExp(knownIssues.pipeline_match).test(pipelineName))) {
+          return; // do not even add an empty section
+        }
+
+        const flexColumn = tabContent.children[0];
+        const summaryCard = flexColumn.children[1];
+        const newCard = $('<div class="infra-errors-card margin-top-16 depth-8 bolt-card bolt-card-white"><div>')[0];
+        const newCardContent = $('<div class="bolt-card-content bolt-default-horizontal-spacing"><div>');
+        newCardContent.appendTo(newCard);
+        summaryCard.insertAdjacentElement('afterend', newCard);
+        $('<h3>Known Infrastructure Errors</h3><span class="loading-indicator">Loading...</span>').appendTo(newCardContent);
+
+        // Fetch build timeline (which contains records with log urls)
+        queryResponse = await fetch(`${azdoApiBaseUrl}/${projectId}/_apis/build/builds/${buildId}/timeline?api-version=6.0`);
+        const timeline = await queryResponse.json();
+
+        // Fetch build logs, which give us line counts
+        queryResponse = await fetch(`${azdoApiBaseUrl}/${projectId}/_apis/build/builds/${buildId}/logs?api-version=6.0`);
+        const logsJson = (await queryResponse.json()).value;
+
+        const infraErrorsList = $('<ul class="task-list"></ul>');
+        infraErrorsList.appendTo(newCardContent);
+
+        const tasksWithInfraErrors = [];
+        let numTasksAdded = 0;
+
+        // For each task with issues
+        for (let i = 0; i < runDetails.issues.length; i += 1) {
+          let infraErrorCount = 0;
+          const taskWithIssues = runDetails.issues[i];
+          const componentListItem = $(`<li>${taskWithIssues.taskName}</li>`);
+          const componentSublist = $('<ul></ul>');
+          componentSublist.appendTo(componentListItem);
+
+          // Find the timeline record for the task, then get the log url
+          for (let j = 0; j < timeline.records.length; j += 1) {
+            if (timeline.records[j].task != null && timeline.records[j].id === taskWithIssues.taskId) {
+              const logUrl = timeline.records[j].log.url;
+              const logId = timeline.records[j].log.id;
+              let logLines = 0;
+              for (let k = 0; k < logsJson.length; k += 1) {
+                if (logsJson[k].id === logId) {
+                  logLines = logsJson[k].lineCount;
+                  break;
+                }
+              }
+
+              if (logLines > 100000) {
+                const content = '<li>⚠️<i>Warning: log file too large to parse</i></li>';
+                $(content).appendTo(componentSublist);
+                infraErrorCount += 1;
+                break;
+              }
+
+              // Fetch the log
+              // eslint-disable-next-line no-await-in-loop
+              queryResponse = await fetch(logUrl);
+              // eslint-disable-next-line no-await-in-loop
+              const log = await queryResponse.text();
+
+              // Test all patterns against log
+              const knownBuildErrors = knownIssues.log_patterns;
+              for (let k = 0; k < knownBuildErrors.length; k += 1) {
+                if (knownBuildErrors[k].category === 'Infrastructure' && new RegExp(knownBuildErrors[k].pipeline_match).test(pipelineName)) {
+                  let matchString = knownBuildErrors[k].match;
+                  if (knownBuildErrors[k].match_flag === 'dotmatchall') {
+                    matchString = matchString.replace('.', '[\\s\\S]');
+                  }
+                  const matches = log.match(new RegExp(matchString, 'g')) || [];
+                  if (matches.length) {
+                    let content = `${knownBuildErrors[k].cause} (x${matches.length})`;
+                    if (knownBuildErrors[k].public_comment) {
+                      content = `${content}<br>${knownBuildErrors[k].public_comment}`;
+                    }
+                    $(`<li>${content}</li>`).appendTo(componentSublist);
+                    infraErrorCount += 1;
+                    tasksWithInfraErrors.push(taskWithIssues.taskName);
+                  }
+                }
+              }
+              break;
+            }
+          }
+
+          if (infraErrorCount) {
+            componentListItem.appendTo(infraErrorsList);
+            numTasksAdded += 1;
+          }
+        }
+
+        if (numTasksAdded === 0) {
+          $('<p>None</p>').appendTo(newCardContent);
+        }
+
+        if (knownIssues.more_info_html) {
+          $(knownIssues.more_info_html).appendTo(newCardContent);
+        }
+
+        session.onEveryNew(document, '.issues-card-content .secondary-text', secondaryText => {
+          const taskName = secondaryText.textContent.split(' • ')[1];
+          if (tasksWithInfraErrors.includes(taskName)) {
+            $('<span> ⚠️POSSIBLE INFRA ERROR</span>').appendTo(secondaryText);
+          }
+        });
+
+        newCardContent.find('.loading-indicator').remove();
+      });
+    });
   }
 
   function watchForNewDiffs(isDarkTheme) {
