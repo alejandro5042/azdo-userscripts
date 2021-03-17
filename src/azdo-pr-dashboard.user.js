@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.54.0
+// @version      2.54.1
 // @author       Alejandro Barreto (National Instruments)
 // @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
 // @license      MIT
@@ -1047,7 +1047,7 @@
     addStyleOnce('pr-file-diff-annotations-css', /* css */ `
         :root {
           /* Set some constants for our CSS. */
-          --file-to-review-header-color: var(--palette-primary-darken-6);
+          --file-to-review-header-color: rgba(0, 120, 212, 0.2);
         }
         div .flex-row.file-to-review-header {
           /* Highlight files I need to review. */
