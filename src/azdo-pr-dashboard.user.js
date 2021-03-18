@@ -1243,7 +1243,7 @@
         session.onEveryNew(document, '.issues-card-content .secondary-text', secondaryText => {
           const taskName = secondaryText.textContent.split(' • ')[1];
           if (tasksWithInfraErrors.includes(taskName)) {
-            $('<span> ⚠️POSSIBLE INFRA ERROR</span>').appendTo(secondaryText);
+            $('<span> ⚠️POSSIBLE INFRASTRUCTURE ERROR</span>').appendTo(secondaryText);
           }
         });
 
