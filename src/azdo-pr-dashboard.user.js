@@ -552,7 +552,7 @@
         swal.fire({
           title: 'This is a preview feature!',
           icon: 'warning',
-          text: 'You need to install the "NIBinary.GitDiff.reg" Protocol Handler first. Please talk to Humberto Garza to get it.',
+          text: 'You need to install the "NIBinary.GitDiff.reg" Protocol Handler first. To get it, please talk to Humberto Garza, or search for "Launch NI Binary Git Diff" in the Azure DevOps NI Wiki for instructions.',
           confirmButtonColor: '#03b585',
           confirmButtonText: 'Close',
         });
