@@ -471,7 +471,7 @@
 
     const banner = document.createElement('div');
     banner.classList.add('bypass-reminder');
-    banner.appendChild(document.createTextNode('If you are confident the change needs no further review by others, please bypass owners.'));
+    banner.appendChild(document.createTextNode('If you are confident the change needs no further review, please bypass owners.'));
 
     if ($('.repos-pr-header-vote-button').length === 0) {
       // "old" PR experience
