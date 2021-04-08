@@ -103,6 +103,12 @@
   }
 
   function watchForStatusCardAndMoveToRightSideBar(session) {
+    addStyleOnce('pr-overview-sidebar-css', /* css */ `
+      /* Make the sidebar wider to accommodate the status moving there. */
+      .repos-overview-right-pane {
+        width: 550px;
+      }`);
+
     session.onEveryNew(document, '.page-content .flex-column > .bolt-table-card', status => {
       $(status).prependTo('.repos-overview-right-pane');
     });
