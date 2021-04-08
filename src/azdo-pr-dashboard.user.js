@@ -86,6 +86,7 @@
         // MOVE THIS HERE: conditionallyAddBypassReminderAsync();
       }
 
+      watchForStatusCardAndMoveToRightSideBar(session);
       addEditButtons(session);
     });
 
@@ -99,6 +100,12 @@
 
     // Call our event handler if we notice new elements being inserted into the DOM. This happens as the page is loading or updating dynamically based on user activity.
     $('body > div.full-size')[0].addEventListener('DOMNodeInserted', onPageUpdatedThrottled);
+  }
+
+  function watchForStatusCardAndMoveToRightSideBar(session) {
+    session.onEveryNew(document, '.page-content .flex-column > .bolt-table-card', status => {
+      $(status).prependTo('.repos-overview-right-pane');
+    });
   }
 
   function addEditButtons(session) {
