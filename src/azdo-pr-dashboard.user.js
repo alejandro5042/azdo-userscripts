@@ -442,6 +442,10 @@
       }
       .zero-data-action:hover, .deployments-zero-data:hover {
         opacity: 1;
+      }
+      /* Make the My Work / My PR dropdown on the top-right of every page much bigger. */
+      .bolt-panel-callout-content.flyout-my-work {
+        max-height: 90vh;
       }`);
   }
 
