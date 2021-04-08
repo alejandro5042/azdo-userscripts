@@ -125,7 +125,7 @@
 
   async function doEditAction(session) {
     if (location.search.indexOf('azdouserscriptaction=edit') >= 0) {
-      await sleep(1500);
+      await eus.sleep(1500);
       $('button#__bolt-edit').click();
       $('div#__bolt-tab-diff').click();
     }
@@ -272,7 +272,7 @@
   function watchForWorkItemForms() {
     eus.globalSession.onEveryNew(document, '.menu-item.follow-item-menu-item-gray', followButton => {
       followButton.addEventListener('click', async _ => {
-        await sleep(100); // We need to allow the other handlers to send the request to follow/unfollow. After the request is sent, we can annotate our follows list correctly.
+        await eus.sleep(100); // We need to allow the other handlers to send the request to follow/unfollow. After the request is sent, we can annotate our follows list correctly.
         await annotateWorkItemWithFollowerList(document.querySelector('.discussion-messages-right'));
       });
     });
@@ -329,7 +329,7 @@
         if (clicks >= 10) break;
 
         // eslint-disable-next-line no-await-in-loop
-        await sleep(100);
+        await eus.sleep(100);
       }
     });
 
@@ -352,7 +352,7 @@
         }
 
         // eslint-disable-next-line no-await-in-loop
-        await sleep(1000);
+        await eus.sleep(1000);
       }
     });
   }
@@ -406,7 +406,7 @@
     // Expand threads that have the sticky prefix.
     const lowerCasePrefixCssSelector = CSS.escape(`: "${lowerCasePrefix}`);
     $('.discussion-thread-host').once('expand-sticky-threads-on-load').each(async function () {
-      await sleep(100);
+      await eus.sleep(100);
       const button = this.querySelector(`button.ms-Button.expand-button[aria-label*="${lowerCasePrefixCssSelector}" i]`);
       if (button) {
         button.click();
@@ -806,7 +806,7 @@
     const pr = await getPullRequestAsync(pullRequestId);
 
     // Sometimes, PRs lose their styling shortly after the page loads. A slight delay makes this problem go away, 99% of the time. Sucks -- but works and better to have this than not.
-    await sleep(333);
+    await eus.sleep(333);
 
     if (sectionTitle === 'Assigned to me') {
       const votes = countVotes(pr);
@@ -1568,11 +1568,6 @@
   function getPullRequestAsync(id = 0) {
     const actualId = id || getCurrentPullRequestId();
     return $.get(`${azdoApiBaseUrl}/_apis/git/pullrequests/${actualId}?api-version=5.0`);
-  }
-
-  // Async helper function to sleep.
-  function sleep(milliseconds) {
-    return new Promise(resolve => setTimeout(resolve, milliseconds));
   }
 
   // Async helper function to get a specific PR property, otherwise return the default value.
