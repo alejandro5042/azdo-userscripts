@@ -2,8 +2,8 @@
 
 // @name         AzDO Pull Request Improvements
 // @version      2.54.2
-// @author       Alejandro Barreto (National Instruments)
-// @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
+// @author       Alejandro Barreto (NI)
+// @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests.
 // @license      MIT
 
 // @namespace    https://github.com/alejandro5042
