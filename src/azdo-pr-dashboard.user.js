@@ -185,11 +185,14 @@
       display: inline;
       position: absolute;
       top: 38px;
-      left: -450px;
+      left: -250px;
       z-index: 1000;
       background-color: #E6B307;
-      padding: 6px 12px;
-      border-radius: 6px;
+      color: #222;
+      font-weight: bold;
+      padding: 3ch 5ch;
+      font-size: 16px;
+      border-radius: 6px 0px 6px 6px;
       box-shadow: 4px 4px 4px #18181888;
       opacity: 0;
       transition: 0.3s;
