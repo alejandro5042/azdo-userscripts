@@ -51,10 +51,15 @@
   // Some features only apply at National Instruments.
   const atNI = /^ni\./i.test(window.location.hostname) || /^\/ni\//i.test(window.location.pathname);
 
+  function debug() {
+    console.log("[azdo-userscript]", ...arguments);
+  }
+
   function onReady() {
     // Find out who is our current user. In general, we should avoid using pageData because it doesn't always get updated when moving between page-to-page in AzDO's single-page application flow. Instead, rely on the AzDO REST APIs to get information from stuff you find on the page or the URL. Some things are OK to get from pageData; e.g. stuff like the user which is available on all pages.
     const pageData = JSON.parse(document.getElementById('dataProviders').innerHTML).data;
     currentUser = pageData['ms.vss-web.page-data'].user;
+    debug("init", pageData, currentUser);
 
     const theme = pageData['ms.vss-web.theme-data'].requestedThemeId;
     const isDarkTheme = /(dark|night|neptune)/i.test(theme);
