@@ -452,6 +452,10 @@
       /* Make the My Work / My PR dropdown on the top-right of every page much bigger. */
       .bolt-panel-callout-content.flyout-my-work {
         max-height: 90vh;
+      }
+      /* Make PR comments more compact! */
+      .repos-discussion-comment-header {
+        margin-bottom: 4px;
       }`);
   }
 
