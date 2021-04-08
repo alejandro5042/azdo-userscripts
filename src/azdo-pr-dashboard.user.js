@@ -1061,10 +1061,14 @@
           /* Set some constants for our CSS. */
           --file-to-review-header-color: rgba(0, 120, 212, 0.2);
         }
-        div .flex-row.file-to-review-header {
+        .repos-summary-header > .flex-row.file-to-review-header {
           /* Highlight files I need to review. */
-          background-color: var(--file-to-review-header-color) !important;
+          abackground-color: var(--file-to-review-header-color) !important;
           transition-duration: 0.2s;
+        }
+        .repos-summary-header > .flex-row.file-to-review-header > .flex-row {
+          background: none;
+          background-color: var(--file-to-review-header-color) !important;
         }
         .file-owners-role-header {
           /* Style the role of the user in the files table. */
@@ -1078,19 +1082,20 @@
       // Get owners info for this PR.
       const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(prUrl);
       const hasOwnersInfo = ownersInfo && ownersInfo.currentUserFileCount > 0;
+      if (!hasOwnersInfo) return;
 
       session.onEveryNew(document, '.repos-summary-header', diff => {
         const header = diff.children[0];
         const pathWithLeadingSlash = $(header).find('.secondary-text.text-ellipsis')[0].textContent;
         const path = pathWithLeadingSlash.substring(1); // Remove leading slash.
 
-        const isFileToReview = hasOwnersInfo && ownersInfo.isCurrentUserResponsibleForFile(path);
-        if (isFileToReview) {
+        if (ownersInfo.isCurrentUserResponsibleForFile(path)) {
           $(header).addClass('file-to-review-header');
-          $(header.children[1]).addClass('file-to-review-header');
-
 
           $('<div class="file-owners-role-header" />').text(`${ownersInfo.currentUserFilesToRole[path]}:`).prependTo(header.children[1]);
+        } else {
+          // TODO: Make this optional.
+          $(header).find('button[aria-label="Collapse"]').click();
         }
       });
     });
