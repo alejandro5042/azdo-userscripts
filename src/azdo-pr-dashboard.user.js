@@ -83,7 +83,14 @@
     eus.onUrl(/\/pullrequest\//gi, (session, urlMatch) => {
       if (atNI) {
         watchForLVDiffsAndAddNIBinaryDiffButton(session);
+        // MOVE THIS HERE: conditionallyAddBypassReminderAsync();
       }
+
+      addEditButtons(session);
+    });
+
+    eus.onUrl(/\/(_git)/gi, (session, urlMatch) => {
+      doEditAction(session);
     });
 
     // Handle any existing elements, flushing it to execute immediately.
@@ -92,6 +99,23 @@
 
     // Call our event handler if we notice new elements being inserted into the DOM. This happens as the page is loading or updating dynamically based on user activity.
     $('body > div.full-size')[0].addEventListener('DOMNodeInserted', onPageUpdatedThrottled);
+  }
+
+  function addEditButtons(session) {
+    session.onEveryNew(document, '.repos-summary-header > div:first-child .flex-column .secondary-text:nth-child(2)', path => {
+      const end = $(path).closest('.flex-row').find('.justify-end');
+      const branchUrl = $('.pr-header-branches a:first-child').attr('href');
+      const url = `${branchUrl}&path=${path.innerText}&_a=diff&azdouserscriptaction=edit`;
+      $('<a style="margin: 0px 1em;" class="flex-end bolt-button bolt-link-button enabled bolt-focus-treatment" data-focuszone="" data-is-focusable="true" target="_blank" role="link" onclick="window.open(this.href,\'popup\',\'width=600,height=600\'); return false;">Edit</a>').attr('href', url).appendTo(end);
+    });
+  }
+
+  async function doEditAction(session) {
+    if (location.search.indexOf('azdouserscriptaction=edit') >= 0) {
+      await sleep(1500);
+      $('button#__bolt-edit').click();
+      $('div#__bolt-tab-diff').click();
+    }
   }
 
   // This is "main()" for this script. Runs periodically when the page updates.
@@ -502,7 +526,7 @@
     }
   }
 
-  async function watchForLVDiffsAndAddNIBinaryDiffButton(eusSession) {
+  async function watchForLVDiffsAndAddNIBinaryDiffButton(session) {
     // NI Binary Diff is only supported on Windows
     if (navigator.userAgent.indexOf('Windows') === -1) return;
 
@@ -526,7 +550,7 @@
     const prUrl = await getCurrentPullRequestUrlAsync();
     const iterations = (await $.get(`${prUrl}/iterations?api-version=5.0`)).value;
 
-    eusSession.onEveryNew(document, '.bolt-messagebar.severity-info .bolt-messagebar-buttons', boltMessageBarButtons => {
+    session.onEveryNew(document, '.bolt-messagebar.severity-info .bolt-messagebar-buttons', boltMessageBarButtons => {
 
       const reposSummaryHeader = $(boltMessageBarButtons).closest('.repos-summary-header');
       const filePath = (reposSummaryHeader.length > 0 ? reposSummaryHeader : $('.repos-compare-toolbar'))
