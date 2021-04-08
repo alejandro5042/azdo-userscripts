@@ -145,9 +145,6 @@
           conditionallyAddBypassReminderAsync();
         }
         addTrophiesToPullRequest();
-        if (atNI && /\/DevCentral\/_git\/ASW\//i.test(window.location.pathname)) {
-          addNICodeOfDayToggle();
-        }
       }
 
       if (atNI) {
@@ -703,44 +700,6 @@
         currentUrl.searchParams.set('base', $(this).first().val());
         currentUrl.searchParams.set('iteration', currentUrl.searchParams.get('iteration') || iterations.length); // If we select a base without having an explicit iteration, compare the base to the latest.
         window.location.href = currentUrl.toString();
-      });
-    });
-  }
-
-  // Add a button to toggle flagging a PR discussion thread for ASW "Code of the Day" blog posts.
-  function addNICodeOfDayToggle() {
-    function getThreadDataFromDOMElement(threadElement) {
-      return getPropertyThatStartsWith(threadElement, '__reactEventHandlers$').children[0].props.thread;
-    }
-
-    function updateButtonForCurrentState(jqElements, isFlagged) {
-      const flaggedIconClass = 'bowtie-live-update-feed-off';
-      const notFlaggedIconClass = 'bowtie-live-update-feed';
-      const classToAdd = isFlagged ? flaggedIconClass : notFlaggedIconClass;
-      const classToRemove = isFlagged ? notFlaggedIconClass : flaggedIconClass;
-      jqElements.find('.cod-toggle-icon').addClass(classToAdd).removeClass(classToRemove);
-      jqElements.attr('title', isFlagged ? 'Un-suggest for "Code of the Day" blog post' : 'Suggest for "Code of the Day" blog post');
-    }
-
-    $('.vc-discussion-comment-toolbar').once('add-cod-flag-support').each(async function () {
-      const thread = getThreadDataFromDOMElement($(this).closest('.vc-discussion-comments')[0]);
-      const isFlagged = findFlaggedThreadArrayIndex(await getNICodeOfTheDayThreadsAsync(), thread.id, currentUser.uniqueName) !== -1;
-      const button = $('<button type="button" class="ms-Button vc-discussion-comment-toolbarbutton ms-Button--icon cod-toggle"><i class="ms-Button-icon cod-toggle-icon bowtie-icon" role="presentation"></i></button>');
-      updateButtonForCurrentState(button, isFlagged);
-      button.prependTo(this);
-      button.click(async function (event) {
-        const isNowFlagged = await toggleThreadFlaggedForNICodeOfTheDay(await getCurrentPullRequestUrlAsync(), {
-          flaggedDate: new Date().toISOString(),
-          flaggedBy: currentUser.uniqueName,
-          pullRequestId: getCurrentPullRequestId(),
-          threadId: thread.id,
-          file: thread.itemPath,
-          threadAuthor: thread.comments[0].author.displayName,
-          threadContentShort: truncate(thread.comments[0].content || thread.comments[0].newContent, 100),
-        });
-
-        // Update the button visuals in this thread
-        updateButtonForCurrentState($(this).parents('.vc-discussion-comments').find('.cod-toggle'), isNowFlagged);
       });
     });
   }
@@ -1581,55 +1540,6 @@
     const pr = await getCurrentPullRequestAsync();
     const url = `${azdoApiBaseUrl}${pr.repository.project.name}/_apis/git/policy/configurations?repositoryId=${pr.repository.id}&refName=${pr.targetRefName}`;
     return (await $.get(url)).value.some(x => x.isBlocking && x.settings.statusName === 'owners-approved');
-  }
-
-  // Cached "Code of the Day" thread data.
-  let niCodeOfTheDayThreadsArray = null;
-
-  // Async helper function to flag or unflag a PR discussion thread for National Instruments "Code of the Day" blog.
-  async function toggleThreadFlaggedForNICodeOfTheDay(prUrl, value) {
-    const flaggedComments = await getNICodeOfTheDayThreadsAsync();
-    const index = findFlaggedThreadArrayIndex(flaggedComments, value.threadId, value.flaggedBy);
-    if (index >= 0) {
-      // found, so unflag it
-      flaggedComments.splice(index, 1);
-    } else {
-      // not found, so flag it
-      flaggedComments.push(value);
-    }
-
-    const patch = [{
-      op: flaggedComments.length ? 'add' : 'remove',
-      path: '/NI.CodeOfTheDay',
-      value: flaggedComments.length ? JSON.stringify(flaggedComments) : null,
-    }];
-    try {
-      await $.ajax({
-        type: 'PATCH',
-        url: `${prUrl}/properties?api-version=5.1-preview.1`,
-        data: JSON.stringify(patch),
-        contentType: 'application/json-patch+json',
-      });
-    } catch (e) {
-      // invalidate cached value so we re-fetch
-      niCodeOfTheDayThreadsArray = null;
-    }
-
-    // re-query to get the current state of the flagged threads
-    return findFlaggedThreadArrayIndex((await getNICodeOfTheDayThreadsAsync()), value.threadId, value.flaggedBy) !== -1;
-  }
-
-  // Helper function to find the index of a flagged thread record within the provided array.
-  function findFlaggedThreadArrayIndex(flaggedCommentArray, threadId, flaggedBy) {
-    return _.findIndex(flaggedCommentArray, x => x.threadId === threadId && x.flaggedBy === flaggedBy);
-  }
-
-  // Async helper function to get the discussion threads (in the current PR) that have been flagged for "Code of the Day."
-  async function getNICodeOfTheDayThreadsAsync() {
-    if (!niCodeOfTheDayThreadsArray) {
-      niCodeOfTheDayThreadsArray = await getPullRequestProperty(await getCurrentPullRequestUrlAsync(), 'NI.CodeOfTheDay', []);
-    }
-    return niCodeOfTheDayThreadsArray;
   }
 
   // Helper function to access an object member, where the exact, full name of the member is not known.
