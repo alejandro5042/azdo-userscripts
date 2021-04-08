@@ -75,6 +75,12 @@
       watchForKnownBuildErrors(pageData);
     }
 
+    eus.onUrl(/\/pullrequest\//gi, (session, urlMatch) => {
+      if (atNI) {
+        watchForLVDiffsAndAddNIBinaryDiffButton(session);
+      }
+    });
+
     // Handle any existing elements, flushing it to execute immediately.
     onPageUpdatedThrottled();
     onPageUpdatedThrottled.flush();
@@ -95,7 +101,6 @@
         addAccessKeysToPullRequestTabs();
         if (atNI) {
           conditionallyAddBypassReminderAsync();
-          addNIBinaryDiffButton();
         }
         addTrophiesToPullRequest();
         if (atNI && /\/DevCentral\/_git\/ASW\//i.test(window.location.pathname)) {
@@ -489,7 +494,10 @@
     }
   }
 
-  async function addNIBinaryDiffButton() {
+  async function watchForLVDiffsAndAddNIBinaryDiffButton(eusSession) {
+    // NI Binary Diff is only supported on Windows
+    if (navigator.userAgent.indexOf('Windows') === -1) return;
+
     addStyleOnce('ni-binary-git-diff', /* css */ `
       .ni-binary-git-diff-button {
         border-color: #03b585;
@@ -510,11 +518,7 @@
     const prUrl = await getCurrentPullRequestUrlAsync();
     const iterations = (await $.get(`${prUrl}/iterations?api-version=5.0`)).value;
 
-    eus.globalSession.onEveryNew(document, '.bolt-messagebar.severity-info .bolt-messagebar-buttons', boltMessageBarButtons => {
-      if (eus.seen(boltMessageBarButtons)) return;
-
-      // NI Binary Diff is only supported on Windows
-      if (navigator.userAgent.indexOf('Windows') === -1) return;
+    eusSession.onEveryNew(document, '.bolt-messagebar.severity-info .bolt-messagebar-buttons', boltMessageBarButtons => {
 
       const reposSummaryHeader = $(boltMessageBarButtons).closest('.repos-summary-header');
       const filePath = (reposSummaryHeader.length > 0 ? reposSummaryHeader : $('.repos-compare-toolbar'))
