@@ -241,7 +241,7 @@
     }
     .vote-button-wrapper {
       border: 3px solid transparent;
-      border-radius: 4px;
+      border-radius: 4px 4px 0px 0px;
       transition: 0.3s;
     }
     .vote-button-wrapper:hover {
