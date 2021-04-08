@@ -976,6 +976,9 @@
 
   function onFilesTreeChange() {
     const hasOwnersInfo = globalOwnersInfo && globalOwnersInfo.currentUserFileCount > 0;
+    if (!hasOwnersInfo) {
+      return;
+    }
 
     $('.repos-changes-explorer-tree .bolt-tree-row').each(function () {
       const fileRow = $(this);
@@ -995,12 +998,12 @@
       const isFolder = item[0].children[0].classList.contains('repos-folder-icon');
 
       // If we have owners info, mark folders that have files we need to review. This will allow us to highlight them if they are collapsed.
-      const folderContainsFilesToReview = hasOwnersInfo && isFolder && globalOwnersInfo.isCurrentUserResponsibleForFileInFolderPath(`${path}/`);
+      const folderContainsFilesToReview = isFolder && globalOwnersInfo.isCurrentUserResponsibleForFileInFolderPath(`${path}/`);
       fileRow.toggleClass('folder-to-review-row', folderContainsFilesToReview);
       fileRow.toggleClass('auto-collapsible-folder', !folderContainsFilesToReview);
 
       // If we have owners info, highlight the files we need to review and add role info.
-      const isFileToReview = hasOwnersInfo && !isFolder && globalOwnersInfo.isCurrentUserResponsibleForFile(path);
+      const isFileToReview = !isFolder && globalOwnersInfo.isCurrentUserResponsibleForFile(path);
       item.parent().toggleClass('file-to-review-row', isFileToReview);
       if (isFileToReview) {
         if (fileRow.find('.file-owners-role').length === 0) {
