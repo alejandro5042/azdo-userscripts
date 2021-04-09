@@ -4,15 +4,15 @@
 
 A collection of userscripts to improve the Azure DevOps UI.
 
-These userscripts were tested in Chrome and Firefox with the Tampermonkey extension. They may work with other setups.
+These userscripts were tested in Chrome and Firefox with the Violentmonkey extension. They may work with other setups.
 
 ## Getting Started
 
-1. [Install the Tampermonkey extension](https://tampermonkey.net/)
-2. Refresh this page if you just installed Tampermonkey (or the download link won't work)
+1. [Install the Violentmonkey extension](https://violentmonkey.github.io/) (alternatively, [Tampermonkey](https://tampermonkey.net/))
+2. Refresh this page if you just installed this extension (or the download link won't work)
 3. [Install this userscript](https://github.com/alejandro5042/azdo-userscripts/raw/master/src/azdo-pr-dashboard.user.js)
 
-By default, Tampermonkey will automatically update scripts from the original install location once a day. You can force an update from the extensions menu.
+By default, Violentmonkey and Tampermonkey will auto-update scripts from the original install location once a day. You can force an update from the extensions menu.
 
 ## Features
 

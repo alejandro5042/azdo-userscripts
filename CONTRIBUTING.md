@@ -8,7 +8,7 @@ For significant effort or feature work, it is preferred to start by filing an is
 
 ## Hacking / debugging
 
-- Simply open the userscript in Tampermonkey's dashboard and hack away
+- Simply open the userscript in the Violentmonkey/Tampermonkey dashboard and hack away
 - Hit `Ctrl+S` to save
 - Refresh the target page to test your changes
 
@@ -18,10 +18,13 @@ Once you're done, copy your script from the dashboard into the actual source fil
 
 - Clone this repo on-disk
 - Run `npm install`
-- Allow Tampermonkey to access files on disk:
+- Allow your userscript manager to access files on disk:
   - Go to [Chrome Extension Settings](chrome://extensions/)
-  - Click the "Details" button on Tampermonkey
+  - Click the "Details" button on Tampermonkey or Violentmonkey
   - Enable "Allow access to file URLs"
+- From Violentmonkey:
+  - Simply drag the file into the Violentmonkey dashboard
+  - Enable checkbox "Track local file before this window is closed" and keep the tab open
 - From Tampermonkey, create a new userscript that uses the version on-disk:
   - Copy the real userscript into this new userscript
   - Delete all the code (everything under `// ==/UserScript==`)
