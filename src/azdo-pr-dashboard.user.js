@@ -586,7 +586,6 @@
     const iterations = (await $.get(`${prUrl}/iterations?api-version=5.0`)).value;
 
     session.onEveryNew(document, '.bolt-messagebar.severity-info .bolt-messagebar-buttons', boltMessageBarButtons => {
-
       const reposSummaryHeader = $(boltMessageBarButtons).closest('.repos-summary-header');
       const filePath = (reposSummaryHeader.length > 0 ? reposSummaryHeader : $('.repos-compare-toolbar'))
         .find('.secondary-text.text-ellipsis')[0].innerText;
