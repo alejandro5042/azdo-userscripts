@@ -50,19 +50,20 @@
   // Some features only apply at National Instruments.
   const atNI = /^ni\./i.test(window.location.hostname) || /^\/ni\//i.test(window.location.pathname);
 
-  function debug() {
-    console.log("[azdo-userscript]", ...arguments);
+  function debug(...args) {
+    // eslint-disable-next-line no-console
+    console.log('[azdo-userscript]', args);
   }
 
   function main() {
-    eus.globalSession.onFirst(document, 'body', async () => {
+    eus.globalSession.onFirst(document, 'body', () => {
       eus.registerCssClassConfig(document.body, 'Configure PR Status Location', 'pr-status-location', 'ni-pr-status-right-side', {
         'ni-pr-status-default': 'Default',
         'ni-pr-status-right-side': 'Right Side',
       });
     });
 
-    eus.showTipOnce("release-2021-04-09", "New in the AzDO userscript", `
+    eus.showTipOnce('release-2021-04-09', 'New in the AzDO userscript', `
       <p>Highlights from the 2021-04-09 update:</p>
       <ul>
         <li>An <strong>Edit</strong> button on PR diffs! No need to have source to make a quick edit</li>
@@ -86,7 +87,7 @@
     // Find out who is our current user. In general, we should avoid using pageData because it doesn't always get updated when moving between page-to-page in AzDO's single-page application flow. Instead, rely on the AzDO REST APIs to get information from stuff you find on the page or the URL. Some things are OK to get from pageData; e.g. stuff like the user which is available on all pages.
     const pageData = JSON.parse(document.getElementById('dataProviders').innerHTML).data;
     currentUser = pageData['ms.vss-web.page-data'].user;
-    debug("init", pageData, currentUser);
+    debug('init', pageData, currentUser);
 
     const theme = pageData['ms.vss-web.theme-data'].requestedThemeId;
     const isDarkTheme = /(dark|night|neptune)/i.test(theme);
@@ -155,7 +156,7 @@
   }
 
   async function doEditAction(session) {
-    if (location.search.indexOf('azdouserscriptaction=edit') >= 0) {
+    if (window.location.search.indexOf('azdouserscriptaction=edit') >= 0) {
       await eus.sleep(1500);
       $('button#__bolt-edit').click();
       $('div#__bolt-tab-diff').click();
@@ -360,10 +361,6 @@
     });
   }
 
-  function stringToCssIdentifier(text) {
-    return encodeURIComponent(text.toLowerCase()).replace(/%[0-9A-F]{2}/gi, '');
-  }
-
   function getRepoNameFromUrl(url) {
     const repoName = url.match(/_git\/(.+)\/pullrequests/)[1];
     return repoName || '';
@@ -381,6 +378,7 @@
     });
   }
 
+  // eslint-disable-next-line no-unused-vars
   function highlightAwaitComments() {
     // Comments that start with this string are highlighted. No other behavior is given to them.
     const lowerCasePrefix = 'await:';
@@ -394,6 +392,7 @@
       }`);
   }
 
+  // eslint-disable-next-line no-unused-vars
   function applyStickyPullRequestComments() {
     // Comments that start with this string become sticky. Only the first comment of the thread counts.
     const lowerCasePrefix = 'note:';
@@ -1088,12 +1087,12 @@
         try {
           queryResponse = await fetch(`${azdoApiBaseUrl}/DevCentral/_apis/git/repositories/tools/items?path=/report/build_failure_analysis/pipeline-results/known-issues.json&api-version=6.0`);
         } catch (err) {
-          console.warn('Could not fetch known issues file from AzDO');
+          debug('Could not fetch known issues file from AzDO');
           return;
         }
         const knownIssues = await queryResponse.json();
         if (!knownIssues.version.match(/^1(\.\d+)?$/)) {
-          console.warn(`Version ${knownIssues.version} of known-issues.json is not one I know what to do with`);
+          debug(`Version ${knownIssues.version} of known-issues.json is not one I know what to do with`);
           return;
         }
 
@@ -1393,14 +1392,14 @@
       }
     }
 
-    // For debugging: console.debug(`Supporting ${Object.keys(extensionToMode).length} extensions and ${Object.keys(fileToMode).length} special filenames`);
+    // For debugging: debug(`Supporting ${Object.keys(extensionToMode).length} extensions and ${Object.keys(fileToMode).length} special filenames`);
     return { extensionToMode, fileToMode };
   }
 
   function highlightDiff(language, fileName, part, diffContainer, selector) {
     if (!diffContainer) return;
 
-    // For debugging: console.debug(`Highlighting ${part} of <${fileName}> as ${language}`);
+    // For debugging: debug(`Highlighting ${part} of <${fileName}> as ${language}`);
 
     let stack = null;
     for (const line of diffContainer.querySelectorAll(selector)) {
@@ -1476,11 +1475,6 @@
   // Helper function to access an object member, where the exact, full name of the member is not known.
   function getPropertyThatStartsWith(instance, startOfName) {
     return instance[Object.getOwnPropertyNames(instance).find(x => x.startsWith(startOfName))];
-  }
-
-  // Helper function to limit a string to a certain length, adding an ellipsis if necessary.
-  function truncate(text, maxLength) {
-    return text.length > maxLength ? `${text.substring(0, maxLength - 3)}...` : text;
   }
 
   // Helper function to encode any string into an string that can be placed directly into HTML.
