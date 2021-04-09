@@ -72,7 +72,6 @@
 
     // Invoke our new eus-style features.
     watchPullRequestDashboard();
-    watchForNewLabels();
     watchForWorkItemForms();
     watchForNewDiffs(isDarkTheme);
     watchForShowMoreButtons();
@@ -151,10 +150,6 @@
         addTrophiesToPullRequest();
       }
 
-      if (atNI) {
-        styleLabels();
-      }
-
       if (/\/(pullrequests)/i.test(window.location.pathname)) {
         addOrgPRLink();
       }
@@ -206,15 +201,14 @@
   if (atNI) {
     addStyleOnce('ni-labels', /* css */ `
       /* Known labels we should style. */
-      .label--owners {
-      }
-      .label--draft {
+      .bolt-pill[aria-label='draft' i] {
         background: #8808 !important;
       }
-      .label--tiny {
+      .bolt-pill[aria-label='tiny' i] {
         background: #0a08 !important;
       }
-      .label--bypassowners {
+      .bolt-pill[aria-label~='blocked' i] {
+        background: #a008 !important;
       }`);
   }
 
@@ -251,24 +245,6 @@
     .vote-button-wrapper:hover ~ .bypass-reminder {
       opacity: 1;
     }`);
-
-  function styleLabels() {
-    // Give all tags a CSS class based on their name.
-    $('.tag-box').once('labels').each(function () {
-      const tagBox = $(this);
-      const subClass = stringToCssIdentifier(tagBox.text());
-      tagBox.addClass(`label--${subClass}`);
-    });
-  }
-
-  function watchForNewLabels() {
-    // Give all tags a CSS class based on their name.
-    eus.globalSession.onEveryNew(document, '.bolt-pill', label => {
-      if (!label.ariaLabel) return;
-      const subClass = stringToCssIdentifier(label.ariaLabel);
-      label.classList.add(`label--${subClass}`);
-    });
-  }
 
   function watchForWorkItemForms() {
     eus.globalSession.onEveryNew(document, '.menu-item.follow-item-menu-item-gray', followButton => {
