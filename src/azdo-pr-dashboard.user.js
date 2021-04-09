@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         AzDO Pull Request Improvements
-// @version      2.54.2
+// @version      3.0.0
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests.
 // @license      MIT
@@ -22,12 +22,17 @@
 // @require      https://cdn.jsdelivr.net/npm/lodash@4.17.11/lodash.min.js#sha256-7/yoZS3548fXSRXqc/xYzjsmuW3sFKzuvOCHd06Pmps=
 
 // @require      https://cdn.jsdelivr.net/npm/sweetalert2@9.13.1/dist/sweetalert2.all.min.js#sha384-8oDwN6wixJL8kVeuALUvK2VlyyQlpEEN5lg6bG26x2lvYQ1HWAV0k8e2OwiWIX8X
-// @require      https://gist.githubusercontent.com/alejandro5042/af2ee5b0ad92b271cd2c71615a05da2c/raw/67b7203dfbc48f08ebddfc8327c92b2df28a3c4c/easy-userscripts.js?v=72#sha384-OgOM7UvZHxtPUmZoGbYhsgkLPuRj9SFTpO+LqbnaBzLDQaXmYlosSywfsljzjhCI
+// @require      https://gist.githubusercontent.com/alejandro5042/af2ee5b0ad92b271cd2c71615a05da2c/raw/easy-userscripts.js#sha384-t7v/Pk2+HNbUjKwXkvcRQIMtDEHSH9w0xYtq5YdHnbYKIV7Jts9fSZpZq+ESYE4v
 
 // @require      https://highlightjs.org/static/highlight.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/js-yaml/3.14.0/js-yaml.min.js#sha512-ia9gcZkLHA+lkNST5XlseHz/No5++YBneMsDp1IZRJSbi1YqQvBeskJuG1kR+PH1w7E0bFgEZegcj0EwpXQnww==
 // @resource     linguistLanguagesYml https://raw.githubusercontent.com/github/linguist/master/lib/linguist/languages.yml?v=1
 // @grant        GM_getResourceText
+// @grant        GM_addStyle
+// @grant        GM_getValue
+// @grant        GM_setValue
+// @grant        GM_addValueChangeListener
+// @grant        GM_registerMenuCommand
 
 // ==/UserScript==
 
@@ -50,6 +55,25 @@
   }
 
   function main() {
+    eus.globalSession.onFirst(document, 'body', async () => {
+      eus.registerCssClassConfig(document.body, 'PR Status Location', 'pr-status-location', 'ni-pr-status-right-side', {
+        'ni-pr-status-default': 'Default',
+        'ni-pr-status-right-side': 'Right Side',
+      });
+    });
+
+    eus.showTipOnce("release-2021-04-09", "New in the AzDO userscript", `
+      <p>Highlights from the 2021-04-09 update:</p>
+      <ul>
+        <li>An <strong>Edit</strong> button on PR diffs! No need to have source on your machine to make a quick edit.</li>
+        <li>Moved PR status block from above the PR description to the side. <em>But this is configurable...</em></li>
+        <li>AzDO userscript options! Click your userscript manager extension button for configuration.</li>
+        <li>Improved performance and support for the new AzDO UI. Making old things work again, slowly!</li>
+      </ul>
+      <hr>
+      <p>Comments, bugs, suggestions? File an issue on <a href="https://github.com/alejandro5042/azdo-userscripts" target="_blank">GitHub</a> 🧡</p>
+    `);
+
     // Start modifying the page once the DOM is ready.
     if (document.readyState !== 'loading') {
       onReady();
@@ -108,6 +132,8 @@
   }
 
   function watchForStatusCardAndMoveToRightSideBar(session) {
+    if (!document.body.classList.contains('ni-pr-status-right-side')) return;
+
     addStyleOnce('pr-overview-sidebar-css', /* css */ `
       /* Make the sidebar wider to accommodate the status moving there. */
       .repos-overview-right-pane {
@@ -433,6 +459,18 @@
       /* Make PR comments more compact! */
       .repos-discussion-comment-header {
         margin-bottom: 4px;
+      }
+      /* swal CSS fixes, since AzDO overrides some styles that will conflict with dialogs. */
+      .swal2-footer {
+        opacity: 0.4;
+      }
+      .swal2-html-container {
+        text-align: left;
+      }
+      .swal2-html-container li {
+        list-style: disc;
+        margin-left: 4ch;
+        margin-bottom: 0.5em;
       }`);
   }
 
