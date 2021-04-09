@@ -418,7 +418,7 @@
 
   function addAccessKeysToPullRequestTabs() {
     // Give all the tabs an access key equal to their numeric position on screen.
-    $('ul.vc-pullrequest-tabs a').once('add-accesskeys').each(function () {
+    $('.repos-pr-details-page-tabbar a').once('add-accesskeys').each(function () {
       $(this).attr('accesskey', $(this).attr('aria-posinset'));
     });
   }
