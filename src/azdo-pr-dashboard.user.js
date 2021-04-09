@@ -1,9 +1,9 @@
 // ==UserScript==
 
-// @name         AzDO Pull Request Improvements
+// @name         More Awesome Azure DevOps (userscript)
 // @version      3.0.0
 // @author       Alejandro Barreto (NI)
-// @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests.
+// @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
 
 // @namespace    https://github.com/alejandro5042
