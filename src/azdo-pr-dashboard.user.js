@@ -42,9 +42,6 @@
   let currentUser;
   let azdoApiBaseUrl;
 
-  // Throttle page update events to avoid using up CPU when AzDO is adding a lot of elements during a short time (like on page load).
-  const onPageUpdatedThrottled = _.throttle(onPageUpdated, 400, { leading: false, trailing: true });
-
   // Some features only apply at National Instruments.
   const atNI = /^ni\./i.test(window.location.hostname) || /^\/ni\//i.test(window.location.pathname);
 
@@ -99,6 +96,9 @@
     eus.onUrl(/\/(_git)/gi, (session, urlMatch) => {
       doEditAction(session);
     });
+
+    // Throttle page update events to avoid using up CPU when AzDO is adding a lot of elements during a short time (like on page load).
+    const onPageUpdatedThrottled = _.throttle(onPageUpdated, 400, { leading: false, trailing: true });
 
     // Handle any existing elements, flushing it to execute immediately.
     onPageUpdatedThrottled();
