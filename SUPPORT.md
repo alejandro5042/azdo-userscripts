@@ -5,7 +5,7 @@
 - Have you tried refreshing the page?
 - Are you on the latest version?
   - [Check the latest release number](https://github.com/alejandro5042/azdo-userscripts/releases)
-  - See what version you have installed ([Tampermonkey docs](http://www.tampermonkey.net/faq.php?ext=dhdg#Q101))
+  - See what version you have installed from the Violentmonkey or Tampermonkey dashboard ([Tampermonkey docs](http://www.tampermonkey.net/faq.php?ext=dhdg#Q101))
     - If you see an red error bar at the bottom of your page, it should have the version number
   - If you're out-of-date, update your userscript and then hit refresh ([Tampermonkey docs](http://www.tampermonkey.net/faq.php?ext=dhdg#Q101))
 - Are there are any interesting errors in the JavaScript console?

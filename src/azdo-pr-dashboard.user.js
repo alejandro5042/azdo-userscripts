@@ -1,9 +1,9 @@
 // ==UserScript==
 
-// @name         AzDO Pull Request Improvements
-// @version      2.54.2
-// @author       Alejandro Barreto (National Instruments)
-// @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
+// @name         More Awesome Azure DevOps (userscript)
+// @version      3.0.0
+// @author       Alejandro Barreto (NI)
+// @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
 
 // @namespace    https://github.com/alejandro5042
@@ -18,21 +18,25 @@
 // @run-at       document-body
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js#sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jquery-once/2.2.3/jquery.once.min.js#sha256-HaeXVMzafCQfVtWoLtN3wzhLWNs8cY2cH9OIQ8R9jfM=
-// @require      https://cdnjs.cloudflare.com/ajax/libs/lscache/1.3.0/lscache.js#sha256-QVvX22TtfzD4pclw/4yxR0G1/db2GZMYG9+gxRM9v30=
 // @require      https://cdnjs.cloudflare.com/ajax/libs/date-fns/1.30.1/date_fns.min.js#sha256-wCBClaCr6pJ7sGU5kfb3gQMOOcIZNzaWpWcj/lD9Vfk=
 // @require      https://cdn.jsdelivr.net/npm/lodash@4.17.11/lodash.min.js#sha256-7/yoZS3548fXSRXqc/xYzjsmuW3sFKzuvOCHd06Pmps=
 
 // @require      https://cdn.jsdelivr.net/npm/sweetalert2@9.13.1/dist/sweetalert2.all.min.js#sha384-8oDwN6wixJL8kVeuALUvK2VlyyQlpEEN5lg6bG26x2lvYQ1HWAV0k8e2OwiWIX8X
-// @require      https://gist.githubusercontent.com/alejandro5042/af2ee5b0ad92b271cd2c71615a05da2c/raw/67b7203dfbc48f08ebddfc8327c92b2df28a3c4c/easy-userscripts.js?v=72#sha384-OgOM7UvZHxtPUmZoGbYhsgkLPuRj9SFTpO+LqbnaBzLDQaXmYlosSywfsljzjhCI
+// @require      https://gist.githubusercontent.com/alejandro5042/af2ee5b0ad92b271cd2c71615a05da2c/raw/easy-userscripts.js#sha384-t7v/Pk2+HNbUjKwXkvcRQIMtDEHSH9w0xYtq5YdHnbYKIV7Jts9fSZpZq+ESYE4v
 
 // @require      https://highlightjs.org/static/highlight.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/js-yaml/3.14.0/js-yaml.min.js#sha512-ia9gcZkLHA+lkNST5XlseHz/No5++YBneMsDp1IZRJSbi1YqQvBeskJuG1kR+PH1w7E0bFgEZegcj0EwpXQnww==
 // @resource     linguistLanguagesYml https://raw.githubusercontent.com/github/linguist/master/lib/linguist/languages.yml?v=1
 // @grant        GM_getResourceText
+// @grant        GM_addStyle
+// @grant        GM_getValue
+// @grant        GM_setValue
+// @grant        GM_addValueChangeListener
+// @grant        GM_registerMenuCommand
 
 // ==/UserScript==
 
-/* global swal */
+/* global eus, swal */
 
 (function () {
   'use strict';
@@ -40,21 +44,50 @@
   // All REST API calls should fail after a timeout, instead of going on forever.
   $.ajaxSetup({ timeout: 5000 });
 
-  lscache.setBucket('acb-azdo/');
-
   let currentUser;
   let azdoApiBaseUrl;
 
-  // Throttle page update events to avoid using up CPU when AzDO is adding a lot of elements during a short time (like on page load).
-  const onPageUpdatedThrottled = _.throttle(onPageUpdated, 400, { leading: false, trailing: true });
-
   // Some features only apply at National Instruments.
   const atNI = /^ni\./i.test(window.location.hostname) || /^\/ni\//i.test(window.location.pathname);
+
+  function debug(...args) {
+    // eslint-disable-next-line no-console
+    console.log('[azdo-userscript]', args);
+  }
+
+  function main() {
+    eus.globalSession.onFirst(document, 'body', () => {
+      eus.registerCssClassConfig(document.body, 'Configure PR Status Location', 'pr-status-location', 'ni-pr-status-right-side', {
+        'ni-pr-status-default': 'Default',
+        'ni-pr-status-right-side': 'Right Side',
+      });
+    });
+
+    eus.showTipOnce('release-2021-04-09', 'New in the AzDO userscript', `
+      <p>Highlights from the 2021-04-09 update:</p>
+      <ul>
+        <li>An <strong>Edit</strong> button on PR diffs! No need to have source to make a quick edit</li>
+        <li>Moved PR status block from above the PR description back to the side. But this is configurable (next bullet)</li>
+        <li>AzDO userscript options! Click your userscript manager extension button for configuration. More to show up here over time</li>
+        <li>Improved performance and support for the new AzDO UI. Making old stuff work again, slowly!</li>
+      </ul>
+      <hr>
+      <p>Comments, bugs, suggestions? File an issue on <a href="https://github.com/alejandro5042/azdo-userscripts" target="_blank">GitHub</a> 🧡</p>
+    `);
+
+    // Start modifying the page once the DOM is ready.
+    if (document.readyState !== 'loading') {
+      onReady();
+    } else {
+      document.addEventListener('DOMContentLoaded', onReady);
+    }
+  }
 
   function onReady() {
     // Find out who is our current user. In general, we should avoid using pageData because it doesn't always get updated when moving between page-to-page in AzDO's single-page application flow. Instead, rely on the AzDO REST APIs to get information from stuff you find on the page or the URL. Some things are OK to get from pageData; e.g. stuff like the user which is available on all pages.
     const pageData = JSON.parse(document.getElementById('dataProviders').innerHTML).data;
     currentUser = pageData['ms.vss-web.page-data'].user;
+    debug('init', pageData, currentUser);
 
     const theme = pageData['ms.vss-web.theme-data'].requestedThemeId;
     const isDarkTheme = /(dark|night|neptune)/i.test(theme);
@@ -64,7 +97,6 @@
 
     // Invoke our new eus-style features.
     watchPullRequestDashboard();
-    watchForNewLabels();
     watchForWorkItemForms();
     watchForNewDiffs(isDarkTheme);
     watchForShowMoreButtons();
@@ -75,6 +107,23 @@
       watchForKnownBuildErrors(pageData);
     }
 
+    eus.onUrl(/\/pullrequest\//gi, (session, urlMatch) => {
+      if (atNI) {
+        watchForLVDiffsAndAddNIBinaryDiffButton(session);
+        // MOVE THIS HERE: conditionallyAddBypassReminderAsync();
+      }
+
+      watchForStatusCardAndMoveToRightSideBar(session);
+      addEditButtons(session);
+    });
+
+    eus.onUrl(/\/(_git)/gi, (session, urlMatch) => {
+      doEditAction(session);
+    });
+
+    // Throttle page update events to avoid using up CPU when AzDO is adding a lot of elements during a short time (like on page load).
+    const onPageUpdatedThrottled = _.throttle(onPageUpdated, 400, { leading: false, trailing: true });
+
     // Handle any existing elements, flushing it to execute immediately.
     onPageUpdatedThrottled();
     onPageUpdatedThrottled.flush();
@@ -83,28 +132,49 @@
     $('body > div.full-size')[0].addEventListener('DOMNodeInserted', onPageUpdatedThrottled);
   }
 
+  function watchForStatusCardAndMoveToRightSideBar(session) {
+    if (!document.body.classList.contains('ni-pr-status-right-side')) return;
+
+    addStyleOnce('pr-overview-sidebar-css', /* css */ `
+      /* Make the sidebar wider to accommodate the status moving there. */
+      .repos-overview-right-pane {
+        width: 550px;
+      }`);
+
+    session.onEveryNew(document, '.page-content .flex-column > .bolt-table-card', status => {
+      $(status).prependTo('.repos-overview-right-pane');
+    });
+  }
+
+  function addEditButtons(session) {
+    session.onEveryNew(document, '.repos-summary-header > div:first-child .flex-column .secondary-text:nth-child(2)', path => {
+      const end = $(path).closest('.flex-row').find('.justify-end');
+      const branchUrl = $('.pr-header-branches a:first-child').attr('href');
+      const url = `${branchUrl}&path=${path.innerText}&_a=diff&azdouserscriptaction=edit`;
+      $('<a style="margin: 0px 1em;" class="flex-end bolt-button bolt-link-button enabled bolt-focus-treatment" data-focuszone="" data-is-focusable="true" target="_blank" role="link" onclick="window.open(this.href,\'popup\',\'width=600,height=600\'); return false;">Edit</a>').attr('href', url).appendTo(end);
+    });
+  }
+
+  async function doEditAction(session) {
+    if (window.location.search.indexOf('azdouserscriptaction=edit') >= 0) {
+      await eus.sleep(1500);
+      $('button#__bolt-edit').click();
+      $('div#__bolt-tab-diff').click();
+    }
+  }
+
   // This is "main()" for this script. Runs periodically when the page updates.
   function onPageUpdated() {
     try {
       // The page may not have refreshed when moving between URLs--sometimes AzDO acts as a single-page application. So we must always check where we are and act accordingly.
       if (/\/(pullrequest)\//i.test(window.location.pathname)) {
-        addBaseUpdateSelector();
-        makePullRequestDiffEasierToScroll();
-        applyStickyPullRequestComments();
-        highlightAwaitComments();
+        // TODO: BROKEN IN NEW PR UX: applyStickyPullRequestComments();
+        // TODO: BROKEN IN NEW PR UX: highlightAwaitComments();
         addAccessKeysToPullRequestTabs();
         if (atNI) {
           conditionallyAddBypassReminderAsync();
-          addNIBinaryDiffButton();
         }
         addTrophiesToPullRequest();
-        if (atNI && /\/DevCentral\/_git\/ASW\//i.test(window.location.pathname)) {
-          addNICodeOfDayToggle();
-        }
-      }
-
-      if (atNI) {
-        styleLabels();
       }
 
       if (/\/(pullrequests)/i.test(window.location.pathname)) {
@@ -158,15 +228,14 @@
   if (atNI) {
     addStyleOnce('ni-labels', /* css */ `
       /* Known labels we should style. */
-      .label--owners {
-      }
-      .label--draft {
+      .bolt-pill[aria-label='draft' i] {
         background: #8808 !important;
       }
-      .label--tiny {
+      .bolt-pill[aria-label='tiny' i] {
         background: #0a08 !important;
       }
-      .label--bypassowners {
+      .bolt-pill[aria-label~='blocked' i] {
+        background: #a008 !important;
       }`);
   }
 
@@ -175,11 +244,14 @@
       display: inline;
       position: absolute;
       top: 38px;
-      left: -450px;
+      left: -250px;
       z-index: 1000;
       background-color: #E6B307;
-      padding: 6px 12px;
-      border-radius: 6px;
+      color: #222;
+      font-weight: bold;
+      padding: 3ch 5ch;
+      font-size: 16px;
+      border-radius: 6px 0px 6px 6px;
       box-shadow: 4px 4px 4px #18181888;
       opacity: 0;
       transition: 0.3s;
@@ -191,7 +263,7 @@
     }
     .vote-button-wrapper {
       border: 3px solid transparent;
-      border-radius: 4px;
+      border-radius: 4px 4px 0px 0px;
       transition: 0.3s;
     }
     .vote-button-wrapper:hover {
@@ -201,28 +273,10 @@
       opacity: 1;
     }`);
 
-  function styleLabels() {
-    // Give all tags a CSS class based on their name.
-    $('.tag-box').once('labels').each(function () {
-      const tagBox = $(this);
-      const subClass = stringToCssIdentifier(tagBox.text());
-      tagBox.addClass(`label--${subClass}`);
-    });
-  }
-
-  function watchForNewLabels() {
-    // Give all tags a CSS class based on their name.
-    eus.globalSession.onEveryNew(document, '.bolt-pill', label => {
-      if (!label.ariaLabel) return;
-      const subClass = stringToCssIdentifier(label.ariaLabel);
-      label.classList.add(`label--${subClass}`);
-    });
-  }
-
   function watchForWorkItemForms() {
     eus.globalSession.onEveryNew(document, '.menu-item.follow-item-menu-item-gray', followButton => {
       followButton.addEventListener('click', async _ => {
-        await sleep(100); // We need to allow the other handlers to send the request to follow/unfollow. After the request is sent, we can annotate our follows list correctly.
+        await eus.sleep(100); // We need to allow the other handlers to send the request to follow/unfollow. After the request is sent, we can annotate our follows list correctly.
         await annotateWorkItemWithFollowerList(document.querySelector('.discussion-messages-right'));
       });
     });
@@ -279,7 +333,7 @@
         if (clicks >= 10) break;
 
         // eslint-disable-next-line no-await-in-loop
-        await sleep(100);
+        await eus.sleep(100);
       }
     });
 
@@ -302,13 +356,9 @@
         }
 
         // eslint-disable-next-line no-await-in-loop
-        await sleep(1000);
+        await eus.sleep(1000);
       }
     });
-  }
-
-  function stringToCssIdentifier(text) {
-    return encodeURIComponent(text.toLowerCase()).replace(/%[0-9A-F]{2}/gi, '');
   }
 
   function getRepoNameFromUrl(url) {
@@ -328,6 +378,7 @@
     });
   }
 
+  // eslint-disable-next-line no-unused-vars
   function highlightAwaitComments() {
     // Comments that start with this string are highlighted. No other behavior is given to them.
     const lowerCasePrefix = 'await:';
@@ -341,6 +392,7 @@
       }`);
   }
 
+  // eslint-disable-next-line no-unused-vars
   function applyStickyPullRequestComments() {
     // Comments that start with this string become sticky. Only the first comment of the thread counts.
     const lowerCasePrefix = 'note:';
@@ -356,7 +408,7 @@
     // Expand threads that have the sticky prefix.
     const lowerCasePrefixCssSelector = CSS.escape(`: "${lowerCasePrefix}`);
     $('.discussion-thread-host').once('expand-sticky-threads-on-load').each(async function () {
-      await sleep(100);
+      await eus.sleep(100);
       const button = this.querySelector(`button.ms-Button.expand-button[aria-label*="${lowerCasePrefixCssSelector}" i]`);
       if (button) {
         button.click();
@@ -366,7 +418,7 @@
 
   function addAccessKeysToPullRequestTabs() {
     // Give all the tabs an access key equal to their numeric position on screen.
-    $('ul.vc-pullrequest-tabs a').once('add-accesskeys').each(function () {
+    $('.repos-pr-details-page-tabbar a').once('add-accesskeys').each(function () {
       $(this).attr('accesskey', $(this).attr('aria-posinset'));
     });
   }
@@ -398,6 +450,26 @@
       }
       .zero-data-action:hover, .deployments-zero-data:hover {
         opacity: 1;
+      }
+      /* Make the My Work / My PR dropdown on the top-right of every page much bigger. */
+      .bolt-panel-callout-content.flyout-my-work {
+        max-height: 90vh;
+      }
+      /* Make PR comments more compact! */
+      .repos-discussion-comment-header {
+        margin-bottom: 4px;
+      }
+      /* swal CSS fixes, since AzDO overrides some styles that will conflict with dialogs. */
+      .swal2-footer {
+        opacity: 0.6;
+      }
+      .swal2-html-container {
+        text-align: left;
+      }
+      .swal2-html-container li {
+        list-style: disc;
+        margin-left: 4ch;
+        margin-bottom: 0.5em;
       }`);
   }
 
@@ -417,7 +489,7 @@
 
     const banner = document.createElement('div');
     banner.classList.add('bypass-reminder');
-    banner.appendChild(document.createTextNode('If you are confident the change needs no further review by others, please bypass owners.'));
+    banner.appendChild(document.createTextNode('If you are confident the change needs no further review, please bypass owners.'));
 
     if ($('.repos-pr-header-vote-button').length === 0) {
       // "old" PR experience
@@ -489,7 +561,10 @@
     }
   }
 
-  async function addNIBinaryDiffButton() {
+  async function watchForLVDiffsAndAddNIBinaryDiffButton(session) {
+    // NI Binary Diff is only supported on Windows
+    if (navigator.userAgent.indexOf('Windows') === -1) return;
+
     addStyleOnce('ni-binary-git-diff', /* css */ `
       .ni-binary-git-diff-button {
         border-color: #03b585;
@@ -510,12 +585,7 @@
     const prUrl = await getCurrentPullRequestUrlAsync();
     const iterations = (await $.get(`${prUrl}/iterations?api-version=5.0`)).value;
 
-    eus.globalSession.onEveryNew(document, '.bolt-messagebar.severity-info .bolt-messagebar-buttons', boltMessageBarButtons => {
-      if (eus.seen(boltMessageBarButtons)) return;
-
-      // NI Binary Diff is only supported on Windows
-      if (navigator.userAgent.indexOf('Windows') === -1) return;
-
+    session.onEveryNew(document, '.bolt-messagebar.severity-info .bolt-messagebar-buttons', boltMessageBarButtons => {
       const reposSummaryHeader = $(boltMessageBarButtons).closest('.repos-summary-header');
       const filePath = (reposSummaryHeader.length > 0 ? reposSummaryHeader : $('.repos-compare-toolbar'))
         .find('.secondary-text.text-ellipsis')[0].innerText;
@@ -560,131 +630,6 @@
 
       $(boltMessageBarButtons).append(launchDiffButton);
       $(boltMessageBarButtons).append(helpButton);
-    });
-  }
-
-  function makePullRequestDiffEasierToScroll() {
-    addStyleOnce('pr-diff-improvements', /* css */ `
-      .vc-change-summary-files .file-container {
-        /* Make the divs float but clear them so they get stacked on top of each other. We float so that the divs expand to take up the width of the text in it. Finally, we remove the overflow property so that they don't have scrollbars and also such that we can have sticky elements (apparently, sticky elements don't work if the div has overflow). */
-        float: left;
-        clear: both;
-        min-width: 95%;
-        overflow: initial;
-      }
-      .vc-change-summary-files .file-row {
-        /* Let the file name section of each diff stick to the top of the page if we're scrolling. */
-        position: sticky;
-        top: 0;
-        z-index: 100000;
-        padding-bottom: 10px;
-        background: var(--background-color,rgba(255, 255, 255, 1));
-      }
-      .vc-change-summary-files .vc-diff-viewer {
-        /* We borrowed padding from the diff to give to the bottom of the file row. So adjust accordingly (this value was originally 20px). */
-        padding-top: 10px;
-      }`);
-  }
-
-
-  // If we're on specific PR, add a base update selector.
-  function addBaseUpdateSelector() {
-    $('.vc-iteration-selector').once('add-base-selector').each(async function () {
-      const toolbar = $(this);
-
-      addStyleOnce('base-selector-css', /* css */ `
-        .base-selector {
-          color: var(--text-secondary-color);
-          margin: 0px 5px 0px 0px;
-        }
-        .base-selector select {
-          border: 1px solid transparent;
-          padding: 2px 4px;
-          width: 3em;
-          height: 100%;
-          text-align: center;
-        }
-        .base-selector select:hover {
-          border-color: var(--palette-black-alpha-20);
-        }
-        .base-selector select option {
-          background: var(--callout-background-color);
-          color: var(--text-primary-color);
-          font-family: Consolas, monospace;
-        }
-        .base-selector select option:disabled {
-          display: none;
-        }`);
-
-      // Get the PR iterations.
-      const prUrl = await getCurrentPullRequestUrlAsync();
-      const iterations = (await $.get(`${prUrl}/iterations?api-version=5.0`)).value;
-
-      // Create a dropdown with the first option being the icon we show to users. We use an HTML dropdown since its much easier to code than writing our own with divs/etc or trying to figure out how to use an AzDO dropdown.
-      const selector = $('<select><option value="" disabled selected>↦</option></select>');
-
-      // Add an option for each iteration in the dropdown, looking roughly the same as the AzDO update selector.
-      for (const iteration of iterations.reverse()) {
-        const date = Date.parse(iteration.createdDate);
-        const truncatedDescription = truncate(iteration.description);
-        const optionText = `Update ${iteration.id.toString().padEnd(4)} ${truncatedDescription.padEnd(61)} ${dateFns.distanceInWordsToNow(date).padStart(15)} ago`;
-        $('<option>').val(iteration.id).text(optionText).appendTo(selector);
-      }
-
-      // Add the last option to select the merge base as the diff base (essentially update zero).
-      $('<option value="0">            === Merge Base ===</option>').appendTo(selector);
-
-      // Replace spaces with non-breaking spaces (char 0xa0) to force the browser to not collapse it so that we can align the dates to the right of the dropdown. Apprently even `white-space: pre !important;` doesn't work on `option` element css.
-      selector.children('option').each(function () { $(this).text((i, text) => text.replace(/ /g, '\xa0')); });
-
-      // Finally add the dropdown to the toolbar.
-      $('<div class="base-selector" />').append(selector).prependTo(toolbar);
-
-      // When an option is selected, update the URL to include the selected base update.
-      selector.on('change', function (event) {
-        const currentUrl = new URL(window.location.href);
-        currentUrl.searchParams.set('base', $(this).first().val());
-        currentUrl.searchParams.set('iteration', currentUrl.searchParams.get('iteration') || iterations.length); // If we select a base without having an explicit iteration, compare the base to the latest.
-        window.location.href = currentUrl.toString();
-      });
-    });
-  }
-
-  // Add a button to toggle flagging a PR discussion thread for ASW "Code of the Day" blog posts.
-  function addNICodeOfDayToggle() {
-    function getThreadDataFromDOMElement(threadElement) {
-      return getPropertyThatStartsWith(threadElement, '__reactEventHandlers$').children[0].props.thread;
-    }
-
-    function updateButtonForCurrentState(jqElements, isFlagged) {
-      const flaggedIconClass = 'bowtie-live-update-feed-off';
-      const notFlaggedIconClass = 'bowtie-live-update-feed';
-      const classToAdd = isFlagged ? flaggedIconClass : notFlaggedIconClass;
-      const classToRemove = isFlagged ? notFlaggedIconClass : flaggedIconClass;
-      jqElements.find('.cod-toggle-icon').addClass(classToAdd).removeClass(classToRemove);
-      jqElements.attr('title', isFlagged ? 'Un-suggest for "Code of the Day" blog post' : 'Suggest for "Code of the Day" blog post');
-    }
-
-    $('.vc-discussion-comment-toolbar').once('add-cod-flag-support').each(async function () {
-      const thread = getThreadDataFromDOMElement($(this).closest('.vc-discussion-comments')[0]);
-      const isFlagged = findFlaggedThreadArrayIndex(await getNICodeOfTheDayThreadsAsync(), thread.id, currentUser.uniqueName) !== -1;
-      const button = $('<button type="button" class="ms-Button vc-discussion-comment-toolbarbutton ms-Button--icon cod-toggle"><i class="ms-Button-icon cod-toggle-icon bowtie-icon" role="presentation"></i></button>');
-      updateButtonForCurrentState(button, isFlagged);
-      button.prependTo(this);
-      button.click(async function (event) {
-        const isNowFlagged = await toggleThreadFlaggedForNICodeOfTheDay(await getCurrentPullRequestUrlAsync(), {
-          flaggedDate: new Date().toISOString(),
-          flaggedBy: currentUser.uniqueName,
-          pullRequestId: getCurrentPullRequestId(),
-          threadId: thread.id,
-          file: thread.itemPath,
-          threadAuthor: thread.comments[0].author.displayName,
-          threadContentShort: truncate(thread.comments[0].content || thread.comments[0].newContent, 100),
-        });
-
-        // Update the button visuals in this thread
-        updateButtonForCurrentState($(this).parents('.vc-discussion-comments').find('.cod-toggle'), isNowFlagged);
-      });
     });
   }
 
@@ -749,7 +694,7 @@
     const pr = await getPullRequestAsync(pullRequestId);
 
     // Sometimes, PRs lose their styling shortly after the page loads. A slight delay makes this problem go away, 99% of the time. Sucks -- but works and better to have this than not.
-    await sleep(333);
+    await eus.sleep(333);
 
     if (sectionTitle === 'Assigned to me') {
       const votes = countVotes(pr);
@@ -964,6 +909,9 @@
 
   function onFilesTreeChange() {
     const hasOwnersInfo = globalOwnersInfo && globalOwnersInfo.currentUserFileCount > 0;
+    if (!hasOwnersInfo) {
+      return;
+    }
 
     $('.repos-changes-explorer-tree .bolt-tree-row').each(function () {
       const fileRow = $(this);
@@ -983,12 +931,12 @@
       const isFolder = item[0].children[0].classList.contains('repos-folder-icon');
 
       // If we have owners info, mark folders that have files we need to review. This will allow us to highlight them if they are collapsed.
-      const folderContainsFilesToReview = hasOwnersInfo && isFolder && globalOwnersInfo.isCurrentUserResponsibleForFileInFolderPath(`${path}/`);
+      const folderContainsFilesToReview = isFolder && globalOwnersInfo.isCurrentUserResponsibleForFileInFolderPath(`${path}/`);
       fileRow.toggleClass('folder-to-review-row', folderContainsFilesToReview);
       fileRow.toggleClass('auto-collapsible-folder', !folderContainsFilesToReview);
 
       // If we have owners info, highlight the files we need to review and add role info.
-      const isFileToReview = hasOwnersInfo && !isFolder && globalOwnersInfo.isCurrentUserResponsibleForFile(path);
+      const isFileToReview = !isFolder && globalOwnersInfo.isCurrentUserResponsibleForFile(path);
       item.parent().toggleClass('file-to-review-row', isFileToReview);
       if (isFileToReview) {
         if (fileRow.find('.file-owners-role').length === 0) {
@@ -1049,10 +997,14 @@
           /* Set some constants for our CSS. */
           --file-to-review-header-color: rgba(0, 120, 212, 0.2);
         }
-        div .flex-row.file-to-review-header {
+        .repos-summary-header > .flex-row.file-to-review-header {
           /* Highlight files I need to review. */
-          background-color: var(--file-to-review-header-color) !important;
+          abackground-color: var(--file-to-review-header-color) !important;
           transition-duration: 0.2s;
+        }
+        .repos-summary-header > .flex-row.file-to-review-header > .flex-row {
+          background: none;
+          background-color: var(--file-to-review-header-color) !important;
         }
         .file-owners-role-header {
           /* Style the role of the user in the files table. */
@@ -1066,19 +1018,20 @@
       // Get owners info for this PR.
       const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(prUrl);
       const hasOwnersInfo = ownersInfo && ownersInfo.currentUserFileCount > 0;
+      if (!hasOwnersInfo) return;
 
       session.onEveryNew(document, '.repos-summary-header', diff => {
         const header = diff.children[0];
         const pathWithLeadingSlash = $(header).find('.secondary-text.text-ellipsis')[0].textContent;
         const path = pathWithLeadingSlash.substring(1); // Remove leading slash.
 
-        const isFileToReview = hasOwnersInfo && ownersInfo.isCurrentUserResponsibleForFile(path);
-        if (isFileToReview) {
+        if (ownersInfo.isCurrentUserResponsibleForFile(path)) {
           $(header).addClass('file-to-review-header');
-          $(header.children[1]).addClass('file-to-review-header');
-
 
           $('<div class="file-owners-role-header" />').text(`${ownersInfo.currentUserFilesToRole[path]}:`).prependTo(header.children[1]);
+        } else {
+          // TODO: Make this optional.
+          $(header).find('button[aria-label="Collapse"]').click();
         }
       });
     });
@@ -1133,12 +1086,12 @@
         try {
           queryResponse = await fetch(`${azdoApiBaseUrl}/DevCentral/_apis/git/repositories/tools/items?path=/report/build_failure_analysis/pipeline-results/known-issues.json&api-version=6.0`);
         } catch (err) {
-          console.warn('Could not fetch known issues file from AzDO');
+          debug('Could not fetch known issues file from AzDO');
           return;
         }
         const knownIssues = await queryResponse.json();
         if (!knownIssues.version.match(/^1(\.\d+)?$/)) {
-          console.warn(`Version ${knownIssues.version} of known-issues.json is not one I know what to do with`);
+          debug(`Version ${knownIssues.version} of known-issues.json is not one I know what to do with`);
           return;
         }
 
@@ -1438,14 +1391,14 @@
       }
     }
 
-    // For debugging: console.debug(`Supporting ${Object.keys(extensionToMode).length} extensions and ${Object.keys(fileToMode).length} special filenames`);
+    // For debugging: debug(`Supporting ${Object.keys(extensionToMode).length} extensions and ${Object.keys(fileToMode).length} special filenames`);
     return { extensionToMode, fileToMode };
   }
 
   function highlightDiff(language, fileName, part, diffContainer, selector) {
     if (!diffContainer) return;
 
-    // For debugging: console.debug(`Highlighting ${part} of <${fileName}> as ${language}`);
+    // For debugging: debug(`Highlighting ${part} of <${fileName}> as ${language}`);
 
     let stack = null;
     for (const line of diffContainer.querySelectorAll(selector)) {
@@ -1505,11 +1458,6 @@
     return $.get(`${azdoApiBaseUrl}/_apis/git/pullrequests/${actualId}?api-version=5.0`);
   }
 
-  // Async helper function to sleep.
-  function sleep(milliseconds) {
-    return new Promise(resolve => setTimeout(resolve, milliseconds));
-  }
-
   // Async helper function to get a specific PR property, otherwise return the default value.
   async function getPullRequestProperty(prUrl, key, defaultValue = null) {
     const properties = await $.get(`${prUrl}/properties?api-version=5.1-preview.1`);
@@ -1523,63 +1471,9 @@
     return (await $.get(url)).value.some(x => x.isBlocking && x.settings.statusName === 'owners-approved');
   }
 
-  // Cached "Code of the Day" thread data.
-  let niCodeOfTheDayThreadsArray = null;
-
-  // Async helper function to flag or unflag a PR discussion thread for National Instruments "Code of the Day" blog.
-  async function toggleThreadFlaggedForNICodeOfTheDay(prUrl, value) {
-    const flaggedComments = await getNICodeOfTheDayThreadsAsync();
-    const index = findFlaggedThreadArrayIndex(flaggedComments, value.threadId, value.flaggedBy);
-    if (index >= 0) {
-      // found, so unflag it
-      flaggedComments.splice(index, 1);
-    } else {
-      // not found, so flag it
-      flaggedComments.push(value);
-    }
-
-    const patch = [{
-      op: flaggedComments.length ? 'add' : 'remove',
-      path: '/NI.CodeOfTheDay',
-      value: flaggedComments.length ? JSON.stringify(flaggedComments) : null,
-    }];
-    try {
-      await $.ajax({
-        type: 'PATCH',
-        url: `${prUrl}/properties?api-version=5.1-preview.1`,
-        data: JSON.stringify(patch),
-        contentType: 'application/json-patch+json',
-      });
-    } catch (e) {
-      // invalidate cached value so we re-fetch
-      niCodeOfTheDayThreadsArray = null;
-    }
-
-    // re-query to get the current state of the flagged threads
-    return findFlaggedThreadArrayIndex((await getNICodeOfTheDayThreadsAsync()), value.threadId, value.flaggedBy) !== -1;
-  }
-
-  // Helper function to find the index of a flagged thread record within the provided array.
-  function findFlaggedThreadArrayIndex(flaggedCommentArray, threadId, flaggedBy) {
-    return _.findIndex(flaggedCommentArray, x => x.threadId === threadId && x.flaggedBy === flaggedBy);
-  }
-
-  // Async helper function to get the discussion threads (in the current PR) that have been flagged for "Code of the Day."
-  async function getNICodeOfTheDayThreadsAsync() {
-    if (!niCodeOfTheDayThreadsArray) {
-      niCodeOfTheDayThreadsArray = await getPullRequestProperty(await getCurrentPullRequestUrlAsync(), 'NI.CodeOfTheDay', []);
-    }
-    return niCodeOfTheDayThreadsArray;
-  }
-
   // Helper function to access an object member, where the exact, full name of the member is not known.
   function getPropertyThatStartsWith(instance, startOfName) {
     return instance[Object.getOwnPropertyNames(instance).find(x => x.startsWith(startOfName))];
-  }
-
-  // Helper function to limit a string to a certain length, adding an ellipsis if necessary.
-  function truncate(text, maxLength) {
-    return text.length > maxLength ? `${text.substring(0, maxLength - 3)}...` : text;
   }
 
   // Helper function to encode any string into an string that can be placed directly into HTML.
@@ -1650,10 +1544,5 @@
     return ownersInfo;
   }
 
-  // Start modifying the page once the DOM is ready.
-  if (document.readyState !== 'loading') {
-    onReady();
-  } else {
-    document.addEventListener('DOMContentLoaded', onReady);
-  }
+  main();
 }());
