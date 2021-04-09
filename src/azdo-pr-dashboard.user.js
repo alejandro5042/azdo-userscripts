@@ -56,7 +56,7 @@
 
   function main() {
     eus.globalSession.onFirst(document, 'body', async () => {
-      eus.registerCssClassConfig(document.body, 'PR Status Location', 'pr-status-location', 'ni-pr-status-right-side', {
+      eus.registerCssClassConfig(document.body, 'Configure PR Status Location', 'pr-status-location', 'ni-pr-status-right-side', {
         'ni-pr-status-default': 'Default',
         'ni-pr-status-right-side': 'Right Side',
       });
@@ -65,10 +65,10 @@
     eus.showTipOnce("release-2021-04-09", "New in the AzDO userscript", `
       <p>Highlights from the 2021-04-09 update:</p>
       <ul>
-        <li>An <strong>Edit</strong> button on PR diffs! No need to have source on your machine to make a quick edit.</li>
-        <li>Moved PR status block from above the PR description to the side. <em>But this is configurable...</em></li>
-        <li>AzDO userscript options! Click your userscript manager extension button for configuration.</li>
-        <li>Improved performance and support for the new AzDO UI. Making old things work again, slowly!</li>
+        <li>An <strong>Edit</strong> button on PR diffs! No need to have source to make a quick edit</li>
+        <li>Moved PR status block from above the PR description back to the side. But this is configurable (next bullet)</li>
+        <li>AzDO userscript options! Click your userscript manager extension button for configuration. More to show up here over time</li>
+        <li>Improved performance and support for the new AzDO UI. Making old stuff work again, slowly!</li>
       </ul>
       <hr>
       <p>Comments, bugs, suggestions? File an issue on <a href="https://github.com/alejandro5042/azdo-userscripts" target="_blank">GitHub</a> 🧡</p>
@@ -462,7 +462,7 @@
       }
       /* swal CSS fixes, since AzDO overrides some styles that will conflict with dialogs. */
       .swal2-footer {
-        opacity: 0.4;
+        opacity: 0.6;
       }
       .swal2-html-container {
         text-align: left;
