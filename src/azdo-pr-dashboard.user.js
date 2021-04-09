@@ -31,7 +31,7 @@
 
 // ==/UserScript==
 
-/* global swal */
+/* global eus, swal */
 
 (function () {
   'use strict';
