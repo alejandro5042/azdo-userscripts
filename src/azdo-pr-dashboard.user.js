@@ -1159,7 +1159,7 @@
               const knownBuildErrors = knownIssues.log_patterns;
               for (let k = 0; k < knownBuildErrors.length; k += 1) {
                 if (knownBuildErrors[k].category === 'Infrastructure' && new RegExp(knownBuildErrors[k].pipeline_match).test(pipelineName)) {
-                  let matchString = knownBuildErrors[k].match;
+                  const matchString = knownBuildErrors[k].match;
                   let matchFlag = 'g';
                   if (knownBuildErrors[k].match_flag === 'dotmatchall') {
                     matchFlag = 'gs';
