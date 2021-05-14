@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.0.1
+// @version      3.0.2
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -1160,10 +1160,11 @@
               for (let k = 0; k < knownBuildErrors.length; k += 1) {
                 if (knownBuildErrors[k].category === 'Infrastructure' && new RegExp(knownBuildErrors[k].pipeline_match).test(pipelineName)) {
                   let matchString = knownBuildErrors[k].match;
+                  let matchFlag = 'g';
                   if (knownBuildErrors[k].match_flag === 'dotmatchall') {
-                    matchString = matchString.replace('.', '[\\s\\S]');
+                    matchFlag = 'gs';
                   }
-                  const matches = log.match(new RegExp(matchString, 'g')) || [];
+                  const matches = log.match(new RegExp(matchString, matchFlag)) || [];
                   if (matches.length) {
                     let content = `${knownBuildErrors[k].cause} (x${matches.length})`;
                     if (knownBuildErrors[k].public_comment) {
