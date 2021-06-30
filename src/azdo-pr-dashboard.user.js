@@ -516,6 +516,36 @@
       container.append(banner);
 
       voteButton.append(container);
+      $(voteButton).prepend($(`<div
+  class="
+    repos-pr-header-vote-button
+    bolt-split-button
+    flex-stretch
+    inline-flex-row
+  "
+>
+  <div class="bypass-reminder-container">
+    <div
+      class="
+        bolt-split-button
+        flex-stretch
+        inline-flex-row
+        vote-button-wrapper
+      "
+    >
+      <button
+        class="bolt-split-button-main bolt-button enabled bolt-focus-treatment"
+        data-focuszone="focuszone-3"
+        data-is-focusable="true"
+        role="button"
+        tabindex="0"
+        type="button"
+      >
+        <span class="bolt-button-text body-m">Bypass Owners</span>
+      </button>
+    </div>
+  </div>
+</div>`).click(async function (x) { $('#__bolt-menu-button-1').click(); await eus.sleep(200); $('#__bolt-ext-menu-148-text').click(); }));
     }
   }
 
