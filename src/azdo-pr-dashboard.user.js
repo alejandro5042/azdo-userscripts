@@ -24,6 +24,9 @@
 // @require      https://cdn.jsdelivr.net/npm/sweetalert2@9.13.1/dist/sweetalert2.all.min.js#sha384-8oDwN6wixJL8kVeuALUvK2VlyyQlpEEN5lg6bG26x2lvYQ1HWAV0k8e2OwiWIX8X
 // @require      https://gist.githubusercontent.com/alejandro5042/af2ee5b0ad92b271cd2c71615a05da2c/raw/45da85567e48c814610f1627148feb063b873905/easy-userscripts.js#sha384-t7v/Pk2+HNbUjKwXkvcRQIMtDEHSH9w0xYtq5YdHnbYKIV7Jts9fSZpZq+ESYE4v
 
+// @require      https://unpkg.com/@popperjs/core@2
+// @require      https://unpkg.com/tippy.js@6
+
 // @require      https://highlightjs.org/static/highlight.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/js-yaml/3.14.0/js-yaml.min.js#sha512-ia9gcZkLHA+lkNST5XlseHz/No5++YBneMsDp1IZRJSbi1YqQvBeskJuG1kR+PH1w7E0bFgEZegcj0EwpXQnww==
 // @resource     linguistLanguagesYml https://raw.githubusercontent.com/github/linguist/master/lib/linguist/languages.yml?v=1
@@ -114,6 +117,7 @@
       }
 
       watchForStatusCardAndMoveToRightSideBar(session);
+      watchForReviewerList(session);
       addEditButtons(session);
     });
 
@@ -145,6 +149,84 @@
       $(status).prependTo('.repos-overview-right-pane');
     });
   }
+
+  async function watchForReviewerList(session) {
+    addStyleOnce('pr-ooo-reviewer', /* css */ `
+      .reviewer-status-message {
+        font-size: 0.7em;
+        margin-left: 2ch;
+        padding: 2px 3px;
+        border-radius: 4px;
+        background: var(--status-warning-background);
+        color: var(--status-warning-foreground);
+        cursor: pointer;
+      }
+      .reviewer-status-message.ooo {
+        background: var(--status-warning-background);
+        color: var(--status-warning-foreground);
+      }
+      .tippy-box[data-theme~='azdo-userscript'] {
+        padding: 5px 10px;
+      }
+      .tippy-box[data-theme~='azdo-userscript'] li {
+        list-style: disc;
+      }
+      .tippy-box[data-theme~='azdo-userscript'] h1 {
+        background: rgb(255, 255, 255, 0.3);
+        border-radius: 4px;
+        margin-top: 0;
+        padding: 5px 10px;
+        font-size: 1.1em;
+        text-align: center;
+      }
+      .tippy-box[data-theme~='azdo-userscript'] .user-message {
+      }`);
+
+    const ooo = await (await fetch("https://ni.visualstudio.com/8c36cb1d-ece7-4ec9-9c6b-409d081af0e8/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?path=%2Fcache%2FOutOfOffice_20210615.json&api-version=5.0")).json();
+    // if (ooo.version)
+    console.log(ooo);
+
+    session.onEveryNew(document, '.repos-overview-right-pane .repos-reviewer', async (reviewer) => {
+      const imageUrl = $(reviewer).find('.bolt-coin-content')[0].src;
+      const reviewerInfos = getPropertyThatStartsWith(reviewer.parentElement.parentElement, '__reactInternalInstance$').return.stateNode.state.values.reviewers;
+      const reviewerInfo = _.find(reviewerInfos, r => imageUrl.startsWith(r.identity.imageUrl));
+      const email = reviewerInfo.baseReviewer.uniqueName;
+
+      console.debug("New Reviewer:", email);
+
+      const reviewerOooInfo = ooo.values[email];
+      //const reviewerOooInfo = ooo.values[Object.keys(ooo.values)[0]];
+      if (!reviewerOooInfo) return;
+
+      const message = `Returns in ${dateFns.distanceInWordsToNow(reviewerOooInfo.end)}`;
+      const body = reviewerOooInfo.text;
+
+      const nameElement = $(reviewer).find('.body-m');
+      const messageElement = $('<span class="reviewer-status-message" />').addClass('ooo').text(message); // .attr('title', body)
+      nameElement.append(messageElement);
+
+      tippy(messageElement[0], {
+        content: `
+          <h1>Outlook Auto Response</h1>
+          <h1>${dateFns.format(reviewerOooInfo.start, "ddd, MMM D, YYYY")} - ${dateFns.format(reviewerOooInfo.end, "ddd, MMM D, YYYY")}</h1>
+          <p class="user-message">${body.replace(/\r?\n/ig, "<br>").replace(/â/g, "'").replace(/Â/g, "")}</p>`,
+        allowHTML: true,
+        arrow: true,
+        theme: 'azdo-userscript'
+      });
+    });
+  }
+
+// Howdy!
+// Iâm OoO on Paternity Leave! If this is an emergency, please hang up and dial 911.
+
+// See below for my backups, for anything else reach out to my manager @Mark Miller .
+// Â·          Anything Iâm Owners-Owner on, see my alternate 12
+// Â·          For Python-specific Working Group stuff or Python in general. Feel free to reach out to @Irwan Djajadi or @Matthew Shafer
+// Â·          For the Python Working Group, organizationally, reach out to @Jayson Ryckman
+// Â·          For component-inventory, reach out to @Brian Burgin
+// Â·          For any of my ambassador projects, talk to @Marshall Gallatin
+// Â·          For ReviewBoard, contact Build Tooling squad
 
   function addEditButtons(session) {
     session.onEveryNew(document, '.repos-summary-header > div:first-child .flex-column .secondary-text:nth-child(2)', path => {
