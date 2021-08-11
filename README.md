@@ -4,8 +4,6 @@
 
 A collection of userscripts to improve the Azure DevOps UI.
 
-Tested in Chrome and Firefox with the Violentmonkey extension. They may work with other setups.
-
 ## Getting Started
 
 1. [Install the Violentmonkey extension](https://violentmonkey.github.io/) (alternatively, [Tampermonkey](https://tampermonkey.net/))

@@ -1,5 +1,7 @@
 # Getting Help
 
+This userscript is maintained for Chrome, Firefox, and Edge with the Violentmonkey extension. They may work with other setups.
+
 ## Troubleshooting
 
 - Have you tried refreshing the page?
