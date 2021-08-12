@@ -83,7 +83,7 @@ Trophies are awarded for notable PRs and shown in a trophies section on the Over
 
 - [Support and troubleshooting](SUPPORT.md)
 - [Contributing to this project](CONTRIBUTING.md)
-- [GitHub Homepage](https://github.com/alejandro5042/azdo-userscripts)
+- [GitHub repo](https://github.com/alejandro5042/azdo-userscripts)
 
 ## Privacy
 
