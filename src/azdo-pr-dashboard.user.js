@@ -155,15 +155,26 @@
       .reviewer-status-message {
         font-size: 0.7em;
         margin-left: 2ch;
-        padding: 2px 3px;
+        padding: 0px 3px;
         border-radius: 4px;
-        background: var(--status-warning-background);
-        color: var(--status-warning-foreground);
         cursor: pointer;
+        border: 1px solid #ffffff22;
       }
       .reviewer-status-message.ooo {
         background: var(--status-warning-background);
         color: var(--status-warning-foreground);
+      }
+      .reviewer-status-message.owner {
+        background: rgba(var(--palette-primary), 1);
+        color: #fff;
+      }
+      .reviewer-status-message.alternate {
+        background: rgba(var(--palette-primary), 0.3);
+        color: #fff;
+      }
+      .reviewer-status-message.expert {
+        background: rgba(var(--palette-primary), 0.3);
+        color: #fff;
       }
       .tippy-box[data-theme~='azdo-userscript'] {
         padding: 5px 10px;
@@ -186,35 +197,69 @@
     // if (ooo.version)
     console.log(ooo);
 
+    // redo for every PR
+    // Get the current iteration of the PR.
+    const prUrl = await getCurrentPullRequestUrlAsync();
+
+    // Get owners info for this PR.
+    const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(prUrl);
+    console.log("OWNERS", ownersInfo);
+
     session.onEveryNew(document, '.repos-overview-right-pane .repos-reviewer', async (reviewer) => {
       const imageUrl = $(reviewer).find('.bolt-coin-content')[0].src;
       const reviewerInfos = getPropertyThatStartsWith(reviewer.parentElement.parentElement, '__reactInternalInstance$').return.stateNode.state.values.reviewers;
       const reviewerInfo = _.find(reviewerInfos, r => imageUrl.startsWith(r.identity.imageUrl));
       const email = reviewerInfo.baseReviewer.uniqueName;
-
-      console.debug("New Reviewer:", email);
+      const nameElement = $(reviewer).find('.body-m')[0];
+      console.debug("New Reviewer:", email, nameElement.innerText);
 
       const reviewerOooInfo = ooo.values[email];
       //const reviewerOooInfo = ooo.values[Object.keys(ooo.values)[0]];
-      if (!reviewerOooInfo) return;
-
-      const message = `Returns in ${dateFns.distanceInWordsToNow(reviewerOooInfo.end)}`;
-      const body = reviewerOooInfo.text;
-
-      const nameElement = $(reviewer).find('.body-m');
-      const messageElement = $('<span class="reviewer-status-message" />').addClass('ooo').text(message); // .attr('title', body)
-      nameElement.append(messageElement);
-
-      tippy(messageElement[0], {
-        content: `
+      if (reviewerOooInfo) {
+        const label = `Returns in ${dateFns.distanceInWordsToNow(reviewerOooInfo.end)}`;
+        const tooltipHtml =`
           <h1>Outlook Auto Response</h1>
           <h1>${dateFns.format(reviewerOooInfo.start, "ddd, MMM D, YYYY")} - ${dateFns.format(reviewerOooInfo.end, "ddd, MMM D, YYYY")}</h1>
-          <p class="user-message">${body.replace(/\r?\n/ig, "<br>").replace(/â/g, "'").replace(/Â/g, "")}</p>`,
+          <p class="user-message">${reviewerOooInfo.text.replace(/\r?\n/ig, "<br>").replace(/â/g, "'").replace(/Â/g, "")}</p>`;
+
+        annotateReviewer(nameElement, 'ooo', label, tooltipHtml);
+      }
+
+      if (ownersInfo) {
+        const reviewerIdentityIndex = _.findIndex(ownersInfo.reviewProperties.reviewerIdentities, r => r.email === email);
+        if (reviewerIdentityIndex >= 0) {
+          function annotateReviewerRole(label, cssClass, matcher) {
+            const files = _.filter(ownersInfo.reviewProperties.fileProperties, matcher).map(f => f.path);
+            if (files.length > 0) {
+              //const fileListing = _.map(files, f => `${f}`).join('<hr>');
+              const fileListing =
+                _.sort(files)
+                .groupBy(f => f.substring(0,path.lastIndexOf("/") + 1))
+                .map(f => f.substring(0,path.lastIndexOf("/") + 1))
+                .map(files, f => `${f}`).join('<hr>');
+              annotateReviewer(nameElement, cssClass, `${files.length}× ${label}`, "<div style='word-wrap : break-word;'>" + fileListing + "</div>");
+            }
+          }
+
+          annotateReviewerRole('owner', 'owner', f => f.owner === reviewerIdentityIndex);
+          annotateReviewerRole('alternate', 'alternate', f => f.alternate === reviewerIdentityIndex);
+          annotateReviewerRole('expert', 'expert', f => _.some(f.experts, e => e === reviewerIdentityIndex));
+        }
+      }
+    });
+  }
+
+  function annotateReviewer(nameElement, cssClass, label, tooltipHtml) {
+      const messageElement = $('<span class="reviewer-status-message" />').addClass(cssClass).text(label);
+
+      tippy(messageElement[0], {
+        content: tooltipHtml,
         allowHTML: true,
         arrow: true,
         theme: 'azdo-userscript'
       });
-    });
+
+      $(nameElement).append(messageElement);
   }
 
 // Howdy!
@@ -1592,6 +1637,7 @@
       isCurrentUserResponsibleForFileInFolderPath(folderPath) {
         return Object.keys(this.currentUserFilesToRole).some(path => path.startsWith(folderPath));
       },
+      reviewProperties
     };
 
     // See if the current user is listed in this PR.
