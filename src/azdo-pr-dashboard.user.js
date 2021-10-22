@@ -150,6 +150,37 @@
     });
   }
 
+  async function getSupplementalData(key, secondsToCache, url) {
+    const now = new Date();
+    let value;
+
+    let cached;
+    try {
+      cached = JSON.parse(GM_getValue(key, "null"))
+    } catch {
+      cached = null;
+    }
+    if (cached && cached.version === 1 && now < Date.parse(cached.expiryDate)) {
+      value = cached.value;
+    } else {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw `Bad status ${response.status} for <${url}>`;
+      } else {
+        value = await response.json();
+      }
+    }
+
+    const expirationDate = new Date(now + (secondsToCache * 1000));
+    GM_setValue(key, JSON.stringify({
+      version: 1,
+      expiryDate: expirationDate.toISOString(),
+      value
+    }));
+
+    return value;
+  }
+
   async function watchForReviewerList(session) {
     addStyleOnce('pr-ooo-reviewer', /* css */ `
       .reviewer-status-message {
@@ -159,6 +190,7 @@
         border-radius: 4px;
         cursor: pointer;
         border: 1px solid #ffffff22;
+        float: right;
       }
       .reviewer-status-message.ooo {
         background: var(--status-warning-background);
@@ -174,6 +206,10 @@
       }
       .reviewer-status-message.expert {
         background: rgba(var(--palette-primary), 0.3);
+        color: #fff;
+      }
+      .reviewer-status-message.squad {
+        background: rgba(var(--palette-primary), 0.1);
         color: #fff;
       }
       .tippy-box[data-theme~='azdo-userscript'] {
@@ -193,19 +229,31 @@
       .tippy-box[data-theme~='azdo-userscript'] .user-message {
       }`);
 
-    const ooo = await (await fetch("https://ni.visualstudio.com/8c36cb1d-ece7-4ec9-9c6b-409d081af0e8/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?path=%2Fcache%2FOutOfOffice_20210615.json&api-version=5.0")).json();
-    // if (ooo.version)
-    console.log(ooo);
-
-    // redo for every PR
-    // Get the current iteration of the PR.
     const prUrl = await getCurrentPullRequestUrlAsync();
-
-    // Get owners info for this PR.
     const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(prUrl);
-    console.log("OWNERS", ownersInfo);
 
-    session.onEveryNew(document, '.repos-overview-right-pane .repos-reviewer', async (reviewer) => {
+    let ooo;
+    try {
+      ooo = await getSupplementalData('ooo', 12 * 60 * 60, "https://ni.visualstudio.com/8c36cb1d-ece7-4ec9-9c6b-409d081af0e8/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?api-version=5.0&path=/cache/OutOfOffice_20210615.json");
+      if (ooo.version === 1) {
+        // ok
+      } else {
+        throw `Invalid version: ${ooo.version}`;
+      }
+    } catch (e) {
+      ooo = null;
+      console.log(`Cannot annotate out-of-office info on PRs: ${e}`)
+    }
+
+    let squads;
+    try {
+      squads = await getSupplementalData('squads', 12 * 60 * 60, "https://ni.visualstudio.com/8c36cb1d-ece7-4ec9-9c6b-409d081af0e8/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?api-version=5.0&path=/cache/virtualTeams.json");
+    } catch (e) {
+      squads = null;
+      console.log(`Cannot annotate squad info on PRs: ${e}`)
+    }
+
+    session.onEveryNew(document, '.repos-pr-details-page .repos-reviewer', async (reviewer) => {
       const imageUrl = $(reviewer).find('.bolt-coin-content')[0].src;
       const reviewerInfos = getPropertyThatStartsWith(reviewer.parentElement.parentElement, '__reactInternalInstance$').return.stateNode.state.values.reviewers;
       const reviewerInfo = _.find(reviewerInfos, r => imageUrl.startsWith(r.identity.imageUrl));
@@ -213,7 +261,7 @@
       const nameElement = $(reviewer).find('.body-m')[0];
       console.debug("New Reviewer:", email, nameElement.innerText);
 
-      const reviewerOooInfo = ooo.values[email];
+      const reviewerOooInfo = ooo?.values[email];
       //const reviewerOooInfo = ooo.values[Object.keys(ooo.values)[0]];
       if (reviewerOooInfo) {
         const label = `Returns in ${dateFns.distanceInWordsToNow(reviewerOooInfo.end)}`;
@@ -231,12 +279,7 @@
           function annotateReviewerRole(label, cssClass, matcher) {
             const files = _.filter(ownersInfo.reviewProperties.fileProperties, matcher).map(f => f.path);
             if (files.length > 0) {
-              //const fileListing = _.map(files, f => `${f}`).join('<hr>');
-              const fileListing =
-                _.sort(files)
-                .groupBy(f => f.substring(0,path.lastIndexOf("/") + 1))
-                .map(f => f.substring(0,path.lastIndexOf("/") + 1))
-                .map(files, f => `${f}`).join('<hr>');
+              const fileListing = files.sort().map(f => `<li>${escapeStringForHtml(f)}</li>`).join('');
               annotateReviewer(nameElement, cssClass, `${files.length}× ${label}`, "<div style='word-wrap : break-word;'>" + fileListing + "</div>");
             }
           }
@@ -244,6 +287,13 @@
           annotateReviewerRole('owner', 'owner', f => f.owner === reviewerIdentityIndex);
           annotateReviewerRole('alternate', 'alternate', f => f.alternate === reviewerIdentityIndex);
           annotateReviewerRole('expert', 'expert', f => _.some(f.experts, e => e === reviewerIdentityIndex));
+        }
+      }
+
+      if (squads) {
+        const squadMembership = _.find(squads, s => s.TeamMemberEmail === email) ?? _.find(squads, s => s.TeamLeadEmail === email);
+        if (squadMembership) {
+          annotateReviewer(nameElement, 'squad', escapeStringForHtml(squadMembership.TeamName), `Led by ${escapeStringForHtml(squadMembership.TeamLeadEmail)}`);
         }
       }
     });
@@ -256,7 +306,8 @@
         content: tooltipHtml,
         allowHTML: true,
         arrow: true,
-        theme: 'azdo-userscript'
+        theme: 'azdo-userscript',
+        maxWidth: 'none'
       });
 
       $(nameElement).append(messageElement);
