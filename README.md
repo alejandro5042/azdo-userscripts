@@ -97,4 +97,4 @@ Inspired by a PR filtering script originally written by Tian Yu, which faded out
 
 ## License
 
-[MIT](LICENSE). Issues and pull requests welcomed!
+[MIT](LICENSE). Issues and pull requests welcomed ❤️
