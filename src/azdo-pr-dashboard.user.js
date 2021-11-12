@@ -196,6 +196,10 @@
         background: var(--status-warning-background);
         color: var(--status-warning-foreground);
       }
+      .reviewer-status-message.flag {
+        background: none;
+        border: none;
+      }
       .reviewer-status-message.owner {
         background: rgba(var(--palette-primary), 1);
         color: #fff;
@@ -232,26 +236,48 @@
     const prUrl = await getCurrentPullRequestUrlAsync();
     const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(prUrl);
 
-    let ooo;
+    let oooInfo;
+    let oooByEmail;
     try {
-      ooo = await getSupplementalData('ooo', 12 * 60 * 60, "https://ni.visualstudio.com/8c36cb1d-ece7-4ec9-9c6b-409d081af0e8/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?api-version=5.0&path=/cache/OutOfOffice_20210615.json");
-      if (ooo.version === 1) {
-        // ok
+      oooInfo = await getSupplementalData('ooo', 12 * 60 * 60, `${azdoApiBaseUrl}/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?api-version=6.0&path=/data/outOfOfficeLatest.json&version=users/abarreto/userscript-support`);
+      if (oooInfo.version === 1) {
+        // DEAL WITH OLD OOO DATA
+        oooByEmail = _.keyBy(oooInfo.value, 'Email');
       } else {
-        throw `Invalid version: ${ooo.version}`;
+        throw `Invalid version: ${oooInfo.version}`;
       }
     } catch (e) {
-      ooo = null;
+      oooInfo = null;
+      console.log(`Cannot annotate out-of-office info on PRs: ${e}`)
+    }
+
+    let employeeInfo;
+    let employeeByEmail;
+    let me;
+    try {
+      employeeInfo = await getSupplementalData('employees', 12 * 60 * 60, `${azdoApiBaseUrl}/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?api-version=6.0&path=/data/employeesLatest.json&version=users/abarreto/userscript-support`);
+      if (employeeInfo.version === 1) {
+        // DEAL WITH OLD OOO DATA
+        employeeByEmail = _.keyBy(employeeInfo.value, 'email');
+        me = employeeByEmail[currentUser.uniqueName];
+      } else {
+        throw `Invalid version: ${employeeInfo.version}`;
+      }
+    } catch (e) {
+      employeeInfo = null;
       console.log(`Cannot annotate out-of-office info on PRs: ${e}`)
     }
 
     let squads;
     try {
-      squads = await getSupplementalData('squads', 12 * 60 * 60, "https://ni.visualstudio.com/8c36cb1d-ece7-4ec9-9c6b-409d081af0e8/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?api-version=5.0&path=/cache/virtualTeams.json");
+      squads = await getSupplementalData('squads', 12 * 60 * 60, `${azdoApiBaseUrl}/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?api-version=6.0&path=/cache/virtualTeams.json&version=users/abarreto/userscript-support`);
     } catch (e) {
       squads = null;
       console.log(`Cannot annotate squad info on PRs: ${e}`)
     }
+
+    console.log("OOO", oooByEmail);
+    console.log("Employees", employeeByEmail);
 
     session.onEveryNew(document, '.repos-pr-details-page .repos-reviewer', async (reviewer) => {
       const imageUrl = $(reviewer).find('.bolt-coin-content')[0].src;
@@ -260,18 +286,6 @@
       const email = reviewerInfo.baseReviewer.uniqueName;
       const nameElement = $(reviewer).find('.body-m')[0];
       console.debug("New Reviewer:", email, nameElement.innerText);
-
-      const reviewerOooInfo = ooo?.values[email];
-      //const reviewerOooInfo = ooo.values[Object.keys(ooo.values)[0]];
-      if (reviewerOooInfo) {
-        const label = `Returns in ${dateFns.distanceInWordsToNow(reviewerOooInfo.end)}`;
-        const tooltipHtml =`
-          <h1>Outlook Auto Response</h1>
-          <h1>${dateFns.format(reviewerOooInfo.start, "ddd, MMM D, YYYY")} - ${dateFns.format(reviewerOooInfo.end, "ddd, MMM D, YYYY")}</h1>
-          <p class="user-message">${reviewerOooInfo.text.replace(/\r?\n/ig, "<br>").replace(/â/g, "'").replace(/Â/g, "")}</p>`;
-
-        annotateReviewer(nameElement, 'ooo', label, tooltipHtml);
-      }
 
       if (ownersInfo) {
         const reviewerIdentityIndex = _.findIndex(ownersInfo.reviewProperties.reviewerIdentities, r => r.email === email);
@@ -290,25 +304,78 @@
         }
       }
 
+      if (employeeInfo) {
+        const employee = employeeByEmail[email];
+        if (employee) {
+          if (me.country !== employee.country) {
+            annotateReviewer(nameElement, 'flag', `<img style="height: 1.2em" src="https://flagcdn.com/h20/${employee.country.toLowerCase()}.png" alt='${employee.country} flag' />`, escapeStringForHtml(employee.location_code));
+          }
+
+          switch (employee.status) {
+            case "Active Assignment":
+              break;
+            case "Terminate Assignment":
+              annotateReviewer(nameElement, 'ooo', "Ex-Employee");
+              break;
+            default:
+              annotateReviewer(nameElement, 'ooo', escapeStringForHtml(employee.status));
+              break;
+          }
+
+          //annotateReviewer(nameElement, 'ooo', getFlagEmoji(employee.country), escapeStringForHtml(employee.location_code));
+          // const label = `Returns in ${dateFns.distanceInWordsToNow(employee.End)}`;
+          // const tooltipHtml =`
+          //   <h1>Outlook Auto Response</h1>
+          //   <h1>${dateFns.format(employee.Start, "ddd, MMM D, YYYY")} - ${dateFns.format(employee.End, "ddd, MMM D, YYYY")}</h1>
+          //   <p class="user-message">${employee.Text.replace(/\r?\n/ig, "<br>").replace(/â/g, "'").replace(/Â/g, "")}</p>`;
+
+          // annotateReviewer(nameElement, 'ooo', label, tooltipHtml);
+        }
+      }
+
+      if (oooInfo) {
+        const ooo = oooByEmail[email];
+        if (ooo) {
+          const label = `Returns in ${dateFns.distanceInWordsToNow(ooo.End)}`;
+          const tooltipHtml =`
+            <h1>Outlook Auto Response</h1>
+            <h1>${dateFns.format(ooo.Start, "ddd, MMM D, YYYY")} - ${dateFns.format(ooo.End, "ddd, MMM D, YYYY")}</h1>
+            <p class="user-message">${ooo.Text.replace(/\r?\n/ig, "<br>").replace(/â/g, "'").replace(/Â/g, "")}</p>`;
+
+          annotateReviewer(nameElement, 'ooo', escapeStringForHtml(label), tooltipHtml);
+        }
+      }
+
       if (squads) {
         const squadMembership = _.find(squads, s => s.TeamMemberEmail === email) ?? _.find(squads, s => s.TeamLeadEmail === email);
         if (squadMembership) {
-          annotateReviewer(nameElement, 'squad', escapeStringForHtml(squadMembership.TeamName), `Led by ${escapeStringForHtml(squadMembership.TeamLeadEmail)}`);
+          //annotateReviewer(nameElement, 'squad', escapeStringForHtml(squadMembership.TeamName), `Led by ${escapeStringForHtml(squadMembership.TeamLeadEmail)}`);
         }
       }
     });
   }
 
-  function annotateReviewer(nameElement, cssClass, label, tooltipHtml) {
-      const messageElement = $('<span class="reviewer-status-message" />').addClass(cssClass).text(label);
+  // https://dev.to/jorik/country-code-to-flag-emoji-a21
+  function getFlagEmoji(countryCode) {
+    const codePoints = countryCode
+      .toUpperCase()
+      .split('')
+      .map(char =>  127397 + char.charCodeAt());
+    return String.fromCodePoint(...codePoints);
+  }
 
-      tippy(messageElement[0], {
-        content: tooltipHtml,
-        allowHTML: true,
-        arrow: true,
-        theme: 'azdo-userscript',
-        maxWidth: 'none'
-      });
+  function annotateReviewer(nameElement, cssClass, labelHtml, tooltipHtml) {
+      const messageElement = $('<span class="reviewer-status-message" />').addClass(cssClass).html(labelHtml);
+
+      if (tooltipHtml) {
+        tippy(messageElement[0], {
+          content: tooltipHtml,
+          allowHTML: true,
+          arrow: true,
+          theme: 'azdo-userscript',
+          maxWidth: 'none'
+        });
+      }
 
       $(nameElement).append(messageElement);
   }
