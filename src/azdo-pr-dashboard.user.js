@@ -113,11 +113,11 @@
     eus.onUrl(/\/pullrequest\//gi, (session, urlMatch) => {
       if (atNI) {
         watchForLVDiffsAndAddNIBinaryDiffButton(session);
+        watchForReviewerList(session);
         // MOVE THIS HERE: conditionallyAddBypassReminderAsync();
       }
 
       watchForStatusCardAndMoveToRightSideBar(session);
-      watchForReviewerList(session);
       addEditButtons(session);
     });
 
@@ -150,7 +150,7 @@
     });
   }
 
-  async function getSupplementalData(key, secondsToCache, url) {
+  async function fetchJsonAndCache(key, secondsToCache, url) {
     const now = new Date();
     let value;
 
@@ -239,9 +239,8 @@
     let oooInfo;
     let oooByEmail;
     try {
-      oooInfo = await getSupplementalData('ooo', 12 * 60 * 60, `${azdoApiBaseUrl}/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?api-version=6.0&path=/data/outOfOfficeLatest.json&version=users/abarreto/userscript-support`);
+      oooInfo = await fetchJsonAndCache('ooo', 12 * 60 * 60, `${azdoApiBaseUrl}/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?api-version=6.0&path=/data/outOfOfficeLatest.json&version=users/abarreto/userscript-support`);
       if (oooInfo.version === 1) {
-        // DEAL WITH OLD OOO DATA
         oooByEmail = _.keyBy(oooInfo.value, 'Email');
       } else {
         throw `Invalid version: ${oooInfo.version}`;
@@ -255,7 +254,7 @@
     let employeeByEmail;
     let me;
     try {
-      employeeInfo = await getSupplementalData('employees', 12 * 60 * 60, `${azdoApiBaseUrl}/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?api-version=6.0&path=/data/employeesLatest.json&version=users/abarreto/userscript-support`);
+      employeeInfo = await fetchJsonAndCache('employees', 12 * 60 * 60, `${azdoApiBaseUrl}/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?api-version=6.0&path=/data/employeesLatest.json&version=users/abarreto/userscript-support`);
       if (employeeInfo.version === 1) {
         // DEAL WITH OLD OOO DATA
         employeeByEmail = _.keyBy(employeeInfo.value, 'email');
@@ -270,7 +269,7 @@
 
     let squads;
     try {
-      squads = await getSupplementalData('squads', 12 * 60 * 60, `${azdoApiBaseUrl}/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?api-version=6.0&path=/cache/virtualTeams.json&version=users/abarreto/userscript-support`);
+      squads = await fetchJsonAndCache('squads', 12 * 60 * 60, `${azdoApiBaseUrl}/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?api-version=6.0&path=/cache/virtualTeams.json&version=users/abarreto/userscript-support`);
     } catch (e) {
       squads = null;
       console.log(`Cannot annotate squad info on PRs: ${e}`)
