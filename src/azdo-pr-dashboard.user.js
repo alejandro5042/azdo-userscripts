@@ -182,7 +182,7 @@
   }
 
   async function watchForReviewerList(session) {
-    addStyleOnce('pr-ooo-reviewer', /* css */ `
+    addStyleOnce('pr-reviewer-annotations', /* css */ `
       .reviewer-status-message {
         font-size: 0.7em;
         margin-left: 2ch;
@@ -212,10 +212,6 @@
         background: rgba(var(--palette-primary), 0.3);
         color: #fff;
       }
-      .reviewer-status-message.squad {
-        background: rgba(var(--palette-primary), 0.1);
-        color: #fff;
-      }
       .tippy-box[data-theme~='azdo-userscript'] {
         padding: 5px 10px;
       }
@@ -241,6 +237,9 @@
     try {
       oooInfo = await fetchJsonAndCache('ooo', 12 * 60 * 60, `${azdoApiBaseUrl}/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?api-version=6.0&path=/data/outOfOfficeLatest.json&version=users/abarreto/userscript-support`);
       if (oooInfo.version === 1) {
+        // const dataDate = Date.parse(oooInfo.date);
+        // if (dateFnd.distan)
+        // DEAL WITH OLD OOO DATA
         oooByEmail = _.keyBy(oooInfo.value, 'Email');
       } else {
         throw `Invalid version: ${oooInfo.version}`;
@@ -265,14 +264,6 @@
     } catch (e) {
       employeeInfo = null;
       console.log(`Cannot annotate out-of-office info on PRs: ${e}`)
-    }
-
-    let squads;
-    try {
-      squads = await fetchJsonAndCache('squads', 12 * 60 * 60, `${azdoApiBaseUrl}/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?api-version=6.0&path=/cache/virtualTeams.json&version=users/abarreto/userscript-support`);
-    } catch (e) {
-      squads = null;
-      console.log(`Cannot annotate squad info on PRs: ${e}`)
     }
 
     console.log("OOO", oooByEmail);
@@ -320,15 +311,6 @@
               annotateReviewer(nameElement, 'ooo', escapeStringForHtml(employee.status));
               break;
           }
-
-          //annotateReviewer(nameElement, 'ooo', getFlagEmoji(employee.country), escapeStringForHtml(employee.location_code));
-          // const label = `Returns in ${dateFns.distanceInWordsToNow(employee.End)}`;
-          // const tooltipHtml =`
-          //   <h1>Outlook Auto Response</h1>
-          //   <h1>${dateFns.format(employee.Start, "ddd, MMM D, YYYY")} - ${dateFns.format(employee.End, "ddd, MMM D, YYYY")}</h1>
-          //   <p class="user-message">${employee.Text.replace(/\r?\n/ig, "<br>").replace(/â/g, "'").replace(/Â/g, "")}</p>`;
-
-          // annotateReviewer(nameElement, 'ooo', label, tooltipHtml);
         }
       }
 
@@ -344,23 +326,7 @@
           annotateReviewer(nameElement, 'ooo', escapeStringForHtml(label), tooltipHtml);
         }
       }
-
-      if (squads) {
-        const squadMembership = _.find(squads, s => s.TeamMemberEmail === email) ?? _.find(squads, s => s.TeamLeadEmail === email);
-        if (squadMembership) {
-          //annotateReviewer(nameElement, 'squad', escapeStringForHtml(squadMembership.TeamName), `Led by ${escapeStringForHtml(squadMembership.TeamLeadEmail)}`);
-        }
-      }
     });
-  }
-
-  // https://dev.to/jorik/country-code-to-flag-emoji-a21
-  function getFlagEmoji(countryCode) {
-    const codePoints = countryCode
-      .toUpperCase()
-      .split('')
-      .map(char =>  127397 + char.charCodeAt());
-    return String.fromCodePoint(...codePoints);
   }
 
   function annotateReviewer(nameElement, cssClass, labelHtml, tooltipHtml) {
@@ -378,17 +344,6 @@
 
       $(nameElement).append(messageElement);
   }
-
-// Howdy!
-// Iâm OoO on Paternity Leave! If this is an emergency, please hang up and dial 911.
-
-// See below for my backups, for anything else reach out to my manager @Mark Miller .
-// Â·          Anything Iâm Owners-Owner on, see my alternate 12
-// Â·          For Python-specific Working Group stuff or Python in general. Feel free to reach out to @Irwan Djajadi or @Matthew Shafer
-// Â·          For the Python Working Group, organizationally, reach out to @Jayson Ryckman
-// Â·          For component-inventory, reach out to @Brian Burgin
-// Â·          For any of my ambassador projects, talk to @Marshall Gallatin
-// Â·          For ReviewBoard, contact Build Tooling squad
 
   function addEditButtons(session) {
     session.onEveryNew(document, '.repos-summary-header > div:first-child .flex-column .secondary-text:nth-child(2)', path => {
