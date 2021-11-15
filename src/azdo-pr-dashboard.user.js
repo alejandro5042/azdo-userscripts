@@ -160,7 +160,7 @@
     let cached;
     try {
       cached = JSON.parse(GM_getValue(key, "null"));
-    } catch {
+    } catch (e) {
       cached = null;
     }
     if (cached && cached.version === 1 && now < Date.parse(cached.expiryDate)) {
