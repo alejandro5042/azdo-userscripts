@@ -290,7 +290,7 @@
       const imageUrl = $(reviewer).find('.bolt-coin-content')[0].src;
       const reviewerInfos = getPropertyThatStartsWith(reviewer.parentElement.parentElement, '__reactInternalInstance$').return.stateNode.state.values.reviewers;
       const reviewerInfo = _.find(reviewerInfos, r => imageUrl.startsWith(r.identity.imageUrl));
-      const email = reviewerInfo.baseReviewer.uniqueName;
+      const email = reviewerInfo.baseReviewer.uniqueName.toLowerCase();
       const nameElement = $(reviewer).find('.body-m')[0];
       console.debug("New Reviewer:", email, nameElement.innerText);
 
