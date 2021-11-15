@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.0.2
+// @version      3.1.0
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -119,6 +119,7 @@
 
     eus.onUrl(/\/(_git)/gi, (session, urlMatch) => {
       doEditAction(session);
+      watchForRepoBrowsingPages(session);
     });
 
     // Throttle page update events to avoid using up CPU when AzDO is adding a lot of elements during a short time (like on page load).
@@ -318,6 +319,36 @@
 
     const annotation = `<div class="work-item-followers-list" style="margin: 1em 0em; opacity: 0.8"><span class="menu-item-icon bowtie-icon bowtie-watch-eye-fill" aria-hidden="true"></span> ${followerList}</div>`;
     commentEditor.insertAdjacentHTML('BeforeEnd', annotation);
+  }
+
+  function watchForRepoBrowsingPages(session) {
+    // Add a copy branch button.
+    session.onEveryNew(document, '.version-dropdown > button', versionSelector => {
+      if (eus.seen(versionSelector)) return;
+
+      const copyButton = $('<button />')
+        .attr('class', 'bolt-header-command-item-button bolt-button bolt-icon-button enabled bolt-focus-treatment')
+        .css('font-family', 'Bowtie')
+        .css('font-size', '14px')
+        .css('font-weight', 'normal')
+        .attr('title', 'Copy branch name to clipboard')
+        .text('\uE94B') // A copy icon in the Bowtie font.
+        .click(event => {
+          const branchName = $(versionSelector).find('.bolt-dropdown-expandable-button-label').text();
+
+          navigator.clipboard.writeText(branchName);
+
+          eus.toast.fire({
+            title: 'AzDO userscript',
+            text: `Copied branch name to clipboard: ${branchName}`,
+            icon: 'info',
+          });
+
+          event.stopPropagation();
+        });
+
+      $(versionSelector).after(copyButton);
+    });
   }
 
   function watchForShowMoreButtons() {
