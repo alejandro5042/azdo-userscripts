@@ -235,11 +235,14 @@
     let oooInfo;
     let oooByEmail;
     try {
-      oooInfo = await fetchJsonAndCache('ooo', 12 * 60 * 60, `${azdoApiBaseUrl}/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?api-version=6.0&path=/data/outOfOfficeLatest.json&version=users/abarreto/userscript-support`);
+      oooInfo = await fetchJsonAndCache('outOfOfficeLatest', 12 * 60 * 60, `${azdoApiBaseUrl}/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?api-version=6.0&path=/data/outOfOfficeLatest.json&version=main`);
       if (oooInfo.version === 1) {
-        // const dataDate = Date.parse(oooInfo.date);
-        // if (dateFnd.distan)
-        // DEAL WITH OLD OOO DATA
+        const dataDate = dateFns.parse(oooInfo.date);
+        if (dateFns.differenceInDays(new Date(), dataDate) >= 3) {
+          // This data is too old. It hasn't been updated properly by the pipeline producing it. Avoid annotating.
+          throw `Data is too old (must be 3 days old or less): ${dataDate.toISOString()}`;
+        }
+
         oooByEmail = _.keyBy(oooInfo.value, 'Email');
       } else {
         throw `Invalid version: ${oooInfo.version}`;
@@ -253,9 +256,14 @@
     let employeeByEmail;
     let me;
     try {
-      employeeInfo = await fetchJsonAndCache('employees', 12 * 60 * 60, `${azdoApiBaseUrl}/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?api-version=6.0&path=/data/employeesLatest.json&version=users/abarreto/userscript-support`);
+      employeeInfo = await fetchJsonAndCache('employeesLatest', 12 * 60 * 60, `${azdoApiBaseUrl}/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?api-version=6.0&path=/data/employeesLatest.json&version=main`);
       if (employeeInfo.version === 1) {
-        // DEAL WITH OLD OOO DATA
+        const dataDate = dateFns.parse(employeeInfo.date);
+        if (dateFns.differenceInDays(new Date(), dataDate) >= 3) {
+          // This data is too old. It hasn't been updated properly by the pipeline producing it. Avoid annotating.
+          throw `Data is too old (must be 3 days old or less): ${dataDate.toISOString()}`;
+        }
+
         employeeByEmail = _.keyBy(employeeInfo.value, 'email');
         me = employeeByEmail[currentUser.uniqueName];
       } else {
@@ -263,7 +271,7 @@
       }
     } catch (e) {
       employeeInfo = null;
-      console.log(`Cannot annotate out-of-office info on PRs: ${e}`)
+      console.log(`Cannot annotate employee info on PRs: ${e}`)
     }
 
     console.log("OOO", oooByEmail);
