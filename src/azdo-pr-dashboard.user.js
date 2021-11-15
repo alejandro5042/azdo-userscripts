@@ -318,9 +318,10 @@
             }
           }
 
-          annotateReviewerRole('owner', 'owner', f => f.owner === reviewerIdentityIndex);
-          annotateReviewerRole('alternate', 'alternate', f => f.alternate === reviewerIdentityIndex);
-          annotateReviewerRole('expert', 'expert', f => _.some(f.experts, e => e === reviewerIdentityIndex));
+          // Note that the values for file.owner/alternate/experts may contain the value 0 (which is not a valid 1-based index) to indicate nobody for that role.
+          annotateReviewerRole('owner', 'owner', f => f.owner === reviewerIdentityIndex + 1);
+          annotateReviewerRole('alternate', 'alternate', f => f.alternate === reviewerIdentityIndex + 1);
+          annotateReviewerRole('expert', 'expert', f => _.some(f.experts, e => e === reviewerIdentityIndex + 1));
         }
       }
 
