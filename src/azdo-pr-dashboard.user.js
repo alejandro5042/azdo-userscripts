@@ -66,17 +66,20 @@
       });
     });
 
-    eus.showTipOnce('release-2021-04-09', 'New in the AzDO userscript', `
-      <p>Highlights from the 2021-04-09 update:</p>
-      <ul>
-        <li>An <strong>Edit</strong> button on PR diffs! No need to have source to make a quick edit</li>
-        <li>Moved PR status block from above the PR description back to the side. But this is configurable (next bullet)</li>
-        <li>AzDO userscript options! Click your userscript manager extension button for configuration. More to show up here over time</li>
-        <li>Improved performance and support for the new AzDO UI. Making old stuff work again, slowly!</li>
-      </ul>
-      <hr>
-      <p>Comments, bugs, suggestions? File an issue on <a href="https://github.com/alejandro5042/azdo-userscripts" target="_blank">GitHub</a> 🧡</p>
-    `);
+    if (atNI) {
+      eus.showTipOnce('release-2021-11-14', 'New in the AzDO userscript', `
+        <p>Highlights from the 2021-11-14 update!</p>
+        <p>PR reviewers are now annotated with:</p>
+        <ul>
+          <li><b>Out-of-office status</b>: From Outlook auto-reply messages. Hover over to see the full message</li>
+          <li><b>Owner info</b>: How many files the reviewer is listed as an owner, alternate, and expert. Hover over to see which files</li>
+          <li><b>Country flags</b>: Shown if they are they are in a different country than you (these reviewers could have a longer response time due to timezones)</li>
+          <li><b>Employment status</b>: Ex-employee, leave of absence, etc.</li>
+        </ul>
+        <hr>
+        <p>Comments, bugs, suggestions? File an issue on <a href="https://github.com/alejandro5042/azdo-userscripts" target="_blank">GitHub</a> 🧡</p>
+      `);
+    }
 
     // Start modifying the page once the DOM is ready.
     if (document.readyState !== 'loading') {
