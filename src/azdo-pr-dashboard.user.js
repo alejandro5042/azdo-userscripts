@@ -159,7 +159,7 @@
 
     let cached;
     try {
-      cached = JSON.parse(GM_getValue(key, "null"))
+      cached = JSON.parse(GM_getValue(key, "null"));
     } catch {
       cached = null;
     }
