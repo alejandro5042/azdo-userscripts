@@ -249,7 +249,7 @@
         const dataDate = dateFns.parse(oooInfo.date);
         if (dateFns.differenceInDays(new Date(), dataDate) >= 3) {
           // This data is too old. It hasn't been updated properly by the pipeline producing it. Avoid annotating.
-          throw `Data is too old (must be 3 days old or less): ${dataDate.toISOString()}`;
+          throw `Data is too old (must be 3 days old or less). Data date is: ${dataDate.toISOString()}`;
         }
 
         oooByEmail = _.keyBy(oooInfo.value, 'Email');
@@ -258,7 +258,7 @@
       }
     } catch (e) {
       oooInfo = null;
-      console.log(`Cannot annotate out-of-office info on PRs: ${e}`)
+      console.error(`Cannot annotate out-of-office info on PRs: ${e}`)
     }
 
     let employeeInfo;
@@ -270,7 +270,7 @@
         const dataDate = dateFns.parse(employeeInfo.date);
         if (dateFns.differenceInDays(new Date(), dataDate) >= 3) {
           // This data is too old. It hasn't been updated properly by the pipeline producing it. Avoid annotating.
-          throw `Data is too old (must be 3 days old or less): ${dataDate.toISOString()}`;
+          throw `Data is too old (must be 3 days old or less). Data date is: ${dataDate.toISOString()}`;
         }
 
         employeeByEmail = _.keyBy(employeeInfo.value, 'email');
@@ -280,11 +280,8 @@
       }
     } catch (e) {
       employeeInfo = null;
-      console.log(`Cannot annotate employee info on PRs: ${e}`)
+      console.error(`Cannot annotate employee info on PRs: ${e}`)
     }
-
-    console.log("OOO", oooByEmail);
-    console.log("Employees", employeeByEmail);
 
     session.onEveryNew(document, '.repos-pr-details-page .repos-reviewer', async (reviewer) => {
       const imageUrl = $(reviewer).find('.bolt-coin-content')[0].src;
@@ -292,7 +289,6 @@
       const reviewerInfo = _.find(reviewerInfos, r => imageUrl.startsWith(r.identity.imageUrl));
       const email = reviewerInfo.baseReviewer.uniqueName.toLowerCase();
       const nameElement = $(reviewer).find('.body-m')[0];
-      console.debug("New Reviewer:", email, nameElement.innerText);
 
       if (ownersInfo) {
         const reviewerIdentityIndex = _.findIndex(ownersInfo.reviewProperties.reviewerIdentities, r => r.email === email);
