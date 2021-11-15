@@ -227,6 +227,15 @@
         text-align: center;
       }
       .tippy-box[data-theme~='azdo-userscript'] .user-message {
+      }
+      .owner-dir {
+        opacity: 0.7;
+        font-size: 80%;
+      }
+      .owner-file {
+        display: inline-block;
+        float: right;
+        margin-left: 2ex;
       }`);
 
     const prUrl = await getCurrentPullRequestUrlAsync();
@@ -291,8 +300,21 @@
           function annotateReviewerRole(label, cssClass, matcher) {
             const files = _.filter(ownersInfo.reviewProperties.fileProperties, matcher).map(f => f.path);
             if (files.length > 0) {
-              const fileListing = files.sort().map(f => `<li>${escapeStringForHtml(f)}</li>`).join('');
-              annotateReviewer(nameElement, cssClass, `${files.length}× ${label}`, "<div style='word-wrap : break-word;'>" + fileListing + "</div>");
+              let prefix = "";
+              let filesToShow = files.sort();
+              const maxFilesToShow = 25;
+
+              if (files.length > maxFilesToShow) {
+                filesToShow = _.take(filesToShow, maxFilesToShow);
+                prefix = `<p>Showing first ${maxFilesToShow}:</p>`;
+              }
+
+              const fileListing =
+                filesToShow
+                .map(f => `<li>${escapeStringForHtml(f).replace(/^(.*\/)?([^\/]+?)$/, '<span class="owner-dir">$1</span><span class="owner-file">$2</span>')}</li>`)
+                .join('');
+
+              annotateReviewer(nameElement, cssClass, `${files.length}× ${label}`, `<div style='word-wrap : break-word;'>${prefix}${fileListing}</div>`);
             }
           }
 
@@ -329,7 +351,7 @@
           const tooltipHtml =`
             <h1>Outlook Auto Response</h1>
             <h1>${dateFns.format(ooo.Start, "ddd, MMM D, YYYY")} - ${dateFns.format(ooo.End, "ddd, MMM D, YYYY")}</h1>
-            <p class="user-message">${ooo.Text.replace(/\r?\n/ig, "<br>").replace(/â/g, "'").replace(/Â/g, "")}</p>`;
+            <p class="user-message">${ooo.Text.replace(/\r?\n/ig, "<br>")}</p>`;
 
           annotateReviewer(nameElement, 'ooo', escapeStringForHtml(label), tooltipHtml);
         }
