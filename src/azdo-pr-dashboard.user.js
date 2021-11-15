@@ -39,7 +39,7 @@
 
 // ==/UserScript==
 
-/* global eus, swal */
+/* global eus, swal, tippy */
 
 (function () {
   'use strict';
@@ -56,6 +56,11 @@
   function debug(...args) {
     // eslint-disable-next-line no-console
     console.log('[azdo-userscript]', args);
+  }
+
+  function error(...args) {
+    // eslint-disable-next-line no-console
+    console.error('[azdo-userscript]', args);
   }
 
   function main() {
@@ -159,7 +164,7 @@
 
     let cached;
     try {
-      cached = JSON.parse(GM_getValue(key, "null"));
+      cached = JSON.parse(GM_getValue(key, 'null'));
     } catch (e) {
       cached = null;
     }
@@ -168,7 +173,7 @@
     } else {
       const response = await fetch(url);
       if (!response.ok) {
-        throw `Bad status ${response.status} for <${url}>`;
+        throw new Error(`Bad status ${response.status} for <${url}>`);
       } else {
         value = await response.json();
       }
@@ -178,7 +183,7 @@
     GM_setValue(key, JSON.stringify({
       version: 1,
       expiryDate: expirationDate.toISOString(),
-      value
+      value,
     }));
 
     return value;
@@ -252,16 +257,16 @@
         const dataDate = dateFns.parse(oooInfo.date);
         if (dateFns.differenceInDays(new Date(), dataDate) >= 3) {
           // This data is too old. It hasn't been updated properly by the pipeline producing it. Avoid annotating.
-          throw `Data is too old (must be 3 days old or less). Data date is: ${dataDate.toISOString()}`;
+          throw new Error(`Data is too old (must be 3 days old or less). Data date is: ${dataDate.toISOString()}`);
         }
 
         oooByEmail = _.keyBy(oooInfo.value, 'Email');
       } else {
-        throw `Invalid version: ${oooInfo.version}`;
+        throw new Error(`Invalid version: ${oooInfo.version}`);
       }
     } catch (e) {
       oooInfo = null;
-      console.error(`Cannot annotate out-of-office info on PRs: ${e}`)
+      error(`Cannot annotate out-of-office info on PRs: ${e}`);
     }
 
     let employeeInfo;
@@ -273,20 +278,20 @@
         const dataDate = dateFns.parse(employeeInfo.date);
         if (dateFns.differenceInDays(new Date(), dataDate) >= 3) {
           // This data is too old. It hasn't been updated properly by the pipeline producing it. Avoid annotating.
-          throw `Data is too old (must be 3 days old or less). Data date is: ${dataDate.toISOString()}`;
+          throw new Error(`Data is too old (must be 3 days old or less). Data date is: ${dataDate.toISOString()}`);
         }
 
         employeeByEmail = _.keyBy(employeeInfo.value, 'email');
         me = employeeByEmail[currentUser.uniqueName];
       } else {
-        throw `Invalid version: ${employeeInfo.version}`;
+        throw new Error(`Invalid version: ${employeeInfo.version}`);
       }
     } catch (e) {
       employeeInfo = null;
-      console.error(`Cannot annotate employee info on PRs: ${e}`)
+      error(`Cannot annotate employee info on PRs: ${e}`);
     }
 
-    session.onEveryNew(document, '.repos-pr-details-page .repos-reviewer', async (reviewer) => {
+    session.onEveryNew(document, '.repos-pr-details-page .repos-reviewer', reviewer => {
       const imageUrl = $(reviewer).find('.bolt-coin-content')[0].src;
       const reviewerInfos = getPropertyThatStartsWith(reviewer.parentElement.parentElement, '__reactInternalInstance$').return.stateNode.state.values.reviewers;
       const reviewerInfo = _.find(reviewerInfos, r => imageUrl.startsWith(r.identity.imageUrl));
@@ -296,10 +301,11 @@
       if (ownersInfo) {
         const reviewerIdentityIndex = _.findIndex(ownersInfo.reviewProperties.reviewerIdentities, r => r.email === email);
         if (reviewerIdentityIndex >= 0) {
+          // eslint-disable-next-line no-inner-declarations
           function annotateReviewerRole(label, cssClass, matcher) {
             const files = _.filter(ownersInfo.reviewProperties.fileProperties, matcher).map(f => f.path);
             if (files.length > 0) {
-              let prefix = "";
+              let prefix = '';
               let filesToShow = files.sort();
               const maxFilesToShow = 25;
 
@@ -308,9 +314,8 @@
                 prefix = `<p>Showing first ${maxFilesToShow}:</p>`;
               }
 
-              const fileListing =
-                filesToShow
-                .map(f => `<li>${escapeStringForHtml(f).replace(/^(.*\/)?([^\/]+?)$/, '<span class="owner-dir">$1</span><span class="owner-file">$2</span>')}</li>`)
+              const fileListing = filesToShow
+                .map(f => `<li>${escapeStringForHtml(f).replace(/^(.*\/)?([^/]+?)$/, '<span class="owner-dir">$1</span><span class="owner-file">$2</span>')}</li>`)
                 .join('');
 
               annotateReviewer(nameElement, cssClass, `${files.length}× ${label}`, `<div style='word-wrap : break-word;'>${prefix}${fileListing}</div>`);
@@ -332,10 +337,10 @@
           }
 
           switch (employee.status) {
-            case "Active Assignment":
+            case 'Active Assignment':
               break;
-            case "Terminate Assignment":
-              annotateReviewer(nameElement, 'ooo', "Ex-Employee");
+            case 'Terminate Assignment':
+              annotateReviewer(nameElement, 'ooo', 'Ex-Employee');
               break;
             default:
               annotateReviewer(nameElement, 'ooo', escapeStringForHtml(employee.status));
@@ -348,10 +353,10 @@
         const ooo = oooByEmail[email];
         if (ooo) {
           const label = `Returns in ${dateFns.distanceInWordsToNow(ooo.End)}`;
-          const tooltipHtml =`
+          const tooltipHtml = `
             <h1>Outlook Auto Response</h1>
-            <h1>${dateFns.format(ooo.Start, "ddd, MMM D, YYYY")} - ${dateFns.format(ooo.End, "ddd, MMM D, YYYY")}</h1>
-            <p class="user-message">${ooo.Text.replace(/\r?\n/ig, "<br>")}</p>`;
+            <h1>${dateFns.format(ooo.Start, 'ddd, MMM D, YYYY')} - ${dateFns.format(ooo.End, 'ddd, MMM D, YYYY')}</h1>
+            <p class="user-message">${ooo.Text.replace(/\r?\n/ig, '<br>')}</p>`;
 
           annotateReviewer(nameElement, 'ooo', escapeStringForHtml(label), tooltipHtml);
         }
@@ -360,19 +365,19 @@
   }
 
   function annotateReviewer(nameElement, cssClass, labelHtml, tooltipHtml) {
-      const messageElement = $('<span class="reviewer-status-message" />').addClass(cssClass).html(labelHtml);
+    const messageElement = $('<span class="reviewer-status-message" />').addClass(cssClass).html(labelHtml);
 
-      if (tooltipHtml) {
-        tippy(messageElement[0], {
-          content: tooltipHtml,
-          allowHTML: true,
-          arrow: true,
-          theme: 'azdo-userscript',
-          maxWidth: 'none'
-        });
-      }
+    if (tooltipHtml) {
+      tippy(messageElement[0], {
+        content: tooltipHtml,
+        allowHTML: true,
+        arrow: true,
+        theme: 'azdo-userscript',
+        maxWidth: 'none',
+      });
+    }
 
-      $(nameElement).append(messageElement);
+    $(nameElement).append(messageElement);
   }
 
   function addEditButtons(session) {
@@ -1739,7 +1744,7 @@
       isCurrentUserResponsibleForFileInFolderPath(folderPath) {
         return Object.keys(this.currentUserFilesToRole).some(path => path.startsWith(folderPath));
       },
-      reviewProperties
+      reviewProperties,
     };
 
     // See if the current user is listed in this PR.
