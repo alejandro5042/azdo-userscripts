@@ -34,6 +34,7 @@
 // @grant        GM_addStyle
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_deleteValue
 // @grant        GM_addValueChangeListener
 // @grant        GM_registerMenuCommand
 
@@ -160,32 +161,36 @@
   }
 
   async function fetchJsonAndCache(key, secondsToCache, url) {
-    const now = new Date();
     let value;
+
+    const fullKey = `azdo-userscripts-${key}`;
 
     let cached;
     try {
-      cached = JSON.parse(GM_getValue(key, 'null'));
+      cached = JSON.parse(localStorage[fullKey]);
     } catch (e) {
       cached = null;
     }
-    if (cached && cached.version === 1 && now < Date.parse(cached.expiryDate)) {
+
+    if (cached && cached.version === 1 && dateFns.isFuture(dateFns.parse(cached.expiryDate))) {
       value = cached.value;
     } else {
+      localStorage.removeItem(fullKey);
+
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`Bad status ${response.status} for <${url}>`);
       } else {
         value = await response.json();
       }
-    }
 
-    const expirationDate = new Date(now + (secondsToCache * 1000));
-    GM_setValue(key, JSON.stringify({
-      version: 1,
-      expiryDate: expirationDate.toISOString(),
-      value,
-    }));
+      const expirationDate = new Date(Date.now() + (secondsToCache * 1000));
+      localStorage[fullKey] = JSON.stringify({
+        version: 1,
+        expiryDate: expirationDate.toISOString(),
+        value,
+      });
+    }
 
     return value;
   }
