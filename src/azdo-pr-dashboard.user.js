@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.2.2
+// @version      3.2.3
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -159,6 +159,14 @@
       if (eus.seen(button)) return;
 
       $(button).before(setupVSCodeButton(() => {
+        if ($('.pr-status-completed').length > 0) {
+          eus.toast.fire({
+            title: 'AzDO userscript',
+            text: 'Cannot open VSCode on a completed pull request.',
+            icon: 'error',
+          });
+          return null;
+        }
         const urlParams = new URLSearchParams(window.location.search);
         const path = urlParams.get('path') || '';
 
@@ -372,8 +380,11 @@
   function setupVSCodeButton(getUrl = () => window.location.href) {
     function navigateToVSCode() {
       let url = getUrl();
+      if (!url) return;
+
       url = url.replace('/DefaultCollection/', '/'); // For some reason, we need to remove this.
       url = url.replace(/^https?:\/\//i, 'https://vscode.dev/');
+
       window.location = url;
     }
 
