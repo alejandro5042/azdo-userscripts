@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.2.3
+// @version      3.2.4
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -346,7 +346,7 @@
   function watchForRepoBrowsingPages(session) {
     // Add a copy branch button.
     session.onEveryNew(document, '.version-dropdown > button', versionSelector => {
-      if (eus.seen(versionSelector)) return;
+      if (eus.seen(versionSelector.parent())) return;
 
       const copyButton = $('<button />')
         .attr('class', 'bolt-header-command-item-button bolt-button bolt-icon-button enabled bolt-focus-treatment subtle')
@@ -373,6 +373,8 @@
     });
 
     session.onEveryNew(document, '.repos-files-header .bolt-header-title-area', fileName => {
+      if (eus.seen(fileName)) return;
+
       $(fileName).after(setupVSCodeButton());
     });
   }
