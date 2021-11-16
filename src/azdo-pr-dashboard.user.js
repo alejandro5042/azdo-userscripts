@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.1.0
+// @version      3.2.0
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -153,6 +153,18 @@
       const branchUrl = $('.pr-header-branches a:first-child').attr('href');
       const url = `${branchUrl}&path=${path.innerText}&_a=diff&azdouserscriptaction=edit`;
       $('<a style="margin: 0px 1em;" class="flex-end bolt-button bolt-link-button enabled bolt-focus-treatment" data-focuszone="" data-is-focusable="true" target="_blank" role="link" onclick="window.open(this.href,\'popup\',\'width=600,height=600\'); return false;">Edit</a>').attr('href', url).appendTo(end);
+    });
+
+    session.onEveryNew(document, '.repos-compare-header-commandbar.bolt-button-group', button => {
+      if (eus.seen(button)) return;
+
+      $(button).before(setupVSCodeButton(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const path = urlParams.get('path') || '';
+
+        const branchUrl = `${window.location.origin}${$('.pr-header-branches a').attr('href')}`;
+        return `${branchUrl}&path=${path}`;
+      }));
     });
   }
 
@@ -327,7 +339,7 @@
       if (eus.seen(versionSelector)) return;
 
       const copyButton = $('<button />')
-        .attr('class', 'bolt-header-command-item-button bolt-button bolt-icon-button enabled bolt-focus-treatment')
+        .attr('class', 'bolt-header-command-item-button bolt-button bolt-icon-button enabled bolt-focus-treatment subtle')
         .css('font-family', 'Bowtie')
         .css('font-size', '14px')
         .css('font-weight', 'normal')
@@ -349,6 +361,35 @@
 
       $(versionSelector).after(copyButton);
     });
+
+    session.onEveryNew(document, '.repos-files-header .bolt-header-title-area', fileName => {
+      $(fileName).after(setupVSCodeButton());
+    });
+  }
+
+  function setupVSCodeButton(getUrl = () => window.location.href) {
+    function navigateToVSCode() {
+      window.location = getUrl().replace(/^https?:\/\//i, 'https://vscode.dev/');
+    }
+
+    const vscodeButton = $('<button />')
+      .attr('class', 'bolt-header-command-item-button bolt-button bolt-icon-button enabled bolt-focus-treatment')
+      .attr('type', 'button')
+      .attr('title', 'Edit in vscode.dev')
+      .html('<img src="https://vscode.dev/static/stable/favicon.ico" style="width: 16px; margin-right: 1ex;" alt="vscode.dev" /><span class="bolt-button-text body-m">Open in VSCode</span>')
+      .click(event => {
+        navigateToVSCode();
+        event.stopPropagation();
+      });
+
+    $(document.body).on('keyup', event => {
+      if (event.key === '.' && event.target === document.body) {
+        navigateToVSCode();
+        event.stopPropagation();
+      }
+    });
+
+    return vscodeButton;
   }
 
   function watchForShowMoreButtons() {
