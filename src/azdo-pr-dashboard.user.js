@@ -343,6 +343,9 @@
             case 'Terminate Assignment':
               annotateReviewer(nameElement, 'ooo', 'Ex-Employee');
               break;
+            case 'LOA':
+              annotateReviewer(nameElement, 'ooo', 'Leave of Absence');
+              break;
             default:
               annotateReviewer(nameElement, 'ooo', escapeStringForHtml(employee.status));
               break;
