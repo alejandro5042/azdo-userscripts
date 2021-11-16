@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.1.0
+// @version      3.3.0
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -131,6 +131,7 @@
 
     eus.onUrl(/\/(_git)/gi, (session, urlMatch) => {
       doEditAction(session);
+      watchForRepoBrowsingPages(session);
     });
 
     // Throttle page update events to avoid using up CPU when AzDO is adding a lot of elements during a short time (like on page load).
@@ -387,6 +388,20 @@
       const url = `${branchUrl}&path=${path.innerText}&_a=diff&azdouserscriptaction=edit`;
       $('<a style="margin: 0px 1em;" class="flex-end bolt-button bolt-link-button enabled bolt-focus-treatment" data-focuszone="" data-is-focusable="true" target="_blank" role="link" onclick="window.open(this.href,\'popup\',\'width=600,height=600\'); return false;">Edit</a>').attr('href', url).appendTo(end);
     });
+
+    session.onEveryNew(document, '.repos-compare-header-commandbar.bolt-button-group', button => {
+      if (eus.seen(button)) return;
+
+      $(button).before(setupVSCodeButton(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const path = urlParams.get('path') || '';
+
+        const branchUrl = `${window.location.origin}${$('.pr-header-branches a').attr('href')}`;
+
+        const url = `${branchUrl}&path=${path}`;
+        return url;
+      }));
+    });
   }
 
   async function doEditAction(session) {
@@ -552,6 +567,68 @@
 
     const annotation = `<div class="work-item-followers-list" style="margin: 1em 0em; opacity: 0.8"><span class="menu-item-icon bowtie-icon bowtie-watch-eye-fill" aria-hidden="true"></span> ${followerList}</div>`;
     commentEditor.insertAdjacentHTML('BeforeEnd', annotation);
+  }
+
+  function watchForRepoBrowsingPages(session) {
+    // Add a copy branch button.
+    session.onEveryNew(document, '.version-dropdown > button', versionSelector => {
+      if (eus.seen(versionSelector)) return;
+
+      const copyButton = $('<button />')
+        .attr('class', 'bolt-header-command-item-button bolt-button bolt-icon-button enabled bolt-focus-treatment subtle')
+        .css('font-family', 'Bowtie')
+        .css('font-size', '14px')
+        .css('font-weight', 'normal')
+        .attr('title', 'Copy branch name to clipboard')
+        .text('\uE94B') // A copy icon in the Bowtie font.
+        .click(event => {
+          const branchName = $(versionSelector).find('.bolt-dropdown-expandable-button-label').text();
+
+          navigator.clipboard.writeText(branchName);
+
+          eus.toast.fire({
+            title: 'AzDO userscript',
+            text: `Copied branch name to clipboard: ${branchName}`,
+            icon: 'info',
+          });
+
+          event.stopPropagation();
+        });
+
+      $(versionSelector).after(copyButton);
+    });
+
+    session.onEveryNew(document, '.repos-files-header .bolt-header-title-area', fileName => {
+      $(fileName).after(setupVSCodeButton());
+    });
+  }
+
+  function setupVSCodeButton(getUrl = () => window.location.href) {
+    function navigateToVSCode() {
+      let url = getUrl();
+      url = url.replace('/DefaultCollection/', '/'); // For some reason, we need to remove this.
+      url = url.replace(/^https?:\/\//i, 'https://vscode.dev/');
+      window.location = url;
+    }
+
+    const vscodeButton = $('<button />')
+      .attr('class', 'bolt-header-command-item-button bolt-button bolt-icon-button enabled bolt-focus-treatment')
+      .attr('type', 'button')
+      .attr('title', 'Edit in vscode.dev')
+      .html('<img src="https://vscode.dev/static/stable/favicon.ico" style="width: 16px; margin-right: 1ex;" alt="vscode.dev" /><span class="bolt-button-text body-m">Open in VSCode</span>')
+      .click(event => {
+        navigateToVSCode();
+        event.stopPropagation();
+      });
+
+    $(document.body).on('keyup', event => {
+      if (event.key === '.' && event.target === document.body) {
+        navigateToVSCode();
+        event.stopPropagation();
+      }
+    });
+
+    return vscodeButton;
   }
 
   function watchForShowMoreButtons() {

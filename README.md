@@ -4,8 +4,6 @@
 
 A collection of userscripts to improve the Azure DevOps UI.
 
-Tested in Chrome and Firefox with the Violentmonkey extension. They may work with other setups.
-
 ## Getting Started
 
 1. [Install the Violentmonkey extension](https://violentmonkey.github.io/) (alternatively, [Tampermonkey](https://tampermonkey.net/))
@@ -85,7 +83,7 @@ Trophies are awarded for notable PRs and shown in a trophies section on the Over
 
 - [Support and troubleshooting](SUPPORT.md)
 - [Contributing to this project](CONTRIBUTING.md)
-- [GitHub Homepage](https://github.com/alejandro5042/azdo-userscripts)
+- [GitHub repo](https://github.com/alejandro5042/azdo-userscripts)
 
 ## Privacy
 
@@ -99,4 +97,4 @@ Inspired by a PR filtering script originally written by Tian Yu, which faded out
 
 ## License
 
-[MIT](LICENSE). Issues and pull requests welcomed!
+[MIT](LICENSE). Issues and pull requests welcomed ❤️
