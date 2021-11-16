@@ -393,6 +393,14 @@
       if (eus.seen(button)) return;
 
       $(button).before(setupVSCodeButton(() => {
+        if ($('.pr-status-completed').length > 0) {
+          eus.toast.fire({
+            title: 'AzDO userscript',
+            text: 'Cannot open VSCode on a completed pull request.',
+            icon: 'error',
+          });
+          return null;
+        }
         const urlParams = new URLSearchParams(window.location.search);
         const path = urlParams.get('path') || '';
 
@@ -572,7 +580,7 @@
   function watchForRepoBrowsingPages(session) {
     // Add a copy branch button.
     session.onEveryNew(document, '.version-dropdown > button', versionSelector => {
-      if (eus.seen(versionSelector)) return;
+      if (eus.seen(versionSelector.parent())) return;
 
       const copyButton = $('<button />')
         .attr('class', 'bolt-header-command-item-button bolt-button bolt-icon-button enabled bolt-focus-treatment subtle')
@@ -599,6 +607,8 @@
     });
 
     session.onEveryNew(document, '.repos-files-header .bolt-header-title-area', fileName => {
+      if (eus.seen(fileName)) return;
+
       $(fileName).after(setupVSCodeButton());
     });
   }
@@ -606,8 +616,11 @@
   function setupVSCodeButton(getUrl = () => window.location.href) {
     function navigateToVSCode() {
       let url = getUrl();
+      if (!url) return;
+
       url = url.replace('/DefaultCollection/', '/'); // For some reason, we need to remove this.
       url = url.replace(/^https?:\/\//i, 'https://vscode.dev/');
+
       window.location = url;
     }
 
