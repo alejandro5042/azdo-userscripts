@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.2.0
+// @version      3.2.1
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -163,7 +163,10 @@
         const path = urlParams.get('path') || '';
 
         const branchUrl = `${window.location.origin}${$('.pr-header-branches a').attr('href')}`;
-        return `${branchUrl}&path=${path}`;
+
+        let url = `${branchUrl}&path=${path}`;
+        url = url.replace('/DefaultCollection/', '/'); // For some reason, we need to remove this.
+        return url;
       }));
     });
   }
