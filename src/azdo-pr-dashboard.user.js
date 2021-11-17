@@ -160,10 +160,11 @@
     });
   }
 
-  async function fetchJsonAndCache(key, secondsToCache, url) {
+  async function fetchJsonAndCache(key, secondsToCache, url, version = 1, fixer = x => x) {
     let value;
 
     const fullKey = `azdo-userscripts-${key}`;
+    const fullVersion = `1-${version}`;
 
     let cached;
     try {
@@ -172,7 +173,7 @@
       cached = null;
     }
 
-    if (cached && cached.version === 1 && dateFns.isFuture(dateFns.parse(cached.expiryDate))) {
+    if (cached && cached.version === fullVersion && dateFns.isFuture(dateFns.parse(cached.expiryDate))) {
       value = cached.value;
     } else {
       localStorage.removeItem(fullKey);
@@ -182,11 +183,12 @@
         throw new Error(`Bad status ${response.status} for <${url}>`);
       } else {
         value = await response.json();
+        value = fixer(value);
       }
 
       const expirationDate = new Date(Date.now() + (secondsToCache * 1000));
       localStorage[fullKey] = JSON.stringify({
-        version: 1,
+        version: fullVersion,
         expiryDate: expirationDate.toISOString(),
         value,
       });
@@ -279,7 +281,34 @@
     let employeeByEmail;
     let me;
     try {
-      employeeInfo = await fetchJsonAndCache('employeesLatest', 12 * 60 * 60, `${azdoApiBaseUrl}/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?api-version=6.0&path=/data/employeesLatest.json&version=main`);
+      employeeInfo = await fetchJsonAndCache('employeesLatest', 12 * 60 * 60, `${azdoApiBaseUrl}/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?api-version=6.0&path=/data/employeesLatest.json&version=main`, 3, employees => {
+        // HACK: Make the data much smaller so it fits in local storage.
+
+        for (const employee of employees.value) {
+          delete employee.username;
+          delete employee.title;
+          delete employee.manager_email;
+          delete employee.hr_org;
+
+          switch (employee.status) {
+            case 'Active Assignment':
+              delete employee.status;
+              break;
+            case 'Terminate Assignment':
+              employee.status = 'Ex-Employee';
+              break;
+            case 'LOA':
+              employee.status = 'Leave of Absence';
+              break;
+            default:
+              // Keep it.
+              break;
+          }
+        }
+
+        return employees;
+      });
+
       if (employeeInfo.version === 1) {
         const dataDate = dateFns.parse(employeeInfo.date);
         if (dateFns.differenceInDays(new Date(), dataDate) >= 3) {
@@ -342,18 +371,8 @@
             annotateReviewer(nameElement, 'flag', `<img style="height: 1.2em" src="https://flagcdn.com/h20/${employee.country.toLowerCase()}.png" alt='${employee.country} flag' />`, escapeStringForHtml(employee.location_code));
           }
 
-          switch (employee.status) {
-            case 'Active Assignment':
-              break;
-            case 'Terminate Assignment':
-              annotateReviewer(nameElement, 'ooo', 'Ex-Employee');
-              break;
-            case 'LOA':
-              annotateReviewer(nameElement, 'ooo', 'Leave of Absence');
-              break;
-            default:
-              annotateReviewer(nameElement, 'ooo', escapeStringForHtml(employee.status));
-              break;
+          if (employee.status) {
+            annotateReviewer(nameElement, 'ooo', escapeStringForHtml(employee.status));
           }
         }
       }
