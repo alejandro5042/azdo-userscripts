@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.3.0
+// @version      3.3.1
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -355,7 +355,7 @@
                 .map(f => `<li>${escapeStringForHtml(f).replace(/^(.*\/)?([^/]+?)$/, '<span class="owner-dir">$1</span><span class="owner-file">$2</span>')}</li>`)
                 .join('');
 
-              annotateReviewer(nameElement, cssClass, `${files.length}× ${label}`, `<div style='word-wrap : break-word;'>${prefix}${fileListing}</div>`);
+              annotateReviewer(nameElement, cssClass, `${files.length}× ${label}`, `<div style='word-wrap : break-word;'>${prefix}${fileListing}</div>`, 'none');
             }
           }
 
@@ -381,20 +381,34 @@
 
       if (oooInfo) {
         const ooo = oooByEmail[email];
-        if (ooo) {
-          const label = `Returns in ${dateFns.distanceInWordsToNow(ooo.End)}`;
-          const tooltipHtml = `
-            <h1>Outlook Auto Response</h1>
-            <h1>${dateFns.format(ooo.Start, 'ddd, MMM D, YYYY')} - ${dateFns.format(ooo.End, 'ddd, MMM D, YYYY')}</h1>
-            <p class="user-message">${ooo.Text.replace(/\r?\n/ig, '<br>')}</p>`;
+        if (ooo && dateFns.isFuture(ooo.End)) {
+          let label;
 
-          annotateReviewer(nameElement, 'ooo', escapeStringForHtml(label), tooltipHtml);
+          if (dateFns.isFuture(ooo.Start)) {
+            if (dateFns.differenceInDays(ooo.Start, new Date()) <= 1) {
+              label = 'Unavailable in <24h';
+            } else {
+              // Don't show a label. This person is leaving too far into the future.
+              label = null;
+            }
+          } else {
+            label = `Returns in ${dateFns.distanceInWordsToNow(ooo.End)}`;
+          }
+
+          if (label) {
+            const tooltipHtml = `
+              <p style='font-weight: bold; text-align: center'>Outlook Auto Response</p>
+              <h1>${dateFns.format(ooo.Start, 'ddd, MMM D, YYYY')} - ${dateFns.format(ooo.End, 'ddd, MMM D, YYYY')}</h1>
+              <p class="user-message">${ooo.Text.replace(/\r?\n/ig, '<br><br>')}</p>`;
+
+            annotateReviewer(nameElement, 'ooo', escapeStringForHtml(label), tooltipHtml);
+          }
         }
       }
     });
   }
 
-  function annotateReviewer(nameElement, cssClass, labelHtml, tooltipHtml) {
+  function annotateReviewer(nameElement, cssClass, labelHtml, tooltipHtml, maxWidth = '600px') {
     const messageElement = $('<span class="reviewer-status-message" />').addClass(cssClass).html(labelHtml);
 
     if (tooltipHtml) {
@@ -403,7 +417,7 @@
         allowHTML: true,
         arrow: true,
         theme: 'azdo-userscript',
-        maxWidth: 'none',
+        maxWidth,
       });
     }
 
