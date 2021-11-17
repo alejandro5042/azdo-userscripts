@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.3.1
+// @version      3.3.2
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -241,6 +241,7 @@
         padding: 5px 10px;
         font-size: 1.1em;
         text-align: center;
+        line-height: 1.8em;
       }
       .tippy-box[data-theme~='azdo-userscript'] .user-message {
       }
@@ -385,7 +386,7 @@
           let label;
 
           if (dateFns.isFuture(ooo.Start)) {
-            if (dateFns.differenceInDays(ooo.Start, new Date()) <= 1) {
+            if (dateFns.differenceInHours(ooo.Start, new Date()) <= 24) {
               label = 'Unavailable in <24h';
             } else {
               // Don't show a label. This person is leaving too far into the future.
@@ -398,7 +399,7 @@
           if (label) {
             const tooltipHtml = `
               <p style='font-weight: bold; text-align: center'>Outlook Auto Response</p>
-              <h1>${dateFns.format(ooo.Start, 'ddd, MMM D, YYYY')} - ${dateFns.format(ooo.End, 'ddd, MMM D, YYYY')}</h1>
+              <h1>Leaving ${dateFns.format(ooo.Start, 'ha ddd, MMM D, YYYY')}<br>Returning ${dateFns.format(ooo.End, 'ha ddd, MMM D, YYYY')}</h1>
               <p class="user-message">${ooo.Text.replace(/\r?\n/ig, '<br><br>')}</p>`;
 
             annotateReviewer(nameElement, 'ooo', escapeStringForHtml(label), tooltipHtml);
