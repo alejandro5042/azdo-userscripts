@@ -257,15 +257,17 @@
     const prUrl = await getCurrentPullRequestUrlAsync();
     const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(prUrl);
 
+    const dataMaxAgeInDays = 3;
+
     let oooInfo;
     let oooByEmail;
     try {
       oooInfo = await fetchJsonAndCache('outOfOfficeLatest', 12 * 60 * 60, `${azdoApiBaseUrl}/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?api-version=6.0&path=/data/outOfOfficeLatest.json&version=main`);
       if (oooInfo.version === 1) {
         const dataDate = dateFns.parse(oooInfo.date);
-        if (dateFns.differenceInDays(new Date(), dataDate) >= 3) {
+        if (dateFns.differenceInDays(new Date(), dataDate) >= dataMaxAgeInDays) {
           // This data is too old. It hasn't been updated properly by the pipeline producing it. Avoid annotating.
-          throw new Error(`Data is too old (must be 3 days old or less). Data date is: ${dataDate.toISOString()}`);
+          throw new Error(`Data is too old (must be ${dataMaxAgeInDays} days old or less). Data date is: ${dataDate.toISOString()}`);
         }
 
         oooByEmail = _.keyBy(oooInfo.value, 'Email');
@@ -311,9 +313,9 @@
 
       if (employeeInfo.version === 1) {
         const dataDate = dateFns.parse(employeeInfo.date);
-        if (dateFns.differenceInDays(new Date(), dataDate) >= 3) {
+        if (dateFns.differenceInDays(new Date(), dataDate) >= dataMaxAgeInDays) {
           // This data is too old. It hasn't been updated properly by the pipeline producing it. Avoid annotating.
-          throw new Error(`Data is too old (must be 3 days old or less). Data date is: ${dataDate.toISOString()}`);
+          throw new Error(`Data is too old (must be ${dataMaxAgeInDays} days old or less). Data date is: ${dataDate.toISOString()}`);
         }
 
         employeeByEmail = _.keyBy(employeeInfo.value, 'email');
