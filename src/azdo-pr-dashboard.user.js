@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.2.4
+// @version      3.3.0
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -24,6 +24,9 @@
 // @require      https://cdn.jsdelivr.net/npm/sweetalert2@9.13.1/dist/sweetalert2.all.min.js#sha384-8oDwN6wixJL8kVeuALUvK2VlyyQlpEEN5lg6bG26x2lvYQ1HWAV0k8e2OwiWIX8X
 // @require      https://gist.githubusercontent.com/alejandro5042/af2ee5b0ad92b271cd2c71615a05da2c/raw/45da85567e48c814610f1627148feb063b873905/easy-userscripts.js#sha384-t7v/Pk2+HNbUjKwXkvcRQIMtDEHSH9w0xYtq5YdHnbYKIV7Jts9fSZpZq+ESYE4v
 
+// @require      https://unpkg.com/@popperjs/core@2#sha384-7+zCNj/IqJ95wo16oMtfsKbZ9ccEh31eOz1HGyDuCQ6wgnyJNSYdrPa03rtR1zdB
+// @require      https://unpkg.com/tippy.js@6#sha384-AiTRpehQ7zqeua0Ypfa6Q4ki/ddhczZxrKtiQbTQUlJIhBkTeyoZP9/W/5ulFt29
+
 // @require      https://highlightjs.org/static/highlight.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/js-yaml/3.14.0/js-yaml.min.js#sha512-ia9gcZkLHA+lkNST5XlseHz/No5++YBneMsDp1IZRJSbi1YqQvBeskJuG1kR+PH1w7E0bFgEZegcj0EwpXQnww==
 // @resource     linguistLanguagesYml https://raw.githubusercontent.com/github/linguist/master/lib/linguist/languages.yml?v=1
@@ -31,12 +34,13 @@
 // @grant        GM_addStyle
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_deleteValue
 // @grant        GM_addValueChangeListener
 // @grant        GM_registerMenuCommand
 
 // ==/UserScript==
 
-/* global eus, swal */
+/* global eus, swal, tippy */
 
 (function () {
   'use strict';
@@ -55,6 +59,11 @@
     console.log('[azdo-userscript]', args);
   }
 
+  function error(...args) {
+    // eslint-disable-next-line no-console
+    console.error('[azdo-userscript]', args);
+  }
+
   function main() {
     eus.globalSession.onFirst(document, 'body', () => {
       eus.registerCssClassConfig(document.body, 'Configure PR Status Location', 'pr-status-location', 'ni-pr-status-right-side', {
@@ -63,17 +72,20 @@
       });
     });
 
-    eus.showTipOnce('release-2021-04-09', 'New in the AzDO userscript', `
-      <p>Highlights from the 2021-04-09 update:</p>
-      <ul>
-        <li>An <strong>Edit</strong> button on PR diffs! No need to have source to make a quick edit</li>
-        <li>Moved PR status block from above the PR description back to the side. But this is configurable (next bullet)</li>
-        <li>AzDO userscript options! Click your userscript manager extension button for configuration. More to show up here over time</li>
-        <li>Improved performance and support for the new AzDO UI. Making old stuff work again, slowly!</li>
-      </ul>
-      <hr>
-      <p>Comments, bugs, suggestions? File an issue on <a href="https://github.com/alejandro5042/azdo-userscripts" target="_blank">GitHub</a> 🧡</p>
-    `);
+    if (atNI) {
+      eus.showTipOnce('release-2021-11-14', 'New in the AzDO userscript', `
+        <p>Highlights from the 2021-11-14 update!</p>
+        <p>PR reviewers are now annotated with:</p>
+        <ul>
+          <li><b>Out-of-office status</b>: From Outlook auto-reply messages. Hover over to see the full message</li>
+          <li><b>Owner info</b>: How many files the reviewer is listed as an owner, alternate, and expert. Hover over to see which files</li>
+          <li><b>Country flags</b>: Shown if they are they are in a different country than you (these reviewers could have a longer response time due to timezones)</li>
+          <li><b>Employment status</b>: Ex-employee, leave of absence, etc.</li>
+        </ul>
+        <hr>
+        <p>Comments, bugs, suggestions? File an issue on <a href="https://github.com/alejandro5042/azdo-userscripts" target="_blank">GitHub</a> 🧡</p>
+      `);
+    }
 
     // Start modifying the page once the DOM is ready.
     if (document.readyState !== 'loading') {
@@ -110,6 +122,7 @@
     eus.onUrl(/\/pullrequest\//gi, (session, urlMatch) => {
       if (atNI) {
         watchForLVDiffsAndAddNIBinaryDiffButton(session);
+        watchForReviewerList(session);
         // MOVE THIS HERE: conditionallyAddBypassReminderAsync();
       }
 
@@ -145,6 +158,256 @@
     session.onEveryNew(document, '.page-content .flex-column > .bolt-table-card', status => {
       $(status).prependTo('.repos-overview-right-pane');
     });
+  }
+
+  async function fetchJsonAndCache(key, secondsToCache, url, version = 1, fixer = x => x) {
+    let value;
+
+    const fullKey = `azdo-userscripts-${key}`;
+    const fullVersion = `1-${version}`;
+
+    let cached;
+    try {
+      cached = JSON.parse(localStorage[fullKey]);
+    } catch (e) {
+      cached = null;
+    }
+
+    if (cached && cached.version === fullVersion && dateFns.isFuture(dateFns.parse(cached.expiryDate))) {
+      value = cached.value;
+    } else {
+      localStorage.removeItem(fullKey);
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Bad status ${response.status} for <${url}>`);
+      } else {
+        value = await response.json();
+        value = fixer(value);
+      }
+
+      const expirationDate = new Date(Date.now() + (secondsToCache * 1000));
+      localStorage[fullKey] = JSON.stringify({
+        version: fullVersion,
+        expiryDate: expirationDate.toISOString(),
+        value,
+      });
+    }
+
+    return value;
+  }
+
+  async function watchForReviewerList(session) {
+    addStyleOnce('pr-reviewer-annotations', /* css */ `
+      .reviewer-status-message {
+        font-size: 0.7em;
+        margin-left: 2ch;
+        padding: 0px 3px;
+        border-radius: 4px;
+        cursor: pointer;
+        border: 1px solid #ffffff22;
+        float: right;
+      }
+      .reviewer-status-message.ooo {
+        background: var(--status-warning-background);
+        color: var(--status-warning-foreground);
+      }
+      .reviewer-status-message.flag {
+        background: none;
+        border: none;
+      }
+      .reviewer-status-message.owner {
+        background: rgba(var(--palette-primary), 1);
+        color: #fff;
+      }
+      .reviewer-status-message.alternate {
+        background: rgba(var(--palette-primary), 0.3);
+        color: #fff;
+      }
+      .reviewer-status-message.expert {
+        background: rgba(var(--palette-primary), 0.3);
+        color: #fff;
+      }
+      .tippy-box[data-theme~='azdo-userscript'] {
+        padding: 5px 10px;
+      }
+      .tippy-box[data-theme~='azdo-userscript'] li {
+        list-style: disc;
+      }
+      .tippy-box[data-theme~='azdo-userscript'] h1 {
+        background: rgb(255, 255, 255, 0.3);
+        border-radius: 4px;
+        margin-top: 0;
+        padding: 5px 10px;
+        font-size: 1.1em;
+        text-align: center;
+      }
+      .tippy-box[data-theme~='azdo-userscript'] .user-message {
+      }
+      .owner-dir {
+        opacity: 0.7;
+        font-size: 80%;
+      }
+      .owner-file {
+        display: inline-block;
+        float: right;
+        margin-left: 2ex;
+      }`);
+
+    const prUrl = await getCurrentPullRequestUrlAsync();
+    const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(prUrl);
+
+    const dataMaxAgeInDays = 3;
+
+    let oooInfo;
+    let oooByEmail;
+    try {
+      oooInfo = await fetchJsonAndCache('outOfOfficeLatest', 12 * 60 * 60, `${azdoApiBaseUrl}/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?api-version=6.0&path=/data/outOfOfficeLatest.json&version=main`);
+      if (oooInfo.version === 1) {
+        const dataDate = dateFns.parse(oooInfo.date);
+        if (dateFns.differenceInDays(new Date(), dataDate) >= dataMaxAgeInDays) {
+          // This data is too old. It hasn't been updated properly by the pipeline producing it. Avoid annotating.
+          throw new Error(`Data is too old (must be ${dataMaxAgeInDays} days old or less). Data date is: ${dataDate.toISOString()}`);
+        }
+
+        oooByEmail = _.keyBy(oooInfo.value, 'Email');
+      } else {
+        throw new Error(`Invalid version: ${oooInfo.version}`);
+      }
+    } catch (e) {
+      oooInfo = null;
+      error(`Cannot annotate out-of-office info on PRs: ${e}`);
+    }
+
+    let employeeInfo;
+    let employeeByEmail;
+    let me;
+    try {
+      employeeInfo = await fetchJsonAndCache('employeesLatest', 12 * 60 * 60, `${azdoApiBaseUrl}/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?api-version=6.0&path=/data/employeesLatest.json&version=main`, 3, employees => {
+        // HACK: Make the data much smaller so it fits in local storage.
+
+        for (const employee of employees.value) {
+          delete employee.username;
+          delete employee.title;
+          delete employee.manager_email;
+          delete employee.hr_org;
+
+          switch (employee.status) {
+            case 'Active Assignment':
+              delete employee.status;
+              break;
+            case 'Terminate Assignment':
+              employee.status = 'Ex-Employee';
+              break;
+            case 'LOA':
+              employee.status = 'Leave of Absence';
+              break;
+            default:
+              // Keep it.
+              break;
+          }
+        }
+
+        return employees;
+      });
+
+      if (employeeInfo.version === 1) {
+        const dataDate = dateFns.parse(employeeInfo.date);
+        if (dateFns.differenceInDays(new Date(), dataDate) >= dataMaxAgeInDays) {
+          // This data is too old. It hasn't been updated properly by the pipeline producing it. Avoid annotating.
+          throw new Error(`Data is too old (must be ${dataMaxAgeInDays} days old or less). Data date is: ${dataDate.toISOString()}`);
+        }
+
+        employeeByEmail = _.keyBy(employeeInfo.value, 'email');
+        me = employeeByEmail[currentUser.uniqueName];
+      } else {
+        throw new Error(`Invalid version: ${employeeInfo.version}`);
+      }
+    } catch (e) {
+      employeeInfo = null;
+      error(`Cannot annotate employee info on PRs: ${e}`);
+    }
+
+    session.onEveryNew(document, '.repos-pr-details-page .repos-reviewer', reviewer => {
+      const imageUrl = $(reviewer).find('.bolt-coin-content')[0].src;
+      const reviewerInfos = getPropertyThatStartsWith(reviewer.parentElement.parentElement, '__reactInternalInstance$').return.stateNode.state.values.reviewers;
+      const reviewerInfo = _.find(reviewerInfos, r => imageUrl.startsWith(r.identity.imageUrl));
+      const email = reviewerInfo.baseReviewer.uniqueName.toLowerCase();
+      const nameElement = $(reviewer).find('.body-m')[0];
+
+      if (ownersInfo) {
+        const reviewerIdentityIndex = _.findIndex(ownersInfo.reviewProperties.reviewerIdentities, r => r.email === email);
+        if (reviewerIdentityIndex >= 0) {
+          // eslint-disable-next-line no-inner-declarations
+          function annotateReviewerRole(label, cssClass, matcher) {
+            const files = _.filter(ownersInfo.reviewProperties.fileProperties, matcher).map(f => f.path);
+            if (files.length > 0) {
+              let prefix = '';
+              let filesToShow = files.sort();
+              const maxFilesToShow = 25;
+
+              if (files.length > maxFilesToShow) {
+                filesToShow = _.take(filesToShow, maxFilesToShow);
+                prefix = `<p>Showing first ${maxFilesToShow}:</p>`;
+              }
+
+              const fileListing = filesToShow
+                .map(f => `<li>${escapeStringForHtml(f).replace(/^(.*\/)?([^/]+?)$/, '<span class="owner-dir">$1</span><span class="owner-file">$2</span>')}</li>`)
+                .join('');
+
+              annotateReviewer(nameElement, cssClass, `${files.length}× ${label}`, `<div style='word-wrap : break-word;'>${prefix}${fileListing}</div>`);
+            }
+          }
+
+          // Note that the values for file.owner/alternate/experts may contain the value 0 (which is not a valid 1-based index) to indicate nobody for that role.
+          annotateReviewerRole('owner', 'owner', f => f.owner === reviewerIdentityIndex + 1);
+          annotateReviewerRole('alternate', 'alternate', f => f.alternate === reviewerIdentityIndex + 1);
+          annotateReviewerRole('expert', 'expert', f => _.some(f.experts, e => e === reviewerIdentityIndex + 1));
+        }
+      }
+
+      if (employeeInfo) {
+        const employee = employeeByEmail[email];
+        if (employee) {
+          if (me.country !== employee.country) {
+            annotateReviewer(nameElement, 'flag', `<img style="height: 1.2em" src="https://flagcdn.com/h20/${employee.country.toLowerCase()}.png" alt='${employee.country} flag' />`, escapeStringForHtml(employee.location_code));
+          }
+
+          if (employee.status) {
+            annotateReviewer(nameElement, 'ooo', escapeStringForHtml(employee.status));
+          }
+        }
+      }
+
+      if (oooInfo) {
+        const ooo = oooByEmail[email];
+        if (ooo) {
+          const label = `Returns in ${dateFns.distanceInWordsToNow(ooo.End)}`;
+          const tooltipHtml = `
+            <h1>Outlook Auto Response</h1>
+            <h1>${dateFns.format(ooo.Start, 'ddd, MMM D, YYYY')} - ${dateFns.format(ooo.End, 'ddd, MMM D, YYYY')}</h1>
+            <p class="user-message">${ooo.Text.replace(/\r?\n/ig, '<br>')}</p>`;
+
+          annotateReviewer(nameElement, 'ooo', escapeStringForHtml(label), tooltipHtml);
+        }
+      }
+    });
+  }
+
+  function annotateReviewer(nameElement, cssClass, labelHtml, tooltipHtml) {
+    const messageElement = $('<span class="reviewer-status-message" />').addClass(cssClass).html(labelHtml);
+
+    if (tooltipHtml) {
+      tippy(messageElement[0], {
+        content: tooltipHtml,
+        allowHTML: true,
+        arrow: true,
+        theme: 'azdo-userscript',
+        maxWidth: 'none',
+      });
+    }
+
+    $(nameElement).append(messageElement);
   }
 
   function addEditButtons(session) {
@@ -1600,6 +1863,7 @@
       isCurrentUserResponsibleForFileInFolderPath(folderPath) {
         return Object.keys(this.currentUserFilesToRole).some(path => path.startsWith(folderPath));
       },
+      reviewProperties,
     };
 
     // See if the current user is listed in this PR.
