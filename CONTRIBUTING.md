@@ -8,7 +8,7 @@ For significant effort or feature work, it is preferred to start by filing an is
 
 ## Hacking / debugging
 
-- Simply open the userscript in the Violentmonkey/Tampermonkey dashboard and hack away
+- Simply open the userscript in the Violentmonkey dashboard and hack away
 - Hit `Ctrl+S` to save
 - Refresh the target page to test your changes
 
