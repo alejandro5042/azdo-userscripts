@@ -135,6 +135,10 @@
       watchForRepoBrowsingPages(session);
     });
 
+    eus.onUrl(/\/agentqueues(\?|\/)/gi, (session, urlMatch) => {
+      watchForAgentPage(session, pageData);
+    });
+
     // Throttle page update events to avoid using up CPU when AzDO is adding a lot of elements during a short time (like on page load).
     const onPageUpdatedThrottled = _.throttle(onPageUpdated, 400, { leading: false, trailing: true });
 
@@ -619,6 +623,47 @@
 
     const annotation = `<div class="work-item-followers-list" style="margin: 1em 0em; opacity: 0.8"><span class="menu-item-icon bowtie-icon bowtie-watch-eye-fill" aria-hidden="true"></span> ${followerList}</div>`;
     commentEditor.insertAdjacentHTML('BeforeEnd', annotation);
+  }
+
+  async function watchForAgentPage(session, pageData) {
+    addStyleOnce('agent-css', /* css */ `
+      .agent-icon{
+        width: 10px;
+        height: 10px;
+        border-radius: 8px;
+        margin-right: 2px;
+      }
+      .agent-online{
+        background: rgba(16, 124, 16, 1);
+      }
+      .agent-offline{
+        background: rgba(205, 74, 69, 1);
+      }
+      .agent-enabled{
+        background: rgba(16, 124, 16, 1);
+      }
+      .agent-disabled{
+        background: rgba(200,200,200, 1);
+      }
+    `);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const agentId = urlParams.get('agentId') || '';
+    const queueId = urlParams.get('queueId') || '';
+    const projectName = pageData['ms.vss-tfs-web.team-data']['team'].projectName;
+    const poolInfo = await getPoolInfoAsync(queueId, projectName);
+    const agentInfo = await getAgentInfoAsync(poolInfo['pool'].id, agentId);
+
+    session.onEveryNew(document, '.bolt-header-title', section => {
+      if(section.innerText == agentInfo.name) {
+        const state = (agentInfo.enabled) ? "enabled" :"disabled";
+        const blockingAnnotation2 = `
+          <span class="bolt-table-cell-content flex-row flex-center  secondary-text text-ellipsis"><div class="agent-icon agent-${agentInfo.status}"></div>${agentInfo.status}</span>
+          <span class="bolt-table-cell-content flex-row flex-center  secondary-text text-ellipsis"><div class="agent-icon agent-${state}"></div>${state}</span>
+        `;
+        section.insertAdjacentHTML('afterend', blockingAnnotation2);
+      }
+    });
   }
 
   function watchForRepoBrowsingPages(session) {
@@ -1912,6 +1957,16 @@
     }
 
     return ownersInfo;
+  }
+
+  // Async helper function get info on Pool
+  function getPoolInfoAsync(queueId, projectName) {
+    return $.get(`${azdoApiBaseUrl}/${projectName}/_apis/distributedtask/queues/${queueId}?api-version=5.0`);
+  }
+
+  // Async helper function get info on agent
+  function getAgentInfoAsync(poolId, agentId) {
+    return $.get(`${azdoApiBaseUrl}/_apis/distributedtask/pools/${poolId}/agents/${agentId}?api-version=5.0`);
   }
 
   main();
