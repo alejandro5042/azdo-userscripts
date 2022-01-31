@@ -955,9 +955,10 @@
 
     session.onEveryNew(document, '.bolt-messagebar.severity-info .bolt-messagebar-buttons', boltMessageBarButtons => {
       const reposSummaryHeader = $(boltMessageBarButtons).closest('.repos-summary-header');
-      const filePath = (reposSummaryHeader.length > 0 ? reposSummaryHeader : $('.repos-compare-toolbar'))
-        .find('.secondary-text.text-ellipsis')[0].innerText;
+      const filePathElement = (reposSummaryHeader.length > 0 ? reposSummaryHeader : $('.repos-compare-toolbar')).find('.secondary-text.text-ellipsis')[0];
+      if (!filePathElement) return;
 
+      const filePath = filePathElement.innerText;
       if (!supportedFileExtensions.includes(getFileExt(filePath))) return;
 
       const launchDiffButton = $('<button class="bolt-button flex-grow-2 ni-binary-git-diff-button">Launch NI Binary Git Diff ▶</button>');
