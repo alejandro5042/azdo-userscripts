@@ -201,7 +201,7 @@
     return value;
   }
 
-  async function watchForAgentPage(session, pageData) {
+  function watchForAgentPage(session, pageData) {
     addStyleOnce('agent-css', /* css */ `
       .agent-icon.offline {
         width: 250px !important;
