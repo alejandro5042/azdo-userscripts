@@ -130,7 +130,7 @@
       addEditButtons(session);
     });
 
-    eus.onUrl(/\/agentqueues(\?|\/)/gi, (session, urlMatch) => {
+    eus.onUrl(/\/(agentqueues|agentpools)(\?|\/)/gi, (session, urlMatch) => {
       watchForAgentPage(session, pageData);
     });
 
