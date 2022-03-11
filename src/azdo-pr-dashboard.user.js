@@ -130,6 +130,10 @@
       addEditButtons(session);
     });
 
+    eus.onUrl(/\/agentqueues(\?|\/)/gi, (session, urlMatch) => {
+      watchForAgentPage(session, pageData);
+    });
+
     eus.onUrl(/\/(_git)/gi, (session, urlMatch) => {
       doEditAction(session);
       watchForRepoBrowsingPages(session);
@@ -195,6 +199,14 @@
     }
 
     return value;
+  }
+
+  function watchForAgentPage(session, pageData) {
+    addStyleOnce('agent-css', /* css */ `
+      .agent-icon.offline {
+        width: 250px !important;
+      }
+    `);
   }
 
   async function watchForReviewerList(session) {
