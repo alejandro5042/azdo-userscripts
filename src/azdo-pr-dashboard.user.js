@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.3.4
+// @version      3.3.5
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -131,7 +131,7 @@
     });
 
     eus.onUrl(/\/(agentqueues|agentpools)(\?|\/)/gi, (session, urlMatch) => {
-      watchForAgentPage(session, pageData);
+      // watchForAgentPage(session, pageData);
     });
 
     eus.onUrl(/\/(_git)/gi, (session, urlMatch) => {
