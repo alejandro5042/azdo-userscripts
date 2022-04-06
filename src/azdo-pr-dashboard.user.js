@@ -131,7 +131,7 @@
     });
 
     eus.onUrl(/\/(agentqueues|agentpools)(\?|\/)/gi, (session, urlMatch) => {
-      // watchForAgentPage(session, pageData);
+      watchForAgentPage(session, pageData);
     });
 
     eus.onUrl(/\/(_git)/gi, (session, urlMatch) => {
