@@ -259,7 +259,6 @@
               </div>
           </div>
         </div>`;
-        // <span class="left-icon flex-noshrink fabric-icon ms-Icon--Refresh medium" style="padding: 5px 0px 0px 10px;"/>
         $(agentsTable).prepend(agentFilterBarElement);
         document.getElementById('agentFilterInput').addEventListener('input', filterAgentsDebouncer());
         document.getElementById('agentFilterRefresh').addEventListener('click', filterAgentsDebouncer());
