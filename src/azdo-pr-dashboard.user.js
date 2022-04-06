@@ -207,6 +207,132 @@
         width: 250px !important;
       }
     `);
+
+    session.onEveryNew(document, '.pipelines-pool-agents.page-content.page-content-top', agentsTable => {
+      // Disable List Virtualization with 'CTRL + ALT + V'
+      document.dispatchEvent(new KeyboardEvent('keydown', {
+        bubbles: true,
+        composed: true,
+        key: 'v',
+        keyCode: 86,
+        code: 'KeyV',
+        which: 86,
+        altKey: true,
+        ctrlKey: true,
+        shiftKey: false,
+        metaKey: false,
+      }));
+
+      if (!document.getElementById('agentFilterInput')) {
+        const regexFilterString = new URL(window.location.href).searchParams.get('agentFilter') || '';
+        const agentFilterBarElement = `
+        <div style="padding-bottom: 16px">
+          <div class="vss-FilterBar bolt-filterbar-white depth-8 no-v-margin" role="search" id="__bolt-filter-bar-0">
+              <div class="vss-FilterBar--list">
+                  <div class="vss-FilterBar--item vss-FilterBar--item-keyword-container">
+                      <div class="flex-column flex-grow">
+                          <div class="bolt-text-filterbaritem flex-grow bolt-textfield flex-row flex-center focus-keyboard-only">
+                            <span aria-hidden="true" class="keyword-filter-icon prefix bolt-textfield-icon bolt-textfield-no-text flex-noshrink fabric-icon ms-Icon--Filter medium"></span>
+                            <input
+                              type="text" autocomplete="off"
+                              class="bolt-text-filterbaritem-input bolt-textfield-input flex-grow bolt-textfield-input-with-prefix"
+                              id="agentFilterInput"
+                              placeholder="Regex Filter"
+                              role="searchbox"
+                              tabindex="0"
+                              value="${regexFilterString}">
+                            <div id="agentFilterCounter" style="color: var(--text-secondary-color);"/>
+                            <div>
+                              <button
+                                id="agentFilterRefresh"
+                                class="refresh-dashboard-button bolt-button bolt-icon-button subtle bolt-focus-treatment"
+                                role="button"
+                                tabindex="0"
+                                type="button"
+                                style="padding: 0px; margin-left: 10px;">
+                                <span class="left-icon flex-noshrink fabric-icon ms-Icon--Refresh medium" style="padding: 5px 10px"/>
+                              </button>
+                            </div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+        </div>`;
+        // <span class="left-icon flex-noshrink fabric-icon ms-Icon--Refresh medium" style="padding: 5px 0px 0px 10px;"/>
+        $(agentsTable).prepend(agentFilterBarElement);
+        document.getElementById('agentFilterInput').addEventListener('input', filterAgentsDebouncer());
+        document.getElementById('agentFilterRefresh').addEventListener('click', filterAgentsDebouncer());
+      }
+      filterAgents();
+    });
+
+    // Status of agents can change as the table is constantly updating.
+    setInterval(filterAgentsDebouncer(), 10000);
+  }
+
+  function filterAgentsDebouncer() {
+    let timeout;
+    return function () {
+      document.getElementById('agentFilterCounter').innerText = 'Filtering...';
+      clearTimeout(timeout);
+      timeout = setTimeout(filterAgents, 500);
+    };
+  }
+
+  function filterAgents() {
+    let regexFilterString;
+    let regexFilter;
+    try {
+      regexFilterString = document.getElementById('agentFilterInput').value.trim();
+      regexFilter = new RegExp(regexFilterString, 'i');
+    } catch (e) {
+      showAllAgents(e);
+      return;
+    }
+
+    // Try to push the filter term if possible.
+    try {
+      const currentUrl = new URL(window.location.href);
+      currentUrl.searchParams.set('agentFilter', regexFilterString);
+      window.history.pushState({}, '', currentUrl.toString());
+    } catch (e) {
+      error(e);
+    }
+
+    let totalCount = 0;
+    let matchedCount = 0;
+    const agentRows = document.querySelectorAll('a.bolt-list-row.single-click-activation');
+    try {
+      agentRows.forEach(agentRow => {
+        totalCount += 1;
+        agentRow.classList.remove('hiddenAgentRow');
+        agentRow.classList.remove('visibleAgentRow');
+
+        const rowValue = agentRow.innerText.replace(/[\r\n]/g, '').trim();
+        if (!regexFilter.test(rowValue)) {
+          agentRow.classList.add('hiddenAgentRow');
+        } else {
+          matchedCount += 1;
+          agentRow.classList.add('visibleAgentRow');
+        }
+      });
+      $('.visibleAgentRow').show();
+      $('.hiddenAgentRow').hide();
+      document.getElementById('agentFilterCounter').innerText = `(${matchedCount}/${totalCount})`;
+    } catch (e) {
+      showAllAgents(e);
+    }
+  }
+
+  function showAllAgents(searchError) {
+    if (searchError) {
+      document.getElementById('agentFilterCounter').innerText = searchError;
+    }
+    document.querySelectorAll('a.bolt-list-row.single-click-activation').forEach(agentRow => {
+      $(agentRow).show();
+    });
+    document.getElementById('agentFilterRefresh').disabled = false;
   }
 
   async function watchForReviewerList(session) {
