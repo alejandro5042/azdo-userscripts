@@ -88,6 +88,7 @@
     }
 
     // Start modifying the page once the DOM is ready.
+    // This is a comment
     if (document.readyState !== 'loading') {
       onReady();
     } else {
