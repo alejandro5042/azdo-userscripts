@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.4.0
+// @version      3.4.1
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -352,7 +352,10 @@
       2,
       `${azdoApiBaseUrl}/_apis/distributedtask/pools/${currentPoolId}/agents?agentName=${agentName}&includeCapabilities=True`,
       1,
-      agentInfoJson => agentInfoJson.value[0],
+      agentInfoJson => ({
+        userCapabilities: agentInfoJson.value[0].userCapabilities || {},
+        id: agentInfoJson.value[0].id,
+      }),
     );
 
     $(agentRow).find('.disable-reason').remove();
