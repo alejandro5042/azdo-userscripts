@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.3.5
+// @version      3.4.0
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -206,6 +206,14 @@
       .agent-icon.offline {
         width: 250px !important;
       }
+      .disable-reason {
+        padding: 5px;
+        border-radius: 20px;
+        margin-right: 3px;
+        font-size: 12px;
+        text-decoration: none;
+        background: var(--search-selected-match-background);
+      }
     `);
 
     session.onEveryNew(document, '.pipelines-pool-agents.page-content.page-content-top', agentsTable => {
@@ -267,7 +275,7 @@
     });
 
     // Status of agents can change as the table is constantly updating.
-    setInterval(filterAgentsDebouncer(), 10000);
+    setInterval(filterAgentsDebouncer(), 30000);
   }
 
   function filterAgentsDebouncer() {
@@ -279,7 +287,7 @@
     };
   }
 
-  function filterAgents() {
+  async function filterAgents() {
     let regexFilterString;
     let regexFilter;
     try {
@@ -303,10 +311,13 @@
     let matchedCount = 0;
     const agentRows = document.querySelectorAll('a.bolt-list-row.single-click-activation');
     try {
-      agentRows.forEach(agentRow => {
+      await Promise.all(Array.from(agentRows).map(async (agentRow) => {
         totalCount += 1;
         agentRow.classList.remove('hiddenAgentRow');
         agentRow.classList.remove('visibleAgentRow');
+        if (atNI) {
+          await addAgentDisableReason(agentRow);
+        }
 
         const rowValue = agentRow.innerText.replace(/[\r\n]/g, '').trim();
         if (!regexFilter.test(rowValue)) {
@@ -315,12 +326,51 @@
           matchedCount += 1;
           agentRow.classList.add('visibleAgentRow');
         }
-      });
+      }));
       $('.visibleAgentRow').show();
       $('.hiddenAgentRow').hide();
       document.getElementById('agentFilterCounter').innerText = `(${matchedCount}/${totalCount})`;
     } catch (e) {
       showAllAgents(e);
+    }
+  }
+
+  async function addAgentDisableReason(agentRow) {
+    const poolName = Array.from(document.querySelectorAll('div.bolt-breadcrumb-item-text-container')).pop().innerText;
+    const currentPoolId = await fetchJsonAndCache(
+      `azdoPool${poolName}Id`,
+      12 * 60 * 60,
+      `${azdoApiBaseUrl}/_apis/distributedtask/pools?poolName=${poolName}`,
+      1,
+      poolInfo => poolInfo.value[0].id,
+    );
+
+    const agentCells = agentRow.querySelectorAll('div');
+    const agentName = agentCells[1].innerText;
+    const agentInfo = await fetchJsonAndCache(
+      `azdoPoolId${currentPoolId}azdoAgent${agentName}`,
+      2,
+      `${azdoApiBaseUrl}/_apis/distributedtask/pools/${currentPoolId}/agents?agentName=${agentName}&includeCapabilities=True`,
+      1,
+      agentInfoJson => agentInfoJson.value[0],
+    );
+
+    $(agentRow).find('.disable-reason').remove();
+    if (agentInfo.userCapabilities) {
+      const disableReason = agentInfo.userCapabilities.DISABLE_REASON || null;
+      if (disableReason) {
+        const userIcon = document.createElement('span');
+        userIcon.className = 'fabric-icon ms-Icon--Contact';
+
+        const disableReasonMessage = document.createElement('a');
+        disableReasonMessage.className = 'disable-reason';
+        disableReasonMessage.text = ' Reserved';
+        disableReasonMessage.href = `${azdoApiBaseUrl}/_settings/agentpools?agentId=${agentInfo.id}&poolId=${currentPoolId}&view=capabilities`;
+        disableReasonMessage.prepend(userIcon);
+        disableReasonMessage.title = disableReason;
+
+        $(agentCells[5]).prepend(disableReasonMessage);
+      }
     }
   }
 
