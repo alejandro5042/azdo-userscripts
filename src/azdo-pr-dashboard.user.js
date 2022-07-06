@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.3.6
+// @version      3.4.0
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -315,7 +315,9 @@
         totalCount += 1;
         agentRow.classList.remove('hiddenAgentRow');
         agentRow.classList.remove('visibleAgentRow');
-        await addAgentDisableReason(agentRow);
+        if (atNI) {
+          await addAgentDisableReason(agentRow);
+        }
 
         const rowValue = agentRow.innerText.replace(/[\r\n]/g, '').trim();
         if (!regexFilter.test(rowValue)) {
