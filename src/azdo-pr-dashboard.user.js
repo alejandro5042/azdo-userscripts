@@ -275,15 +275,17 @@
     });
 
     // Status of agents can change as the table is constantly updating.
-    setInterval(filterAgentsDebouncer(), 30000);
+    setInterval(filterAgentsDebouncer(), 10000);
   }
 
   function filterAgentsDebouncer() {
     let timeout;
     return function () {
-      document.getElementById('agentFilterCounter').innerText = 'Filtering...';
-      clearTimeout(timeout);
-      timeout = setTimeout(filterAgents, 500);
+      if (!document.hidden) {
+        document.getElementById('agentFilterCounter').innerText = 'Filtering...';
+        clearTimeout(timeout);
+        timeout = setTimeout(filterAgents, 500);
+      }
     };
   }
 
@@ -310,32 +312,7 @@
     let totalCount = 0;
     let matchedCount = 0;
     const agentRows = document.querySelectorAll('a.bolt-list-row.single-click-activation');
-    try {
-      await Promise.all(Array.from(agentRows).map(async (agentRow) => {
-        totalCount += 1;
-        agentRow.classList.remove('hiddenAgentRow');
-        agentRow.classList.remove('visibleAgentRow');
-        if (atNI) {
-          await addAgentDisableReason(agentRow);
-        }
 
-        const rowValue = agentRow.innerText.replace(/[\r\n]/g, '').trim();
-        if (!regexFilter.test(rowValue)) {
-          agentRow.classList.add('hiddenAgentRow');
-        } else {
-          matchedCount += 1;
-          agentRow.classList.add('visibleAgentRow');
-        }
-      }));
-      $('.visibleAgentRow').show();
-      $('.hiddenAgentRow').hide();
-      document.getElementById('agentFilterCounter').innerText = `(${matchedCount}/${totalCount})`;
-    } catch (e) {
-      showAllAgents(e);
-    }
-  }
-
-  async function addAgentDisableReason(agentRow) {
     const poolName = Array.from(document.querySelectorAll('div.bolt-breadcrumb-item-text-container')).pop().innerText;
     const currentPoolId = await fetchJsonAndCache(
       `azdoPool${poolName}Id`,
@@ -345,18 +322,52 @@
       poolInfo => poolInfo.value[0].id,
     );
 
+    const poolAgentsInfo = await fetchJsonAndCache(
+      `azdoPool${poolName}IdAgents`,
+      5,
+      `${azdoApiBaseUrl}/_apis/distributedtask/pools/${currentPoolId}/agents?includeCapabilities=True`,
+      1,
+      poolAgentsInfoWithCapabilities => {
+        const filteredAgentInfo = {};
+        poolAgentsInfoWithCapabilities.value.forEach(agentInfo => {
+          filteredAgentInfo[agentInfo.name] = {
+            id: agentInfo.id,
+            userCapabilities: agentInfo.userCapabilities,
+          };
+        });
+        return filteredAgentInfo;
+      },
+    );
+
+    try {
+      agentRows.forEach(agentRow => {
+        totalCount += 1;
+        agentRow.classList.remove('hiddenAgentRow');
+        agentRow.classList.remove('visibleAgentRow');
+        if (atNI) {
+          addAgentDisableReason(agentRow, currentPoolId, poolAgentsInfo);
+        }
+
+        const rowValue = agentRow.textContent.replace(/[\r\n]/g, '').trim();
+        if (!regexFilter.test(rowValue)) {
+          agentRow.classList.add('hiddenAgentRow');
+        } else {
+          matchedCount += 1;
+          agentRow.classList.add('visibleAgentRow');
+        }
+      });
+      $('.visibleAgentRow').show();
+      $('.hiddenAgentRow').hide();
+      document.getElementById('agentFilterCounter').innerText = `(${matchedCount}/${totalCount})`;
+    } catch (e) {
+      showAllAgents(e);
+    }
+  }
+
+  function addAgentDisableReason(agentRow, currentPoolId, poolAgentsInfo) {
     const agentCells = agentRow.querySelectorAll('div');
     const agentName = agentCells[1].innerText;
-    const agentInfo = await fetchJsonAndCache(
-      `azdoPoolId${currentPoolId}azdoAgent${agentName}`,
-      2,
-      `${azdoApiBaseUrl}/_apis/distributedtask/pools/${currentPoolId}/agents?agentName=${agentName}&includeCapabilities=True`,
-      1,
-      agentInfoJson => ({
-        userCapabilities: agentInfoJson.value[0].userCapabilities || {},
-        id: agentInfoJson.value[0].id,
-      }),
-    );
+    const agentInfo = poolAgentsInfo[agentName];
 
     $(agentRow).find('.disable-reason').remove();
     if (agentInfo.userCapabilities) {
@@ -365,11 +376,16 @@
         const userIcon = document.createElement('span');
         userIcon.className = 'fabric-icon ms-Icon--Contact';
 
+        const hiddenDisableReason = document.createElement('a');
+        hiddenDisableReason.text = disableReason;
+        hiddenDisableReason.style = 'display: none';
+
         const disableReasonMessage = document.createElement('a');
         disableReasonMessage.className = 'disable-reason';
         disableReasonMessage.text = ' Reserved';
         disableReasonMessage.href = `${azdoApiBaseUrl}/_settings/agentpools?agentId=${agentInfo.id}&poolId=${currentPoolId}&view=capabilities`;
         disableReasonMessage.prepend(userIcon);
+        disableReasonMessage.prepend(hiddenDisableReason);
         disableReasonMessage.title = disableReason;
 
         $(agentCells[5]).prepend(disableReasonMessage);
