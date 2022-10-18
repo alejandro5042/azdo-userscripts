@@ -134,6 +134,10 @@
       watchForAgentPage(session, pageData);
     });
 
+    eus.onUrl(/\/(_build)(\?|$)/gi, (session, urlMatch) => {
+      watchForPipelinesPage(session, pageData);
+    });
+
     eus.onUrl(/\/(_git)/gi, (session, urlMatch) => {
       doEditAction(session);
       watchForRepoBrowsingPages(session);
@@ -199,6 +203,63 @@
     }
 
     return value;
+  }
+
+  function watchForPipelinesPage(session, pageData) {
+    addStyleOnce('agent-css', /* css */ `
+      .pipeline-status-icon {
+        margin: 5px !important;
+        padding: 10px;
+        border-radius: 25px;
+        background: var(--search-selected-match-background);
+        color: var(--palette-error);
+      }
+    `);
+
+    const projectName = pageData['ms.vss-tfs-web.page-data'].project.name;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlDefinitionId = urlParams.get('definitionId');
+
+    if (urlDefinitionId) {
+      // Single Pipeline View
+      session.onEveryNew(document, '.ci-pipeline-details-header', pipelineTitleElement => {
+        setPipelineDefinitionDetails(projectName, urlDefinitionId, pipelineTitleElement, 'div.title-m');
+      });
+    } else {
+      // List of Pipelines View
+      session.onEveryNew(document, '.bolt-table-row', pipelineTitleElement => {
+        const href = pipelineTitleElement.href;
+        if (href) {
+          const pipelineHref = new URL(href);
+          const pipelineUrlParams = new URLSearchParams(pipelineHref.search);
+          const pipelineDefinitionId = pipelineUrlParams.get('definitionId');
+          setPipelineDefinitionDetails(projectName, pipelineDefinitionId, pipelineTitleElement, 'div.bolt-table-cell-content');
+        }
+      });
+    }
+  }
+
+  async function setPipelineDefinitionDetails(projectName, definitionId, pipelineTitleElement, classToAppendTo) {
+    const pipelineDetails = await fetchJsonAndCache(
+      `definitionId${definitionId}`,
+      0.5,
+      `${azdoApiBaseUrl}/${projectName}/_apis/build/definitions/${definitionId}`,
+      1,
+    );
+
+    const pipelineQueueStatus = pipelineDetails.queueStatus;
+    if (pipelineQueueStatus === 'enabled') {
+      return;
+    }
+
+    const userIcon = document.createElement('span');
+    userIcon.title = `Pipeline Status: ${pipelineQueueStatus.toUpperCase()}`;
+    userIcon.className = 'pipeline-status-icon fabric-icon';
+    userIcon.classList.add({ disabled: 'ms-Icon--Blocked', paused: 'ms-Icon--CirclePause' }[pipelineQueueStatus] || 'ms-Icon--Unknown');
+
+    const spanElement = $(pipelineTitleElement).find(classToAppendTo)[0];
+    spanElement.append(userIcon);
   }
 
   function watchForAgentPage(session, pageData) {
@@ -344,6 +405,7 @@
         totalCount += 1;
         agentRow.classList.remove('hiddenAgentRow');
         agentRow.classList.remove('visibleAgentRow');
+
         if (atNI) {
           addAgentDisableReason(agentRow, currentPoolId, poolAgentsInfo);
         }
