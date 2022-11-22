@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.4.4
+// @version      3.4.5
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -73,6 +73,11 @@
     });
 
     if (atNI) {
+      eus.registerCssClassConfig(document.body, 'Display Agent Arbitration Status', 'agent-arbitration-status', 'agent-arbitration-status-off', {
+        'agent-arbitration-status-on': 'On',
+        'agent-arbitration-status-off': 'Off',
+      });
+
       eus.showTipOnce('release-2021-11-14', 'New in the AzDO userscript', `
         <p>Highlights from the 2021-11-14 update!</p>
         <p>PR reviewers are now annotated with:</p>
@@ -386,14 +391,15 @@
     const poolAgentsInfo = await fetchJsonAndCache(
       `azdoPool${poolName}IdAgents`,
       5,
-      `${azdoApiBaseUrl}/_apis/distributedtask/pools/${currentPoolId}/agents?includeCapabilities=True`,
-      1,
+      `${azdoApiBaseUrl}/_apis/distributedtask/pools/${currentPoolId}/agents?includeCapabilities=True&propertyFilters=*`,
+      2,
       poolAgentsInfoWithCapabilities => {
         const filteredAgentInfo = {};
         poolAgentsInfoWithCapabilities.value.forEach(agentInfo => {
           filteredAgentInfo[agentInfo.name] = {
             id: agentInfo.id,
             userCapabilities: agentInfo.userCapabilities,
+            properties: agentInfo.properties,
           };
         });
         return filteredAgentInfo;
@@ -408,6 +414,7 @@
 
         if (atNI) {
           addAgentDisableReason(agentRow, currentPoolId, poolAgentsInfo);
+          addAgentArbitrationInformation(agentRow, currentPoolId, poolAgentsInfo);
         }
 
         const rowValue = agentRow.textContent.replace(/[\r\n]/g, '').trim();
@@ -423,6 +430,29 @@
       document.getElementById('agentFilterCounter').innerText = `(${matchedCount}/${totalCount})`;
     } catch (e) {
       showAllAgents(e);
+    }
+  }
+
+  function addAgentArbitrationInformation(agentRow, currentPoolId, poolAgentsInfo) {
+    $(agentRow).find('.arbiter').remove();
+
+    if (document.body.classList.contains('agent-arbitration-status-off')) return;
+
+    const agentCells = agentRow.querySelectorAll('div');
+    const agentName = agentCells[1].innerText;
+    const agentInfo = poolAgentsInfo[agentName];
+
+    if (agentInfo.properties && Object.prototype.hasOwnProperty.call(agentInfo.properties, 'under_arbitration')) {
+      const underArbitration = agentInfo.properties.under_arbitration.$value.toLowerCase() === 'true';
+      const iconType = underArbitration ? 'CirclePause' : 'Airplane';
+
+      const arbitrationIcon = document.createElement('span');
+      arbitrationIcon.className = `arbiter fabric-icon ms-Icon--${iconType}`;
+      arbitrationIcon.title = underArbitration ? 'Arbitration Started: ' : 'Last Arbitration: ';
+      arbitrationIcon.title += new Date(agentInfo.properties.arbitration_start.$value * 1000);
+      arbitrationIcon.style = 'padding-right: 5px';
+
+      agentCells[2].prepend(arbitrationIcon);
     }
   }
 
