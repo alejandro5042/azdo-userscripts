@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.4.1
+// @version      3.4.5
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -73,6 +73,11 @@
     });
 
     if (atNI) {
+      eus.registerCssClassConfig(document.body, 'Display Agent Arbitration Status', 'agent-arbitration-status', 'agent-arbitration-status-off', {
+        'agent-arbitration-status-on': 'On',
+        'agent-arbitration-status-off': 'Off',
+      });
+
       eus.showTipOnce('release-2021-11-14', 'New in the AzDO userscript', `
         <p>Highlights from the 2021-11-14 update!</p>
         <p>PR reviewers are now annotated with:</p>
@@ -132,6 +137,10 @@
 
     eus.onUrl(/\/(agentqueues|agentpools)(\?|\/)/gi, (session, urlMatch) => {
       watchForAgentPage(session, pageData);
+    });
+
+    eus.onUrl(/\/(_build)(\?|$)/gi, (session, urlMatch) => {
+      watchForPipelinesPage(session, pageData);
     });
 
     eus.onUrl(/\/(_git)/gi, (session, urlMatch) => {
@@ -199,6 +208,63 @@
     }
 
     return value;
+  }
+
+  function watchForPipelinesPage(session, pageData) {
+    addStyleOnce('agent-css', /* css */ `
+      .pipeline-status-icon {
+        margin: 5px !important;
+        padding: 10px;
+        border-radius: 25px;
+        background: var(--search-selected-match-background);
+        color: var(--palette-error);
+      }
+    `);
+
+    const projectName = pageData['ms.vss-tfs-web.page-data'].project.name;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlDefinitionId = urlParams.get('definitionId');
+
+    if (urlDefinitionId) {
+      // Single Pipeline View
+      session.onEveryNew(document, '.ci-pipeline-details-header', pipelineTitleElement => {
+        setPipelineDefinitionDetails(projectName, urlDefinitionId, pipelineTitleElement, 'div.title-m');
+      });
+    } else {
+      // List of Pipelines View
+      session.onEveryNew(document, '.bolt-table-row', pipelineTitleElement => {
+        const href = pipelineTitleElement.href;
+        if (href) {
+          const pipelineHref = new URL(href);
+          const pipelineUrlParams = new URLSearchParams(pipelineHref.search);
+          const pipelineDefinitionId = pipelineUrlParams.get('definitionId');
+          setPipelineDefinitionDetails(projectName, pipelineDefinitionId, pipelineTitleElement, 'div.bolt-table-cell-content');
+        }
+      });
+    }
+  }
+
+  async function setPipelineDefinitionDetails(projectName, definitionId, pipelineTitleElement, classToAppendTo) {
+    const pipelineDetails = await fetchJsonAndCache(
+      `definitionId${definitionId}`,
+      0.5,
+      `${azdoApiBaseUrl}/${projectName}/_apis/build/definitions/${definitionId}`,
+      1,
+    );
+
+    const pipelineQueueStatus = pipelineDetails.queueStatus;
+    if (pipelineQueueStatus === 'enabled') {
+      return;
+    }
+
+    const userIcon = document.createElement('span');
+    userIcon.title = `Pipeline Status: ${pipelineQueueStatus.toUpperCase()}`;
+    userIcon.className = 'pipeline-status-icon fabric-icon';
+    userIcon.classList.add({ disabled: 'ms-Icon--Blocked', paused: 'ms-Icon--CirclePause' }[pipelineQueueStatus] || 'ms-Icon--Unknown');
+
+    const spanElement = $(pipelineTitleElement).find(classToAppendTo)[0];
+    spanElement.append(userIcon);
   }
 
   function watchForAgentPage(session, pageData) {
@@ -275,15 +341,17 @@
     });
 
     // Status of agents can change as the table is constantly updating.
-    setInterval(filterAgentsDebouncer(), 30000);
+    setInterval(filterAgentsDebouncer(), 10000);
   }
 
   function filterAgentsDebouncer() {
     let timeout;
     return function () {
-      document.getElementById('agentFilterCounter').innerText = 'Filtering...';
-      clearTimeout(timeout);
-      timeout = setTimeout(filterAgents, 500);
+      if (!document.hidden) {
+        document.getElementById('agentFilterCounter').innerText = 'Filtering...';
+        clearTimeout(timeout);
+        timeout = setTimeout(filterAgents, 500);
+      }
     };
   }
 
@@ -310,32 +378,7 @@
     let totalCount = 0;
     let matchedCount = 0;
     const agentRows = document.querySelectorAll('a.bolt-list-row.single-click-activation');
-    try {
-      await Promise.all(Array.from(agentRows).map(async (agentRow) => {
-        totalCount += 1;
-        agentRow.classList.remove('hiddenAgentRow');
-        agentRow.classList.remove('visibleAgentRow');
-        if (atNI) {
-          await addAgentDisableReason(agentRow);
-        }
 
-        const rowValue = agentRow.innerText.replace(/[\r\n]/g, '').trim();
-        if (!regexFilter.test(rowValue)) {
-          agentRow.classList.add('hiddenAgentRow');
-        } else {
-          matchedCount += 1;
-          agentRow.classList.add('visibleAgentRow');
-        }
-      }));
-      $('.visibleAgentRow').show();
-      $('.hiddenAgentRow').hide();
-      document.getElementById('agentFilterCounter').innerText = `(${matchedCount}/${totalCount})`;
-    } catch (e) {
-      showAllAgents(e);
-    }
-  }
-
-  async function addAgentDisableReason(agentRow) {
     const poolName = Array.from(document.querySelectorAll('div.bolt-breadcrumb-item-text-container')).pop().innerText;
     const currentPoolId = await fetchJsonAndCache(
       `azdoPool${poolName}Id`,
@@ -345,18 +388,78 @@
       poolInfo => poolInfo.value[0].id,
     );
 
+    const poolAgentsInfo = await fetchJsonAndCache(
+      `azdoPool${poolName}IdAgents`,
+      5,
+      `${azdoApiBaseUrl}/_apis/distributedtask/pools/${currentPoolId}/agents?includeCapabilities=True&propertyFilters=*`,
+      2,
+      poolAgentsInfoWithCapabilities => {
+        const filteredAgentInfo = {};
+        poolAgentsInfoWithCapabilities.value.forEach(agentInfo => {
+          filteredAgentInfo[agentInfo.name] = {
+            id: agentInfo.id,
+            userCapabilities: agentInfo.userCapabilities,
+            properties: agentInfo.properties,
+          };
+        });
+        return filteredAgentInfo;
+      },
+    );
+
+    try {
+      agentRows.forEach(agentRow => {
+        totalCount += 1;
+        agentRow.classList.remove('hiddenAgentRow');
+        agentRow.classList.remove('visibleAgentRow');
+
+        if (atNI) {
+          addAgentDisableReason(agentRow, currentPoolId, poolAgentsInfo);
+          addAgentArbitrationInformation(agentRow, currentPoolId, poolAgentsInfo);
+        }
+
+        const rowValue = agentRow.textContent.replace(/[\r\n]/g, '').trim();
+        if (!regexFilter.test(rowValue)) {
+          agentRow.classList.add('hiddenAgentRow');
+        } else {
+          matchedCount += 1;
+          agentRow.classList.add('visibleAgentRow');
+        }
+      });
+      $('.visibleAgentRow').show();
+      $('.hiddenAgentRow').hide();
+      document.getElementById('agentFilterCounter').innerText = `(${matchedCount}/${totalCount})`;
+    } catch (e) {
+      showAllAgents(e);
+    }
+  }
+
+  function addAgentArbitrationInformation(agentRow, currentPoolId, poolAgentsInfo) {
+    $(agentRow).find('.arbiter').remove();
+
+    if (document.body.classList.contains('agent-arbitration-status-off')) return;
+
     const agentCells = agentRow.querySelectorAll('div');
     const agentName = agentCells[1].innerText;
-    const agentInfo = await fetchJsonAndCache(
-      `azdoPoolId${currentPoolId}azdoAgent${agentName}`,
-      2,
-      `${azdoApiBaseUrl}/_apis/distributedtask/pools/${currentPoolId}/agents?agentName=${agentName}&includeCapabilities=True`,
-      1,
-      agentInfoJson => ({
-        userCapabilities: agentInfoJson.value[0].userCapabilities || {},
-        id: agentInfoJson.value[0].id,
-      }),
-    );
+    const agentInfo = poolAgentsInfo[agentName];
+
+    if (agentInfo.properties && Object.prototype.hasOwnProperty.call(agentInfo.properties, 'under_arbitration')) {
+      const underArbitration = agentInfo.properties.under_arbitration.$value.toLowerCase() === 'true';
+      const iconType = underArbitration ? 'CirclePause' : 'Airplane';
+
+      const arbitrationIcon = document.createElement('span');
+      arbitrationIcon.className = `arbiter fabric-icon ms-Icon--${iconType}`;
+      arbitrationIcon.title = underArbitration ? 'Arbitration Started: ' : 'Last Arbitration: ';
+      arbitrationIcon.title += new Date(agentInfo.properties.arbitration_start.$value * 1000);
+      arbitrationIcon.style = 'padding-right: 5px';
+
+      agentCells[2].prepend(arbitrationIcon);
+    }
+  }
+
+  function addAgentDisableReason(agentRow, currentPoolId, poolAgentsInfo) {
+    const agentCells = agentRow.querySelectorAll('div');
+    const agentName = agentCells[1].innerText;
+    const agentInfo = poolAgentsInfo[agentName];
 
     $(agentRow).find('.disable-reason').remove();
     if (agentInfo.userCapabilities) {
@@ -365,11 +468,16 @@
         const userIcon = document.createElement('span');
         userIcon.className = 'fabric-icon ms-Icon--Contact';
 
+        const hiddenDisableReason = document.createElement('a');
+        hiddenDisableReason.text = disableReason;
+        hiddenDisableReason.style = 'display: none';
+
         const disableReasonMessage = document.createElement('a');
         disableReasonMessage.className = 'disable-reason';
         disableReasonMessage.text = ' Reserved';
         disableReasonMessage.href = `${azdoApiBaseUrl}/_settings/agentpools?agentId=${agentInfo.id}&poolId=${currentPoolId}&view=capabilities`;
         disableReasonMessage.prepend(userIcon);
+        disableReasonMessage.prepend(hiddenDisableReason);
         disableReasonMessage.title = disableReason;
 
         $(agentCells[5]).prepend(disableReasonMessage);
