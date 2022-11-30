@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.3.2
+// @version      3.4.5
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -73,6 +73,11 @@
     });
 
     if (atNI) {
+      eus.registerCssClassConfig(document.body, 'Display Agent Arbitration Status', 'agent-arbitration-status', 'agent-arbitration-status-off', {
+        'agent-arbitration-status-on': 'On',
+        'agent-arbitration-status-off': 'Off',
+      });
+
       eus.showTipOnce('release-2021-11-14', 'New in the AzDO userscript', `
         <p>Highlights from the 2021-11-14 update!</p>
         <p>PR reviewers are now annotated with:</p>
@@ -128,6 +133,14 @@
 
       watchForStatusCardAndMoveToRightSideBar(session);
       addEditButtons(session);
+    });
+
+    eus.onUrl(/\/(agentqueues|agentpools)(\?|\/)/gi, (session, urlMatch) => {
+      watchForAgentPage(session, pageData);
+    });
+
+    eus.onUrl(/\/(_build)(\?|$)/gi, (session, urlMatch) => {
+      watchForPipelinesPage(session, pageData);
     });
 
     eus.onUrl(/\/(_git)/gi, (session, urlMatch) => {
@@ -199,6 +212,291 @@
     }
 
     return value;
+  }
+
+  function watchForPipelinesPage(session, pageData) {
+    addStyleOnce('agent-css', /* css */ `
+      .pipeline-status-icon {
+        margin: 5px !important;
+        padding: 10px;
+        border-radius: 25px;
+        background: var(--search-selected-match-background);
+        color: var(--palette-error);
+      }
+    `);
+
+    const projectName = pageData['ms.vss-tfs-web.page-data'].project.name;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlDefinitionId = urlParams.get('definitionId');
+
+    if (urlDefinitionId) {
+      // Single Pipeline View
+      session.onEveryNew(document, '.ci-pipeline-details-header', pipelineTitleElement => {
+        setPipelineDefinitionDetails(projectName, urlDefinitionId, pipelineTitleElement, 'div.title-m');
+      });
+    } else {
+      // List of Pipelines View
+      session.onEveryNew(document, '.bolt-table-row', pipelineTitleElement => {
+        const href = pipelineTitleElement.href;
+        if (href) {
+          const pipelineHref = new URL(href);
+          const pipelineUrlParams = new URLSearchParams(pipelineHref.search);
+          const pipelineDefinitionId = pipelineUrlParams.get('definitionId');
+          setPipelineDefinitionDetails(projectName, pipelineDefinitionId, pipelineTitleElement, 'div.bolt-table-cell-content');
+        }
+      });
+    }
+  }
+
+  async function setPipelineDefinitionDetails(projectName, definitionId, pipelineTitleElement, classToAppendTo) {
+    const pipelineDetails = await fetchJsonAndCache(
+      `definitionId${definitionId}`,
+      0.5,
+      `${azdoApiBaseUrl}/${projectName}/_apis/build/definitions/${definitionId}`,
+      1,
+    );
+
+    const pipelineQueueStatus = pipelineDetails.queueStatus;
+    if (pipelineQueueStatus === 'enabled') {
+      return;
+    }
+
+    const userIcon = document.createElement('span');
+    userIcon.title = `Pipeline Status: ${pipelineQueueStatus.toUpperCase()}`;
+    userIcon.className = 'pipeline-status-icon fabric-icon';
+    userIcon.classList.add({ disabled: 'ms-Icon--Blocked', paused: 'ms-Icon--CirclePause' }[pipelineQueueStatus] || 'ms-Icon--Unknown');
+
+    const spanElement = $(pipelineTitleElement).find(classToAppendTo)[0];
+    spanElement.append(userIcon);
+  }
+
+  function watchForAgentPage(session, pageData) {
+    addStyleOnce('agent-css', /* css */ `
+      .agent-icon.offline {
+        width: 250px !important;
+      }
+      .disable-reason {
+        padding: 5px;
+        border-radius: 20px;
+        margin-right: 3px;
+        font-size: 12px;
+        text-decoration: none;
+        background: var(--search-selected-match-background);
+      }
+    `);
+
+    session.onEveryNew(document, '.pipelines-pool-agents.page-content.page-content-top', agentsTable => {
+      // Disable List Virtualization with 'CTRL + ALT + V'
+      document.dispatchEvent(new KeyboardEvent('keydown', {
+        bubbles: true,
+        composed: true,
+        key: 'v',
+        keyCode: 86,
+        code: 'KeyV',
+        which: 86,
+        altKey: true,
+        ctrlKey: true,
+        shiftKey: false,
+        metaKey: false,
+      }));
+
+      if (!document.getElementById('agentFilterInput')) {
+        const regexFilterString = new URL(window.location.href).searchParams.get('agentFilter') || '';
+        const agentFilterBarElement = `
+        <div style="padding-bottom: 16px">
+          <div class="vss-FilterBar bolt-filterbar-white depth-8 no-v-margin" role="search" id="__bolt-filter-bar-0">
+              <div class="vss-FilterBar--list">
+                  <div class="vss-FilterBar--item vss-FilterBar--item-keyword-container">
+                      <div class="flex-column flex-grow">
+                          <div class="bolt-text-filterbaritem flex-grow bolt-textfield flex-row flex-center focus-keyboard-only">
+                            <span aria-hidden="true" class="keyword-filter-icon prefix bolt-textfield-icon bolt-textfield-no-text flex-noshrink fabric-icon ms-Icon--Filter medium"></span>
+                            <input
+                              type="text" autocomplete="off"
+                              class="bolt-text-filterbaritem-input bolt-textfield-input flex-grow bolt-textfield-input-with-prefix"
+                              id="agentFilterInput"
+                              placeholder="Regex Filter"
+                              role="searchbox"
+                              tabindex="0"
+                              value="${regexFilterString}">
+                            <div id="agentFilterCounter" style="color: var(--text-secondary-color);"/>
+                            <div>
+                              <button
+                                id="agentFilterRefresh"
+                                class="refresh-dashboard-button bolt-button bolt-icon-button subtle bolt-focus-treatment"
+                                role="button"
+                                tabindex="0"
+                                type="button"
+                                style="padding: 0px; margin-left: 10px;">
+                                <span class="left-icon flex-noshrink fabric-icon ms-Icon--Refresh medium" style="padding: 5px 10px"/>
+                              </button>
+                            </div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+        </div>`;
+        $(agentsTable).prepend(agentFilterBarElement);
+        document.getElementById('agentFilterInput').addEventListener('input', filterAgentsDebouncer());
+        document.getElementById('agentFilterRefresh').addEventListener('click', filterAgentsDebouncer());
+      }
+      filterAgents();
+    });
+
+    // Status of agents can change as the table is constantly updating.
+    setInterval(filterAgentsDebouncer(), 10000);
+  }
+
+  function filterAgentsDebouncer() {
+    let timeout;
+    return function () {
+      if (!document.hidden) {
+        document.getElementById('agentFilterCounter').innerText = 'Filtering...';
+        clearTimeout(timeout);
+        timeout = setTimeout(filterAgents, 500);
+      }
+    };
+  }
+
+  async function filterAgents() {
+    let regexFilterString;
+    let regexFilter;
+    try {
+      regexFilterString = document.getElementById('agentFilterInput').value.trim();
+      regexFilter = new RegExp(regexFilterString, 'i');
+    } catch (e) {
+      showAllAgents(e);
+      return;
+    }
+
+    // Try to push the filter term if possible.
+    try {
+      const currentUrl = new URL(window.location.href);
+      currentUrl.searchParams.set('agentFilter', regexFilterString);
+      window.history.pushState({}, '', currentUrl.toString());
+    } catch (e) {
+      error(e);
+    }
+
+    let totalCount = 0;
+    let matchedCount = 0;
+    const agentRows = document.querySelectorAll('a.bolt-list-row.single-click-activation');
+
+    const poolName = Array.from(document.querySelectorAll('div.bolt-breadcrumb-item-text-container')).pop().innerText;
+    const currentPoolId = await fetchJsonAndCache(
+      `azdoPool${poolName}Id`,
+      12 * 60 * 60,
+      `${azdoApiBaseUrl}/_apis/distributedtask/pools?poolName=${poolName}`,
+      1,
+      poolInfo => poolInfo.value[0].id,
+    );
+
+    const poolAgentsInfo = await fetchJsonAndCache(
+      `azdoPool${poolName}IdAgents`,
+      5,
+      `${azdoApiBaseUrl}/_apis/distributedtask/pools/${currentPoolId}/agents?includeCapabilities=True&propertyFilters=*`,
+      2,
+      poolAgentsInfoWithCapabilities => {
+        const filteredAgentInfo = {};
+        poolAgentsInfoWithCapabilities.value.forEach(agentInfo => {
+          filteredAgentInfo[agentInfo.name] = {
+            id: agentInfo.id,
+            userCapabilities: agentInfo.userCapabilities,
+            properties: agentInfo.properties,
+          };
+        });
+        return filteredAgentInfo;
+      },
+    );
+
+    try {
+      agentRows.forEach(agentRow => {
+        totalCount += 1;
+        agentRow.classList.remove('hiddenAgentRow');
+        agentRow.classList.remove('visibleAgentRow');
+
+        if (atNI) {
+          addAgentDisableReason(agentRow, currentPoolId, poolAgentsInfo);
+          addAgentArbitrationInformation(agentRow, currentPoolId, poolAgentsInfo);
+        }
+
+        const rowValue = agentRow.textContent.replace(/[\r\n]/g, '').trim();
+        if (!regexFilter.test(rowValue)) {
+          agentRow.classList.add('hiddenAgentRow');
+        } else {
+          matchedCount += 1;
+          agentRow.classList.add('visibleAgentRow');
+        }
+      });
+      $('.visibleAgentRow').show();
+      $('.hiddenAgentRow').hide();
+      document.getElementById('agentFilterCounter').innerText = `(${matchedCount}/${totalCount})`;
+    } catch (e) {
+      showAllAgents(e);
+    }
+  }
+
+  function addAgentArbitrationInformation(agentRow, currentPoolId, poolAgentsInfo) {
+    $(agentRow).find('.arbiter').remove();
+
+    if (document.body.classList.contains('agent-arbitration-status-off')) return;
+
+    const agentCells = agentRow.querySelectorAll('div');
+    const agentName = agentCells[1].innerText;
+    const agentInfo = poolAgentsInfo[agentName];
+
+    if (agentInfo.properties && Object.prototype.hasOwnProperty.call(agentInfo.properties, 'under_arbitration')) {
+      const underArbitration = agentInfo.properties.under_arbitration.$value.toLowerCase() === 'true';
+      const iconType = underArbitration ? 'CirclePause' : 'Airplane';
+
+      const arbitrationIcon = document.createElement('span');
+      arbitrationIcon.className = `arbiter fabric-icon ms-Icon--${iconType}`;
+      arbitrationIcon.title = underArbitration ? 'Arbitration Started: ' : 'Last Arbitration: ';
+      arbitrationIcon.title += new Date(agentInfo.properties.arbitration_start.$value * 1000);
+      arbitrationIcon.style = 'padding-right: 5px';
+
+      agentCells[2].prepend(arbitrationIcon);
+    }
+  }
+
+  function addAgentDisableReason(agentRow, currentPoolId, poolAgentsInfo) {
+    const agentCells = agentRow.querySelectorAll('div');
+    const agentName = agentCells[1].innerText;
+    const agentInfo = poolAgentsInfo[agentName];
+
+    $(agentRow).find('.disable-reason').remove();
+    if (agentInfo.userCapabilities) {
+      const disableReason = agentInfo.userCapabilities.DISABLE_REASON || null;
+      if (disableReason) {
+        const userIcon = document.createElement('span');
+        userIcon.className = 'fabric-icon ms-Icon--Contact';
+
+        const hiddenDisableReason = document.createElement('a');
+        hiddenDisableReason.text = disableReason;
+        hiddenDisableReason.style = 'display: none';
+
+        const disableReasonMessage = document.createElement('a');
+        disableReasonMessage.className = 'disable-reason';
+        disableReasonMessage.text = ' Reserved';
+        disableReasonMessage.href = `${azdoApiBaseUrl}/_settings/agentpools?agentId=${agentInfo.id}&poolId=${currentPoolId}&view=capabilities`;
+        disableReasonMessage.prepend(userIcon);
+        disableReasonMessage.prepend(hiddenDisableReason);
+        disableReasonMessage.title = disableReason;
+
+        $(agentCells[5]).prepend(disableReasonMessage);
+      }
+    }
+  }
+
+  function showAllAgents(searchError) {
+    if (searchError) {
+      document.getElementById('agentFilterCounter').innerText = searchError;
+    }
+    document.querySelectorAll('a.bolt-list-row.single-click-activation').forEach(agentRow => {
+      $(agentRow).show();
+    });
+    document.getElementById('agentFilterRefresh').disabled = false;
   }
 
   async function watchForReviewerList(session) {
@@ -1000,9 +1298,10 @@
 
     session.onEveryNew(document, '.bolt-messagebar.severity-info .bolt-messagebar-buttons', boltMessageBarButtons => {
       const reposSummaryHeader = $(boltMessageBarButtons).closest('.repos-summary-header');
-      const filePath = (reposSummaryHeader.length > 0 ? reposSummaryHeader : $('.repos-compare-toolbar'))
-        .find('.secondary-text.text-ellipsis')[0].innerText;
+      const filePathElement = (reposSummaryHeader.length > 0 ? reposSummaryHeader : $('.repos-compare-toolbar')).find('.secondary-text.text-ellipsis')[0];
+      if (!filePathElement) return;
 
+      const filePath = filePathElement.innerText;
       if (!supportedFileExtensions.includes(getFileExt(filePath))) return;
 
       const launchDiffButton = $('<button class="bolt-button flex-grow-2 ni-binary-git-diff-button">Launch NI Binary Git Diff ▶</button>');
