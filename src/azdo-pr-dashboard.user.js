@@ -40,8 +40,6 @@
 
 // ==/UserScript==
 
-/* global eus, swal, tippy */
-
 (function () {
   'use strict';
 
