@@ -1,9 +1,9 @@
 // ==UserScript==
 
-// @name         AzDO Pull Request Improvements
-// @version      2.54.2
-// @author       Alejandro Barreto (National Instruments)
-// @description  Adds sorting and categorization to the PR dashboard. Also adds minor improvements to the PR diff experience, such as a base update selector and per-file checkboxes.
+// @name         More Awesome Azure DevOps (userscript)
+// @version      3.4.5
+// @author       Alejandro Barreto (NI)
+// @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
 
 // @namespace    https://github.com/alejandro5042
@@ -18,21 +18,29 @@
 // @run-at       document-body
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js#sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jquery-once/2.2.3/jquery.once.min.js#sha256-HaeXVMzafCQfVtWoLtN3wzhLWNs8cY2cH9OIQ8R9jfM=
-// @require      https://cdnjs.cloudflare.com/ajax/libs/lscache/1.3.0/lscache.js#sha256-QVvX22TtfzD4pclw/4yxR0G1/db2GZMYG9+gxRM9v30=
 // @require      https://cdnjs.cloudflare.com/ajax/libs/date-fns/1.30.1/date_fns.min.js#sha256-wCBClaCr6pJ7sGU5kfb3gQMOOcIZNzaWpWcj/lD9Vfk=
 // @require      https://cdn.jsdelivr.net/npm/lodash@4.17.11/lodash.min.js#sha256-7/yoZS3548fXSRXqc/xYzjsmuW3sFKzuvOCHd06Pmps=
 
 // @require      https://cdn.jsdelivr.net/npm/sweetalert2@9.13.1/dist/sweetalert2.all.min.js#sha384-8oDwN6wixJL8kVeuALUvK2VlyyQlpEEN5lg6bG26x2lvYQ1HWAV0k8e2OwiWIX8X
-// @require      https://gist.githubusercontent.com/alejandro5042/af2ee5b0ad92b271cd2c71615a05da2c/raw/67b7203dfbc48f08ebddfc8327c92b2df28a3c4c/easy-userscripts.js?v=72#sha384-OgOM7UvZHxtPUmZoGbYhsgkLPuRj9SFTpO+LqbnaBzLDQaXmYlosSywfsljzjhCI
+// @require      https://gist.githubusercontent.com/alejandro5042/af2ee5b0ad92b271cd2c71615a05da2c/raw/45da85567e48c814610f1627148feb063b873905/easy-userscripts.js#sha384-t7v/Pk2+HNbUjKwXkvcRQIMtDEHSH9w0xYtq5YdHnbYKIV7Jts9fSZpZq+ESYE4v
+
+// @require      https://unpkg.com/@popperjs/core@2#sha384-7+zCNj/IqJ95wo16oMtfsKbZ9ccEh31eOz1HGyDuCQ6wgnyJNSYdrPa03rtR1zdB
+// @require      https://unpkg.com/tippy.js@6#sha384-AiTRpehQ7zqeua0Ypfa6Q4ki/ddhczZxrKtiQbTQUlJIhBkTeyoZP9/W/5ulFt29
 
 // @require      https://highlightjs.org/static/highlight.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/js-yaml/3.14.0/js-yaml.min.js#sha512-ia9gcZkLHA+lkNST5XlseHz/No5++YBneMsDp1IZRJSbi1YqQvBeskJuG1kR+PH1w7E0bFgEZegcj0EwpXQnww==
 // @resource     linguistLanguagesYml https://raw.githubusercontent.com/github/linguist/master/lib/linguist/languages.yml?v=1
 // @grant        GM_getResourceText
+// @grant        GM_addStyle
+// @grant        GM_getValue
+// @grant        GM_setValue
+// @grant        GM_deleteValue
+// @grant        GM_addValueChangeListener
+// @grant        GM_registerMenuCommand
 
 // ==/UserScript==
 
-/* global swal */
+/* global eus, swal, tippy */
 
 (function () {
   'use strict';
@@ -40,21 +48,63 @@
   // All REST API calls should fail after a timeout, instead of going on forever.
   $.ajaxSetup({ timeout: 5000 });
 
-  lscache.setBucket('acb-azdo/');
-
   let currentUser;
   let azdoApiBaseUrl;
 
-  // Throttle page update events to avoid using up CPU when AzDO is adding a lot of elements during a short time (like on page load).
-  const onPageUpdatedThrottled = _.throttle(onPageUpdated, 400, { leading: false, trailing: true });
-
   // Some features only apply at National Instruments.
   const atNI = /^ni\./i.test(window.location.hostname) || /^\/ni\//i.test(window.location.pathname);
+
+  function debug(...args) {
+    // eslint-disable-next-line no-console
+    console.log('[azdo-userscript]', args);
+  }
+
+  function error(...args) {
+    // eslint-disable-next-line no-console
+    console.error('[azdo-userscript]', args);
+  }
+
+  function main() {
+    eus.globalSession.onFirst(document, 'body', () => {
+      eus.registerCssClassConfig(document.body, 'Configure PR Status Location', 'pr-status-location', 'ni-pr-status-right-side', {
+        'ni-pr-status-default': 'Default',
+        'ni-pr-status-right-side': 'Right Side',
+      });
+    });
+
+    if (atNI) {
+      eus.registerCssClassConfig(document.body, 'Display Agent Arbitration Status', 'agent-arbitration-status', 'agent-arbitration-status-off', {
+        'agent-arbitration-status-on': 'On',
+        'agent-arbitration-status-off': 'Off',
+      });
+
+      eus.showTipOnce('release-2021-11-14', 'New in the AzDO userscript', `
+        <p>Highlights from the 2021-11-14 update!</p>
+        <p>PR reviewers are now annotated with:</p>
+        <ul>
+          <li><b>Out-of-office status</b>: From Outlook auto-reply messages. Hover over to see the full message</li>
+          <li><b>Owner info</b>: How many files the reviewer is listed as an owner, alternate, and expert. Hover over to see which files</li>
+          <li><b>Country flags</b>: Shown if they are they are in a different country than you (these reviewers could have a longer response time due to timezones)</li>
+          <li><b>Employment status</b>: Ex-employee, leave of absence, etc.</li>
+        </ul>
+        <hr>
+        <p>Comments, bugs, suggestions? File an issue on <a href="https://github.com/alejandro5042/azdo-userscripts" target="_blank">GitHub</a> 🧡</p>
+      `);
+    }
+
+    // Start modifying the page once the DOM is ready.
+    if (document.readyState !== 'loading') {
+      onReady();
+    } else {
+      document.addEventListener('DOMContentLoaded', onReady);
+    }
+  }
 
   function onReady() {
     // Find out who is our current user. In general, we should avoid using pageData because it doesn't always get updated when moving between page-to-page in AzDO's single-page application flow. Instead, rely on the AzDO REST APIs to get information from stuff you find on the page or the URL. Some things are OK to get from pageData; e.g. stuff like the user which is available on all pages.
     const pageData = JSON.parse(document.getElementById('dataProviders').innerHTML).data;
     currentUser = pageData['ms.vss-web.page-data'].user;
+    debug('init', pageData, currentUser);
 
     const theme = pageData['ms.vss-web.theme-data'].requestedThemeId;
     const isDarkTheme = /(dark|night|neptune)/i.test(theme);
@@ -64,7 +114,6 @@
 
     // Invoke our new eus-style features.
     watchPullRequestDashboard();
-    watchForNewLabels();
     watchForWorkItemForms();
     watchForNewDiffs(isDarkTheme);
     watchForShowMoreButtons();
@@ -75,6 +124,33 @@
       watchForKnownBuildErrors(pageData);
     }
 
+    eus.onUrl(/\/pullrequest\//gi, (session, urlMatch) => {
+      if (atNI) {
+        watchForLVDiffsAndAddNIBinaryDiffButton(session);
+        watchForReviewerList(session);
+        // MOVE THIS HERE: conditionallyAddBypassReminderAsync();
+      }
+
+      watchForStatusCardAndMoveToRightSideBar(session);
+      addEditButtons(session);
+    });
+
+    eus.onUrl(/\/(agentqueues|agentpools)(\?|\/)/gi, (session, urlMatch) => {
+      watchForAgentPage(session, pageData);
+    });
+
+    eus.onUrl(/\/(_build)(\?|$)/gi, (session, urlMatch) => {
+      watchForPipelinesPage(session, pageData);
+    });
+
+    eus.onUrl(/\/(_git)/gi, (session, urlMatch) => {
+      doEditAction(session);
+      watchForRepoBrowsingPages(session);
+    });
+
+    // Throttle page update events to avoid using up CPU when AzDO is adding a lot of elements during a short time (like on page load).
+    const onPageUpdatedThrottled = _.throttle(onPageUpdated, 400, { leading: false, trailing: true });
+
     // Handle any existing elements, flushing it to execute immediately.
     onPageUpdatedThrottled();
     onPageUpdatedThrottled.flush();
@@ -83,28 +159,621 @@
     $('body > div.full-size')[0].addEventListener('DOMNodeInserted', onPageUpdatedThrottled);
   }
 
+  function watchForStatusCardAndMoveToRightSideBar(session) {
+    if (!document.body.classList.contains('ni-pr-status-right-side')) return;
+
+    addStyleOnce('pr-overview-sidebar-css', /* css */ `
+      /* Make the sidebar wider to accommodate the status moving there. */
+      .repos-overview-right-pane {
+        width: 550px;
+      }`);
+
+    session.onEveryNew(document, '.page-content .flex-column > .bolt-table-card', status => {
+      $(status).prependTo('.repos-overview-right-pane');
+    });
+  }
+
+  async function fetchJsonAndCache(key, secondsToCache, url, version = 1, fixer = x => x) {
+    let value;
+
+    const fullKey = `azdo-userscripts-${key}`;
+    const fullVersion = `1-${version}`;
+
+    let cached;
+    try {
+      cached = JSON.parse(localStorage[fullKey]);
+    } catch (e) {
+      cached = null;
+    }
+
+    if (cached && cached.version === fullVersion && dateFns.isFuture(dateFns.parse(cached.expiryDate))) {
+      value = cached.value;
+    } else {
+      localStorage.removeItem(fullKey);
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Bad status ${response.status} for <${url}>`);
+      } else {
+        value = await response.json();
+        value = fixer(value);
+      }
+
+      const expirationDate = new Date(Date.now() + (secondsToCache * 1000));
+      localStorage[fullKey] = JSON.stringify({
+        version: fullVersion,
+        expiryDate: expirationDate.toISOString(),
+        value,
+      });
+    }
+
+    return value;
+  }
+
+  function watchForPipelinesPage(session, pageData) {
+    addStyleOnce('agent-css', /* css */ `
+      .pipeline-status-icon {
+        margin: 5px !important;
+        padding: 10px;
+        border-radius: 25px;
+        background: var(--search-selected-match-background);
+        color: var(--palette-error);
+      }
+    `);
+
+    const projectName = pageData['ms.vss-tfs-web.page-data'].project.name;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlDefinitionId = urlParams.get('definitionId');
+
+    if (urlDefinitionId) {
+      // Single Pipeline View
+      session.onEveryNew(document, '.ci-pipeline-details-header', pipelineTitleElement => {
+        setPipelineDefinitionDetails(projectName, urlDefinitionId, pipelineTitleElement, 'div.title-m');
+      });
+    } else {
+      // List of Pipelines View
+      session.onEveryNew(document, '.bolt-table-row', pipelineTitleElement => {
+        const href = pipelineTitleElement.href;
+        if (href) {
+          const pipelineHref = new URL(href);
+          const pipelineUrlParams = new URLSearchParams(pipelineHref.search);
+          const pipelineDefinitionId = pipelineUrlParams.get('definitionId');
+          setPipelineDefinitionDetails(projectName, pipelineDefinitionId, pipelineTitleElement, 'div.bolt-table-cell-content');
+        }
+      });
+    }
+  }
+
+  async function setPipelineDefinitionDetails(projectName, definitionId, pipelineTitleElement, classToAppendTo) {
+    const pipelineDetails = await fetchJsonAndCache(
+      `definitionId${definitionId}`,
+      0.5,
+      `${azdoApiBaseUrl}/${projectName}/_apis/build/definitions/${definitionId}`,
+      1,
+    );
+
+    const pipelineQueueStatus = pipelineDetails.queueStatus;
+    if (pipelineQueueStatus === 'enabled') {
+      return;
+    }
+
+    const userIcon = document.createElement('span');
+    userIcon.title = `Pipeline Status: ${pipelineQueueStatus.toUpperCase()}`;
+    userIcon.className = 'pipeline-status-icon fabric-icon';
+    userIcon.classList.add({ disabled: 'ms-Icon--Blocked', paused: 'ms-Icon--CirclePause' }[pipelineQueueStatus] || 'ms-Icon--Unknown');
+
+    const spanElement = $(pipelineTitleElement).find(classToAppendTo)[0];
+    spanElement.append(userIcon);
+  }
+
+  function watchForAgentPage(session, pageData) {
+    addStyleOnce('agent-css', /* css */ `
+      .agent-icon.offline {
+        width: 250px !important;
+      }
+      .disable-reason {
+        padding: 5px;
+        border-radius: 20px;
+        margin-right: 3px;
+        font-size: 12px;
+        text-decoration: none;
+        background: var(--search-selected-match-background);
+      }
+    `);
+
+    session.onEveryNew(document, '.pipelines-pool-agents.page-content.page-content-top', agentsTable => {
+      // Disable List Virtualization with 'CTRL + ALT + V'
+      document.dispatchEvent(new KeyboardEvent('keydown', {
+        bubbles: true,
+        composed: true,
+        key: 'v',
+        keyCode: 86,
+        code: 'KeyV',
+        which: 86,
+        altKey: true,
+        ctrlKey: true,
+        shiftKey: false,
+        metaKey: false,
+      }));
+
+      if (!document.getElementById('agentFilterInput')) {
+        const regexFilterString = new URL(window.location.href).searchParams.get('agentFilter') || '';
+        const agentFilterBarElement = `
+        <div style="padding-bottom: 16px">
+          <div class="vss-FilterBar bolt-filterbar-white depth-8 no-v-margin" role="search" id="__bolt-filter-bar-0">
+              <div class="vss-FilterBar--list">
+                  <div class="vss-FilterBar--item vss-FilterBar--item-keyword-container">
+                      <div class="flex-column flex-grow">
+                          <div class="bolt-text-filterbaritem flex-grow bolt-textfield flex-row flex-center focus-keyboard-only">
+                            <span aria-hidden="true" class="keyword-filter-icon prefix bolt-textfield-icon bolt-textfield-no-text flex-noshrink fabric-icon ms-Icon--Filter medium"></span>
+                            <input
+                              type="text" autocomplete="off"
+                              class="bolt-text-filterbaritem-input bolt-textfield-input flex-grow bolt-textfield-input-with-prefix"
+                              id="agentFilterInput"
+                              placeholder="Regex Filter"
+                              role="searchbox"
+                              tabindex="0"
+                              value="${regexFilterString}">
+                            <div id="agentFilterCounter" style="color: var(--text-secondary-color);"/>
+                            <div>
+                              <button
+                                id="agentFilterRefresh"
+                                class="refresh-dashboard-button bolt-button bolt-icon-button subtle bolt-focus-treatment"
+                                role="button"
+                                tabindex="0"
+                                type="button"
+                                style="padding: 0px; margin-left: 10px;">
+                                <span class="left-icon flex-noshrink fabric-icon ms-Icon--Refresh medium" style="padding: 5px 10px"/>
+                              </button>
+                            </div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+        </div>`;
+        $(agentsTable).prepend(agentFilterBarElement);
+        document.getElementById('agentFilterInput').addEventListener('input', filterAgentsDebouncer());
+        document.getElementById('agentFilterRefresh').addEventListener('click', filterAgentsDebouncer());
+      }
+      filterAgents();
+    });
+
+    // Status of agents can change as the table is constantly updating.
+    setInterval(filterAgentsDebouncer(), 10000);
+  }
+
+  function filterAgentsDebouncer() {
+    let timeout;
+    return function () {
+      if (!document.hidden) {
+        document.getElementById('agentFilterCounter').innerText = 'Filtering...';
+        clearTimeout(timeout);
+        timeout = setTimeout(filterAgents, 500);
+      }
+    };
+  }
+
+  async function filterAgents() {
+    let regexFilterString;
+    let regexFilter;
+    try {
+      regexFilterString = document.getElementById('agentFilterInput').value.trim();
+      regexFilter = new RegExp(regexFilterString, 'i');
+    } catch (e) {
+      showAllAgents(e);
+      return;
+    }
+
+    // Try to push the filter term if possible.
+    try {
+      const currentUrl = new URL(window.location.href);
+      currentUrl.searchParams.set('agentFilter', regexFilterString);
+      window.history.pushState({}, '', currentUrl.toString());
+    } catch (e) {
+      error(e);
+    }
+
+    let totalCount = 0;
+    let matchedCount = 0;
+    const agentRows = document.querySelectorAll('a.bolt-list-row.single-click-activation');
+
+    const poolName = Array.from(document.querySelectorAll('div.bolt-breadcrumb-item-text-container')).pop().innerText;
+    const currentPoolId = await fetchJsonAndCache(
+      `azdoPool${poolName}Id`,
+      12 * 60 * 60,
+      `${azdoApiBaseUrl}/_apis/distributedtask/pools?poolName=${poolName}`,
+      1,
+      poolInfo => poolInfo.value[0].id,
+    );
+
+    const poolAgentsInfo = await fetchJsonAndCache(
+      `azdoPool${poolName}IdAgents`,
+      5,
+      `${azdoApiBaseUrl}/_apis/distributedtask/pools/${currentPoolId}/agents?includeCapabilities=True&propertyFilters=*`,
+      2,
+      poolAgentsInfoWithCapabilities => {
+        const filteredAgentInfo = {};
+        poolAgentsInfoWithCapabilities.value.forEach(agentInfo => {
+          filteredAgentInfo[agentInfo.name] = {
+            id: agentInfo.id,
+            userCapabilities: agentInfo.userCapabilities,
+            properties: agentInfo.properties,
+          };
+        });
+        return filteredAgentInfo;
+      },
+    );
+
+    try {
+      agentRows.forEach(agentRow => {
+        totalCount += 1;
+        agentRow.classList.remove('hiddenAgentRow');
+        agentRow.classList.remove('visibleAgentRow');
+
+        if (atNI) {
+          addAgentDisableReason(agentRow, currentPoolId, poolAgentsInfo);
+          addAgentArbitrationInformation(agentRow, currentPoolId, poolAgentsInfo);
+        }
+
+        const rowValue = agentRow.textContent.replace(/[\r\n]/g, '').trim();
+        if (!regexFilter.test(rowValue)) {
+          agentRow.classList.add('hiddenAgentRow');
+        } else {
+          matchedCount += 1;
+          agentRow.classList.add('visibleAgentRow');
+        }
+      });
+      $('.visibleAgentRow').show();
+      $('.hiddenAgentRow').hide();
+      document.getElementById('agentFilterCounter').innerText = `(${matchedCount}/${totalCount})`;
+    } catch (e) {
+      showAllAgents(e);
+    }
+  }
+
+  function addAgentArbitrationInformation(agentRow, currentPoolId, poolAgentsInfo) {
+    $(agentRow).find('.arbiter').remove();
+
+    if (document.body.classList.contains('agent-arbitration-status-off')) return;
+
+    const agentCells = agentRow.querySelectorAll('div');
+    const agentName = agentCells[1].innerText;
+    const agentInfo = poolAgentsInfo[agentName];
+
+    if (agentInfo.properties && Object.prototype.hasOwnProperty.call(agentInfo.properties, 'under_arbitration')) {
+      const underArbitration = agentInfo.properties.under_arbitration.$value.toLowerCase() === 'true';
+      const iconType = underArbitration ? 'CirclePause' : 'Airplane';
+
+      const arbitrationIcon = document.createElement('span');
+      arbitrationIcon.className = `arbiter fabric-icon ms-Icon--${iconType}`;
+      arbitrationIcon.title = underArbitration ? 'Arbitration Started: ' : 'Last Arbitration: ';
+      arbitrationIcon.title += new Date(agentInfo.properties.arbitration_start.$value * 1000);
+      arbitrationIcon.style = 'padding-right: 5px';
+
+      agentCells[2].prepend(arbitrationIcon);
+    }
+  }
+
+  function addAgentDisableReason(agentRow, currentPoolId, poolAgentsInfo) {
+    const agentCells = agentRow.querySelectorAll('div');
+    const agentName = agentCells[1].innerText;
+    const agentInfo = poolAgentsInfo[agentName];
+
+    $(agentRow).find('.disable-reason').remove();
+    if (agentInfo.userCapabilities) {
+      const disableReason = agentInfo.userCapabilities.DISABLE_REASON || null;
+      if (disableReason) {
+        const userIcon = document.createElement('span');
+        userIcon.className = 'fabric-icon ms-Icon--Contact';
+
+        const hiddenDisableReason = document.createElement('a');
+        hiddenDisableReason.text = disableReason;
+        hiddenDisableReason.style = 'display: none';
+
+        const disableReasonMessage = document.createElement('a');
+        disableReasonMessage.className = 'disable-reason';
+        disableReasonMessage.text = ' Reserved';
+        disableReasonMessage.href = `${azdoApiBaseUrl}/_settings/agentpools?agentId=${agentInfo.id}&poolId=${currentPoolId}&view=capabilities`;
+        disableReasonMessage.prepend(userIcon);
+        disableReasonMessage.prepend(hiddenDisableReason);
+        disableReasonMessage.title = disableReason;
+
+        $(agentCells[5]).prepend(disableReasonMessage);
+      }
+    }
+  }
+
+  function showAllAgents(searchError) {
+    if (searchError) {
+      document.getElementById('agentFilterCounter').innerText = searchError;
+    }
+    document.querySelectorAll('a.bolt-list-row.single-click-activation').forEach(agentRow => {
+      $(agentRow).show();
+    });
+    document.getElementById('agentFilterRefresh').disabled = false;
+  }
+
+  async function watchForReviewerList(session) {
+    addStyleOnce('pr-reviewer-annotations', /* css */ `
+      .reviewer-status-message {
+        font-size: 0.7em;
+        margin-left: 2ch;
+        padding: 0px 3px;
+        border-radius: 4px;
+        cursor: pointer;
+        border: 1px solid #ffffff22;
+        float: right;
+      }
+      .reviewer-status-message.ooo {
+        background: var(--status-warning-background);
+        color: var(--status-warning-foreground);
+      }
+      .reviewer-status-message.flag {
+        background: none;
+        border: none;
+      }
+      .reviewer-status-message.owner {
+        background: rgba(var(--palette-primary), 1);
+        color: #fff;
+      }
+      .reviewer-status-message.alternate {
+        background: rgba(var(--palette-primary), 0.3);
+        color: #fff;
+      }
+      .reviewer-status-message.expert {
+        background: rgba(var(--palette-primary), 0.3);
+        color: #fff;
+      }
+      .tippy-box[data-theme~='azdo-userscript'] {
+        padding: 5px 10px;
+      }
+      .tippy-box[data-theme~='azdo-userscript'] li {
+        list-style: disc;
+      }
+      .tippy-box[data-theme~='azdo-userscript'] h1 {
+        background: rgb(255, 255, 255, 0.3);
+        border-radius: 4px;
+        margin-top: 0;
+        padding: 5px 10px;
+        font-size: 1.1em;
+        text-align: center;
+        line-height: 1.8em;
+      }
+      .tippy-box[data-theme~='azdo-userscript'] .user-message {
+      }
+      .owner-dir {
+        opacity: 0.7;
+        font-size: 80%;
+      }
+      .owner-file {
+        display: inline-block;
+        float: right;
+        margin-left: 2ex;
+      }`);
+
+    const prUrl = await getCurrentPullRequestUrlAsync();
+    const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(prUrl);
+
+    const dataMaxAgeInDays = 3;
+
+    let oooInfo;
+    let oooByEmail;
+    try {
+      oooInfo = await fetchJsonAndCache('outOfOfficeLatest', 12 * 60 * 60, `${azdoApiBaseUrl}/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?api-version=6.0&path=/data/outOfOfficeLatest.json&version=main`);
+      if (oooInfo.version === 1) {
+        const dataDate = dateFns.parse(oooInfo.date);
+        if (dateFns.differenceInDays(new Date(), dataDate) >= dataMaxAgeInDays) {
+          // This data is too old. It hasn't been updated properly by the pipeline producing it. Avoid annotating.
+          throw new Error(`Data is too old (must be ${dataMaxAgeInDays} days old or less). Data date is: ${dataDate.toISOString()}`);
+        }
+
+        oooByEmail = _.keyBy(oooInfo.value, 'Email');
+      } else {
+        throw new Error(`Invalid version: ${oooInfo.version}`);
+      }
+    } catch (e) {
+      oooInfo = null;
+      error(`Cannot annotate out-of-office info on PRs: ${e}`);
+    }
+
+    let employeeInfo;
+    let employeeByEmail;
+    let me;
+    try {
+      employeeInfo = await fetchJsonAndCache('employeesLatest', 12 * 60 * 60, `${azdoApiBaseUrl}/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?api-version=6.0&path=/data/employeesLatest.json&version=main`, 3, employees => {
+        // HACK: Make the data much smaller so it fits in local storage.
+
+        for (const employee of employees.value) {
+          delete employee.username;
+          delete employee.title;
+          delete employee.manager_email;
+          delete employee.hr_org;
+
+          switch (employee.status) {
+            case 'Active Assignment':
+              delete employee.status;
+              break;
+            case 'Terminate Assignment':
+              employee.status = 'Ex-Employee';
+              break;
+            case 'LOA':
+              employee.status = 'Leave of Absence';
+              break;
+            default:
+              // Keep it.
+              break;
+          }
+        }
+
+        return employees;
+      });
+
+      if (employeeInfo.version === 1) {
+        const dataDate = dateFns.parse(employeeInfo.date);
+        if (dateFns.differenceInDays(new Date(), dataDate) >= dataMaxAgeInDays) {
+          // This data is too old. It hasn't been updated properly by the pipeline producing it. Avoid annotating.
+          throw new Error(`Data is too old (must be ${dataMaxAgeInDays} days old or less). Data date is: ${dataDate.toISOString()}`);
+        }
+
+        employeeByEmail = _.keyBy(employeeInfo.value, 'email');
+        me = employeeByEmail[currentUser.uniqueName];
+      } else {
+        throw new Error(`Invalid version: ${employeeInfo.version}`);
+      }
+    } catch (e) {
+      employeeInfo = null;
+      error(`Cannot annotate employee info on PRs: ${e}`);
+    }
+
+    session.onEveryNew(document, '.repos-pr-details-page .repos-reviewer', reviewer => {
+      const imageUrl = $(reviewer).find('.bolt-coin-content')[0].src;
+      const reviewerInfos = getPropertyThatStartsWith(reviewer.parentElement.parentElement, '__reactInternalInstance$').return.stateNode.state.values.reviewers;
+      const reviewerInfo = _.find(reviewerInfos, r => imageUrl.startsWith(r.identity.imageUrl));
+      const email = reviewerInfo.baseReviewer.uniqueName.toLowerCase();
+      const nameElement = $(reviewer).find('.body-m')[0];
+
+      if (ownersInfo) {
+        const reviewerIdentityIndex = _.findIndex(ownersInfo.reviewProperties.reviewerIdentities, r => r.email === email);
+        if (reviewerIdentityIndex >= 0) {
+          // eslint-disable-next-line no-inner-declarations
+          function annotateReviewerRole(label, cssClass, matcher) {
+            const files = _.filter(ownersInfo.reviewProperties.fileProperties, matcher).map(f => f.path);
+            if (files.length > 0) {
+              let prefix = '';
+              let filesToShow = files.sort();
+              const maxFilesToShow = 25;
+
+              if (files.length > maxFilesToShow) {
+                filesToShow = _.take(filesToShow, maxFilesToShow);
+                prefix = `<p>Showing first ${maxFilesToShow}:</p>`;
+              }
+
+              const fileListing = filesToShow
+                .map(f => `<li>${escapeStringForHtml(f).replace(/^(.*\/)?([^/]+?)$/, '<span class="owner-dir">$1</span><span class="owner-file">$2</span>')}</li>`)
+                .join('');
+
+              annotateReviewer(nameElement, cssClass, `${files.length}× ${label}`, `<div style='word-wrap : break-word;'>${prefix}${fileListing}</div>`, 'none');
+            }
+          }
+
+          // Note that the values for file.owner/alternate/experts may contain the value 0 (which is not a valid 1-based index) to indicate nobody for that role.
+          annotateReviewerRole('owner', 'owner', f => f.owner === reviewerIdentityIndex + 1);
+          annotateReviewerRole('alternate', 'alternate', f => f.alternate === reviewerIdentityIndex + 1);
+          annotateReviewerRole('expert', 'expert', f => _.some(f.experts, e => e === reviewerIdentityIndex + 1));
+        }
+      }
+
+      if (employeeInfo) {
+        const employee = employeeByEmail[email];
+        if (employee) {
+          if (me.country !== employee.country) {
+            annotateReviewer(nameElement, 'flag', `<img style="height: 1.2em" src="https://flagcdn.com/h20/${employee.country.toLowerCase()}.png" alt='${employee.country} flag' />`, escapeStringForHtml(employee.location_code));
+          }
+
+          if (employee.status) {
+            annotateReviewer(nameElement, 'ooo', escapeStringForHtml(employee.status));
+          }
+        }
+      }
+
+      if (oooInfo) {
+        const ooo = oooByEmail[email];
+        if (ooo && dateFns.isFuture(ooo.End)) {
+          let label;
+
+          if (dateFns.isFuture(ooo.Start)) {
+            if (dateFns.differenceInHours(ooo.Start, new Date()) <= 24) {
+              label = 'Unavailable in <24h';
+            } else {
+              // Don't show a label. This person is leaving too far into the future.
+              label = null;
+            }
+          } else {
+            label = `Returns in ${dateFns.distanceInWordsToNow(ooo.End)}`;
+          }
+
+          if (label) {
+            const tooltipHtml = `
+              <p style='font-weight: bold; text-align: center'>Outlook Auto Response</p>
+              <h1>Leaving ${dateFns.format(ooo.Start, 'ha ddd, MMM D, YYYY')}<br>Returning ${dateFns.format(ooo.End, 'ha ddd, MMM D, YYYY')}</h1>
+              <p class="user-message">${ooo.Text.replace(/\r?\n/ig, '<br><br>')}</p>`;
+
+            annotateReviewer(nameElement, 'ooo', escapeStringForHtml(label), tooltipHtml);
+          }
+        }
+      }
+    });
+  }
+
+  function annotateReviewer(nameElement, cssClass, labelHtml, tooltipHtml, maxWidth = '600px') {
+    const messageElement = $('<span class="reviewer-status-message" />').addClass(cssClass).html(labelHtml);
+
+    if (tooltipHtml) {
+      tippy(messageElement[0], {
+        content: tooltipHtml,
+        allowHTML: true,
+        arrow: true,
+        theme: 'azdo-userscript',
+        maxWidth,
+      });
+    }
+
+    $(nameElement).append(messageElement);
+  }
+
+  function addEditButtons(session) {
+    session.onEveryNew(document, '.repos-summary-header > div:first-child .flex-column .secondary-text:nth-child(2)', path => {
+      const end = $(path).closest('.flex-row').find('.justify-end');
+      const branchUrl = $('.pr-header-branches a:first-child').attr('href');
+      const url = `${branchUrl}&path=${path.innerText}&_a=diff&azdouserscriptaction=edit`;
+      $('<a style="margin: 0px 1em;" class="flex-end bolt-button bolt-link-button enabled bolt-focus-treatment" data-focuszone="" data-is-focusable="true" target="_blank" role="link" onclick="window.open(this.href,\'popup\',\'width=600,height=600\'); return false;">Edit</a>').attr('href', url).appendTo(end);
+    });
+
+    session.onEveryNew(document, '.repos-compare-header-commandbar.bolt-button-group', button => {
+      if (eus.seen(button)) return;
+
+      $(button).before(setupVSCodeButton(() => {
+        if ($('.pr-status-completed').length > 0) {
+          eus.toast.fire({
+            title: 'AzDO userscript',
+            text: 'Cannot open VSCode on a completed pull request.',
+            icon: 'error',
+          });
+          return null;
+        }
+        const urlParams = new URLSearchParams(window.location.search);
+        const path = urlParams.get('path') || '';
+
+        const branchUrl = `${window.location.origin}${$('.pr-header-branches a').attr('href')}`;
+
+        const url = `${branchUrl}&path=${path}`;
+        return url;
+      }));
+    });
+  }
+
+  async function doEditAction(session) {
+    if (window.location.search.indexOf('azdouserscriptaction=edit') >= 0) {
+      await eus.sleep(1500);
+      $('button#__bolt-edit').click();
+      $('div#__bolt-tab-diff').click();
+    }
+  }
+
   // This is "main()" for this script. Runs periodically when the page updates.
   function onPageUpdated() {
     try {
       // The page may not have refreshed when moving between URLs--sometimes AzDO acts as a single-page application. So we must always check where we are and act accordingly.
       if (/\/(pullrequest)\//i.test(window.location.pathname)) {
-        addBaseUpdateSelector();
-        makePullRequestDiffEasierToScroll();
-        applyStickyPullRequestComments();
-        highlightAwaitComments();
+        // TODO: BROKEN IN NEW PR UX: applyStickyPullRequestComments();
+        // TODO: BROKEN IN NEW PR UX: highlightAwaitComments();
         addAccessKeysToPullRequestTabs();
         if (atNI) {
           conditionallyAddBypassReminderAsync();
-          addNIBinaryDiffButton();
         }
         addTrophiesToPullRequest();
-        if (atNI && /\/DevCentral\/_git\/ASW\//i.test(window.location.pathname)) {
-          addNICodeOfDayToggle();
-        }
-      }
-
-      if (atNI) {
-        styleLabels();
       }
 
       if (/\/(pullrequests)/i.test(window.location.pathname)) {
@@ -158,15 +827,14 @@
   if (atNI) {
     addStyleOnce('ni-labels', /* css */ `
       /* Known labels we should style. */
-      .label--owners {
-      }
-      .label--draft {
+      .bolt-pill[aria-label='draft' i] {
         background: #8808 !important;
       }
-      .label--tiny {
+      .bolt-pill[aria-label='tiny' i] {
         background: #0a08 !important;
       }
-      .label--bypassowners {
+      .bolt-pill[aria-label~='blocked' i] {
+        background: #a008 !important;
       }`);
   }
 
@@ -175,11 +843,14 @@
       display: inline;
       position: absolute;
       top: 38px;
-      left: -450px;
+      left: -250px;
       z-index: 1000;
       background-color: #E6B307;
-      padding: 6px 12px;
-      border-radius: 6px;
+      color: #222;
+      font-weight: bold;
+      padding: 3ch 5ch;
+      font-size: 16px;
+      border-radius: 6px 0px 6px 6px;
       box-shadow: 4px 4px 4px #18181888;
       opacity: 0;
       transition: 0.3s;
@@ -191,7 +862,7 @@
     }
     .vote-button-wrapper {
       border: 3px solid transparent;
-      border-radius: 4px;
+      border-radius: 4px 4px 0px 0px;
       transition: 0.3s;
     }
     .vote-button-wrapper:hover {
@@ -201,28 +872,10 @@
       opacity: 1;
     }`);
 
-  function styleLabels() {
-    // Give all tags a CSS class based on their name.
-    $('.tag-box').once('labels').each(function () {
-      const tagBox = $(this);
-      const subClass = stringToCssIdentifier(tagBox.text());
-      tagBox.addClass(`label--${subClass}`);
-    });
-  }
-
-  function watchForNewLabels() {
-    // Give all tags a CSS class based on their name.
-    eus.globalSession.onEveryNew(document, '.bolt-pill', label => {
-      if (!label.ariaLabel) return;
-      const subClass = stringToCssIdentifier(label.ariaLabel);
-      label.classList.add(`label--${subClass}`);
-    });
-  }
-
   function watchForWorkItemForms() {
     eus.globalSession.onEveryNew(document, '.menu-item.follow-item-menu-item-gray', followButton => {
       followButton.addEventListener('click', async _ => {
-        await sleep(100); // We need to allow the other handlers to send the request to follow/unfollow. After the request is sent, we can annotate our follows list correctly.
+        await eus.sleep(100); // We need to allow the other handlers to send the request to follow/unfollow. After the request is sent, we can annotate our follows list correctly.
         await annotateWorkItemWithFollowerList(document.querySelector('.discussion-messages-right'));
       });
     });
@@ -266,6 +919,73 @@
     commentEditor.insertAdjacentHTML('BeforeEnd', annotation);
   }
 
+  function watchForRepoBrowsingPages(session) {
+    // Add a copy branch button.
+    session.onEveryNew(document, '.version-dropdown > button', versionSelector => {
+      if (eus.seen(versionSelector.parent())) return;
+
+      const copyButton = $('<button />')
+        .attr('class', 'bolt-header-command-item-button bolt-button bolt-icon-button enabled bolt-focus-treatment subtle')
+        .css('font-family', 'Bowtie')
+        .css('font-size', '14px')
+        .css('font-weight', 'normal')
+        .attr('title', 'Copy branch name to clipboard')
+        .text('\uE94B') // A copy icon in the Bowtie font.
+        .click(event => {
+          const branchName = $(versionSelector).find('.bolt-dropdown-expandable-button-label').text();
+
+          navigator.clipboard.writeText(branchName);
+
+          eus.toast.fire({
+            title: 'AzDO userscript',
+            text: `Copied branch name to clipboard: ${branchName}`,
+            icon: 'info',
+          });
+
+          event.stopPropagation();
+        });
+
+      $(versionSelector).after(copyButton);
+    });
+
+    session.onEveryNew(document, '.repos-files-header .bolt-header-title-area', fileName => {
+      if (eus.seen(fileName)) return;
+
+      $(fileName).after(setupVSCodeButton());
+    });
+  }
+
+  function setupVSCodeButton(getUrl = () => window.location.href) {
+    function navigateToVSCode() {
+      let url = getUrl();
+      if (!url) return;
+
+      url = url.replace('/DefaultCollection/', '/'); // For some reason, we need to remove this.
+      url = url.replace(/^https?:\/\//i, 'https://vscode.dev/');
+
+      window.location = url;
+    }
+
+    const vscodeButton = $('<button />')
+      .attr('class', 'bolt-header-command-item-button bolt-button bolt-icon-button enabled bolt-focus-treatment')
+      .attr('type', 'button')
+      .attr('title', 'Edit in vscode.dev')
+      .html('<img src="https://vscode.dev/static/stable/favicon.ico" style="width: 16px; margin-right: 1ex;" alt="vscode.dev" /><span class="bolt-button-text body-m">Open in VSCode</span>')
+      .click(event => {
+        navigateToVSCode();
+        event.stopPropagation();
+      });
+
+    $(document.body).on('keyup', event => {
+      if (event.key === '.' && event.target === document.body) {
+        navigateToVSCode();
+        event.stopPropagation();
+      }
+    });
+
+    return vscodeButton;
+  }
+
   function watchForShowMoreButtons() {
     // Auto-click Show More buttons on work item forms, until they disappear or until we've pressed it 10 times (a reasonable limit which will still bring in 60 more items into view).
     eus.globalSession.onEveryNew(document, 'div[role="button"].la-show-more', async showMoreButton => {
@@ -279,7 +999,7 @@
         if (clicks >= 10) break;
 
         // eslint-disable-next-line no-await-in-loop
-        await sleep(100);
+        await eus.sleep(100);
       }
     });
 
@@ -302,13 +1022,9 @@
         }
 
         // eslint-disable-next-line no-await-in-loop
-        await sleep(1000);
+        await eus.sleep(1000);
       }
     });
-  }
-
-  function stringToCssIdentifier(text) {
-    return encodeURIComponent(text.toLowerCase()).replace(/%[0-9A-F]{2}/gi, '');
   }
 
   function getRepoNameFromUrl(url) {
@@ -328,6 +1044,7 @@
     });
   }
 
+  // eslint-disable-next-line no-unused-vars
   function highlightAwaitComments() {
     // Comments that start with this string are highlighted. No other behavior is given to them.
     const lowerCasePrefix = 'await:';
@@ -341,6 +1058,7 @@
       }`);
   }
 
+  // eslint-disable-next-line no-unused-vars
   function applyStickyPullRequestComments() {
     // Comments that start with this string become sticky. Only the first comment of the thread counts.
     const lowerCasePrefix = 'note:';
@@ -356,7 +1074,7 @@
     // Expand threads that have the sticky prefix.
     const lowerCasePrefixCssSelector = CSS.escape(`: "${lowerCasePrefix}`);
     $('.discussion-thread-host').once('expand-sticky-threads-on-load').each(async function () {
-      await sleep(100);
+      await eus.sleep(100);
       const button = this.querySelector(`button.ms-Button.expand-button[aria-label*="${lowerCasePrefixCssSelector}" i]`);
       if (button) {
         button.click();
@@ -366,7 +1084,7 @@
 
   function addAccessKeysToPullRequestTabs() {
     // Give all the tabs an access key equal to their numeric position on screen.
-    $('ul.vc-pullrequest-tabs a').once('add-accesskeys').each(function () {
+    $('.repos-pr-details-page-tabbar a').once('add-accesskeys').each(function () {
       $(this).attr('accesskey', $(this).attr('aria-posinset'));
     });
   }
@@ -398,6 +1116,26 @@
       }
       .zero-data-action:hover, .deployments-zero-data:hover {
         opacity: 1;
+      }
+      /* Make the My Work / My PR dropdown on the top-right of every page much bigger. */
+      .bolt-panel-callout-content.flyout-my-work {
+        max-height: 90vh;
+      }
+      /* Make PR comments more compact! */
+      .repos-discussion-comment-header {
+        margin-bottom: 4px;
+      }
+      /* swal CSS fixes, since AzDO overrides some styles that will conflict with dialogs. */
+      .swal2-footer {
+        opacity: 0.6;
+      }
+      .swal2-html-container {
+        text-align: left;
+      }
+      .swal2-html-container li {
+        list-style: disc;
+        margin-left: 4ch;
+        margin-bottom: 0.5em;
       }`);
   }
 
@@ -417,7 +1155,7 @@
 
     const banner = document.createElement('div');
     banner.classList.add('bypass-reminder');
-    banner.appendChild(document.createTextNode('If you are confident the change needs no further review by others, please bypass owners.'));
+    banner.appendChild(document.createTextNode('If you are confident the change needs no further review, please bypass owners.'));
 
     if ($('.repos-pr-header-vote-button').length === 0) {
       // "old" PR experience
@@ -489,7 +1227,10 @@
     }
   }
 
-  async function addNIBinaryDiffButton() {
+  async function watchForLVDiffsAndAddNIBinaryDiffButton(session) {
+    // NI Binary Diff is only supported on Windows
+    if (navigator.userAgent.indexOf('Windows') === -1) return;
+
     addStyleOnce('ni-binary-git-diff', /* css */ `
       .ni-binary-git-diff-button {
         border-color: #03b585;
@@ -510,16 +1251,12 @@
     const prUrl = await getCurrentPullRequestUrlAsync();
     const iterations = (await $.get(`${prUrl}/iterations?api-version=5.0`)).value;
 
-    eus.globalSession.onEveryNew(document, '.bolt-messagebar.severity-info .bolt-messagebar-buttons', boltMessageBarButtons => {
-      if (eus.seen(boltMessageBarButtons)) return;
-
-      // NI Binary Diff is only supported on Windows
-      if (navigator.userAgent.indexOf('Windows') === -1) return;
-
+    session.onEveryNew(document, '.bolt-messagebar.severity-info .bolt-messagebar-buttons', boltMessageBarButtons => {
       const reposSummaryHeader = $(boltMessageBarButtons).closest('.repos-summary-header');
-      const filePath = (reposSummaryHeader.length > 0 ? reposSummaryHeader : $('.repos-compare-toolbar'))
-        .find('.secondary-text.text-ellipsis')[0].innerText;
+      const filePathElement = (reposSummaryHeader.length > 0 ? reposSummaryHeader : $('.repos-compare-toolbar')).find('.secondary-text.text-ellipsis')[0];
+      if (!filePathElement) return;
 
+      const filePath = filePathElement.innerText;
       if (!supportedFileExtensions.includes(getFileExt(filePath))) return;
 
       const launchDiffButton = $('<button class="bolt-button flex-grow-2 ni-binary-git-diff-button">Launch NI Binary Git Diff ▶</button>');
@@ -560,131 +1297,6 @@
 
       $(boltMessageBarButtons).append(launchDiffButton);
       $(boltMessageBarButtons).append(helpButton);
-    });
-  }
-
-  function makePullRequestDiffEasierToScroll() {
-    addStyleOnce('pr-diff-improvements', /* css */ `
-      .vc-change-summary-files .file-container {
-        /* Make the divs float but clear them so they get stacked on top of each other. We float so that the divs expand to take up the width of the text in it. Finally, we remove the overflow property so that they don't have scrollbars and also such that we can have sticky elements (apparently, sticky elements don't work if the div has overflow). */
-        float: left;
-        clear: both;
-        min-width: 95%;
-        overflow: initial;
-      }
-      .vc-change-summary-files .file-row {
-        /* Let the file name section of each diff stick to the top of the page if we're scrolling. */
-        position: sticky;
-        top: 0;
-        z-index: 100000;
-        padding-bottom: 10px;
-        background: var(--background-color,rgba(255, 255, 255, 1));
-      }
-      .vc-change-summary-files .vc-diff-viewer {
-        /* We borrowed padding from the diff to give to the bottom of the file row. So adjust accordingly (this value was originally 20px). */
-        padding-top: 10px;
-      }`);
-  }
-
-
-  // If we're on specific PR, add a base update selector.
-  function addBaseUpdateSelector() {
-    $('.vc-iteration-selector').once('add-base-selector').each(async function () {
-      const toolbar = $(this);
-
-      addStyleOnce('base-selector-css', /* css */ `
-        .base-selector {
-          color: var(--text-secondary-color);
-          margin: 0px 5px 0px 0px;
-        }
-        .base-selector select {
-          border: 1px solid transparent;
-          padding: 2px 4px;
-          width: 3em;
-          height: 100%;
-          text-align: center;
-        }
-        .base-selector select:hover {
-          border-color: var(--palette-black-alpha-20);
-        }
-        .base-selector select option {
-          background: var(--callout-background-color);
-          color: var(--text-primary-color);
-          font-family: Consolas, monospace;
-        }
-        .base-selector select option:disabled {
-          display: none;
-        }`);
-
-      // Get the PR iterations.
-      const prUrl = await getCurrentPullRequestUrlAsync();
-      const iterations = (await $.get(`${prUrl}/iterations?api-version=5.0`)).value;
-
-      // Create a dropdown with the first option being the icon we show to users. We use an HTML dropdown since its much easier to code than writing our own with divs/etc or trying to figure out how to use an AzDO dropdown.
-      const selector = $('<select><option value="" disabled selected>↦</option></select>');
-
-      // Add an option for each iteration in the dropdown, looking roughly the same as the AzDO update selector.
-      for (const iteration of iterations.reverse()) {
-        const date = Date.parse(iteration.createdDate);
-        const truncatedDescription = truncate(iteration.description);
-        const optionText = `Update ${iteration.id.toString().padEnd(4)} ${truncatedDescription.padEnd(61)} ${dateFns.distanceInWordsToNow(date).padStart(15)} ago`;
-        $('<option>').val(iteration.id).text(optionText).appendTo(selector);
-      }
-
-      // Add the last option to select the merge base as the diff base (essentially update zero).
-      $('<option value="0">            === Merge Base ===</option>').appendTo(selector);
-
-      // Replace spaces with non-breaking spaces (char 0xa0) to force the browser to not collapse it so that we can align the dates to the right of the dropdown. Apprently even `white-space: pre !important;` doesn't work on `option` element css.
-      selector.children('option').each(function () { $(this).text((i, text) => text.replace(/ /g, '\xa0')); });
-
-      // Finally add the dropdown to the toolbar.
-      $('<div class="base-selector" />').append(selector).prependTo(toolbar);
-
-      // When an option is selected, update the URL to include the selected base update.
-      selector.on('change', function (event) {
-        const currentUrl = new URL(window.location.href);
-        currentUrl.searchParams.set('base', $(this).first().val());
-        currentUrl.searchParams.set('iteration', currentUrl.searchParams.get('iteration') || iterations.length); // If we select a base without having an explicit iteration, compare the base to the latest.
-        window.location.href = currentUrl.toString();
-      });
-    });
-  }
-
-  // Add a button to toggle flagging a PR discussion thread for ASW "Code of the Day" blog posts.
-  function addNICodeOfDayToggle() {
-    function getThreadDataFromDOMElement(threadElement) {
-      return getPropertyThatStartsWith(threadElement, '__reactEventHandlers$').children[0].props.thread;
-    }
-
-    function updateButtonForCurrentState(jqElements, isFlagged) {
-      const flaggedIconClass = 'bowtie-live-update-feed-off';
-      const notFlaggedIconClass = 'bowtie-live-update-feed';
-      const classToAdd = isFlagged ? flaggedIconClass : notFlaggedIconClass;
-      const classToRemove = isFlagged ? notFlaggedIconClass : flaggedIconClass;
-      jqElements.find('.cod-toggle-icon').addClass(classToAdd).removeClass(classToRemove);
-      jqElements.attr('title', isFlagged ? 'Un-suggest for "Code of the Day" blog post' : 'Suggest for "Code of the Day" blog post');
-    }
-
-    $('.vc-discussion-comment-toolbar').once('add-cod-flag-support').each(async function () {
-      const thread = getThreadDataFromDOMElement($(this).closest('.vc-discussion-comments')[0]);
-      const isFlagged = findFlaggedThreadArrayIndex(await getNICodeOfTheDayThreadsAsync(), thread.id, currentUser.uniqueName) !== -1;
-      const button = $('<button type="button" class="ms-Button vc-discussion-comment-toolbarbutton ms-Button--icon cod-toggle"><i class="ms-Button-icon cod-toggle-icon bowtie-icon" role="presentation"></i></button>');
-      updateButtonForCurrentState(button, isFlagged);
-      button.prependTo(this);
-      button.click(async function (event) {
-        const isNowFlagged = await toggleThreadFlaggedForNICodeOfTheDay(await getCurrentPullRequestUrlAsync(), {
-          flaggedDate: new Date().toISOString(),
-          flaggedBy: currentUser.uniqueName,
-          pullRequestId: getCurrentPullRequestId(),
-          threadId: thread.id,
-          file: thread.itemPath,
-          threadAuthor: thread.comments[0].author.displayName,
-          threadContentShort: truncate(thread.comments[0].content || thread.comments[0].newContent, 100),
-        });
-
-        // Update the button visuals in this thread
-        updateButtonForCurrentState($(this).parents('.vc-discussion-comments').find('.cod-toggle'), isNowFlagged);
-      });
     });
   }
 
@@ -749,7 +1361,7 @@
     const pr = await getPullRequestAsync(pullRequestId);
 
     // Sometimes, PRs lose their styling shortly after the page loads. A slight delay makes this problem go away, 99% of the time. Sucks -- but works and better to have this than not.
-    await sleep(333);
+    await eus.sleep(333);
 
     if (sectionTitle === 'Assigned to me') {
       const votes = countVotes(pr);
@@ -964,6 +1576,9 @@
 
   function onFilesTreeChange() {
     const hasOwnersInfo = globalOwnersInfo && globalOwnersInfo.currentUserFileCount > 0;
+    if (!hasOwnersInfo) {
+      return;
+    }
 
     $('.repos-changes-explorer-tree .bolt-tree-row').each(function () {
       const fileRow = $(this);
@@ -983,12 +1598,12 @@
       const isFolder = item[0].children[0].classList.contains('repos-folder-icon');
 
       // If we have owners info, mark folders that have files we need to review. This will allow us to highlight them if they are collapsed.
-      const folderContainsFilesToReview = hasOwnersInfo && isFolder && globalOwnersInfo.isCurrentUserResponsibleForFileInFolderPath(`${path}/`);
+      const folderContainsFilesToReview = isFolder && globalOwnersInfo.isCurrentUserResponsibleForFileInFolderPath(`${path}/`);
       fileRow.toggleClass('folder-to-review-row', folderContainsFilesToReview);
       fileRow.toggleClass('auto-collapsible-folder', !folderContainsFilesToReview);
 
       // If we have owners info, highlight the files we need to review and add role info.
-      const isFileToReview = hasOwnersInfo && !isFolder && globalOwnersInfo.isCurrentUserResponsibleForFile(path);
+      const isFileToReview = !isFolder && globalOwnersInfo.isCurrentUserResponsibleForFile(path);
       item.parent().toggleClass('file-to-review-row', isFileToReview);
       if (isFileToReview) {
         if (fileRow.find('.file-owners-role').length === 0) {
@@ -1049,10 +1664,14 @@
           /* Set some constants for our CSS. */
           --file-to-review-header-color: rgba(0, 120, 212, 0.2);
         }
-        div .flex-row.file-to-review-header {
+        .repos-summary-header > .flex-row.file-to-review-header {
           /* Highlight files I need to review. */
-          background-color: var(--file-to-review-header-color) !important;
+          abackground-color: var(--file-to-review-header-color) !important;
           transition-duration: 0.2s;
+        }
+        .repos-summary-header > .flex-row.file-to-review-header > .flex-row {
+          background: none;
+          background-color: var(--file-to-review-header-color) !important;
         }
         .file-owners-role-header {
           /* Style the role of the user in the files table. */
@@ -1066,19 +1685,20 @@
       // Get owners info for this PR.
       const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(prUrl);
       const hasOwnersInfo = ownersInfo && ownersInfo.currentUserFileCount > 0;
+      if (!hasOwnersInfo) return;
 
       session.onEveryNew(document, '.repos-summary-header', diff => {
         const header = diff.children[0];
         const pathWithLeadingSlash = $(header).find('.secondary-text.text-ellipsis')[0].textContent;
         const path = pathWithLeadingSlash.substring(1); // Remove leading slash.
 
-        const isFileToReview = hasOwnersInfo && ownersInfo.isCurrentUserResponsibleForFile(path);
-        if (isFileToReview) {
+        if (ownersInfo.isCurrentUserResponsibleForFile(path)) {
           $(header).addClass('file-to-review-header');
-          $(header.children[1]).addClass('file-to-review-header');
-
 
           $('<div class="file-owners-role-header" />').text(`${ownersInfo.currentUserFilesToRole[path]}:`).prependTo(header.children[1]);
+        } else {
+          // TODO: Make this optional.
+          $(header).find('button[aria-label="Collapse"]').click();
         }
       });
     });
@@ -1133,12 +1753,12 @@
         try {
           queryResponse = await fetch(`${azdoApiBaseUrl}/DevCentral/_apis/git/repositories/tools/items?path=/report/build_failure_analysis/pipeline-results/known-issues.json&api-version=6.0`);
         } catch (err) {
-          console.warn('Could not fetch known issues file from AzDO');
+          debug('Could not fetch known issues file from AzDO');
           return;
         }
         const knownIssues = await queryResponse.json();
         if (!knownIssues.version.match(/^1(\.\d+)?$/)) {
-          console.warn(`Version ${knownIssues.version} of known-issues.json is not one I know what to do with`);
+          debug(`Version ${knownIssues.version} of known-issues.json is not one I know what to do with`);
           return;
         }
 
@@ -1206,11 +1826,12 @@
               const knownBuildErrors = knownIssues.log_patterns;
               for (let k = 0; k < knownBuildErrors.length; k += 1) {
                 if (knownBuildErrors[k].category === 'Infrastructure' && new RegExp(knownBuildErrors[k].pipeline_match).test(pipelineName)) {
-                  let matchString = knownBuildErrors[k].match;
+                  const matchString = knownBuildErrors[k].match;
+                  let matchFlag = 'g';
                   if (knownBuildErrors[k].match_flag === 'dotmatchall') {
-                    matchString = matchString.replace('.', '[\\s\\S]');
+                    matchFlag = 'gs';
                   }
-                  const matches = log.match(new RegExp(matchString, 'g')) || [];
+                  const matches = log.match(new RegExp(matchString, matchFlag)) || [];
                   if (matches.length) {
                     let content = `${knownBuildErrors[k].cause} (x${matches.length})`;
                     if (knownBuildErrors[k].public_comment) {
@@ -1438,14 +2059,14 @@
       }
     }
 
-    // For debugging: console.debug(`Supporting ${Object.keys(extensionToMode).length} extensions and ${Object.keys(fileToMode).length} special filenames`);
+    // For debugging: debug(`Supporting ${Object.keys(extensionToMode).length} extensions and ${Object.keys(fileToMode).length} special filenames`);
     return { extensionToMode, fileToMode };
   }
 
   function highlightDiff(language, fileName, part, diffContainer, selector) {
     if (!diffContainer) return;
 
-    // For debugging: console.debug(`Highlighting ${part} of <${fileName}> as ${language}`);
+    // For debugging: debug(`Highlighting ${part} of <${fileName}> as ${language}`);
 
     let stack = null;
     for (const line of diffContainer.querySelectorAll(selector)) {
@@ -1505,11 +2126,6 @@
     return $.get(`${azdoApiBaseUrl}/_apis/git/pullrequests/${actualId}?api-version=5.0`);
   }
 
-  // Async helper function to sleep.
-  function sleep(milliseconds) {
-    return new Promise(resolve => setTimeout(resolve, milliseconds));
-  }
-
   // Async helper function to get a specific PR property, otherwise return the default value.
   async function getPullRequestProperty(prUrl, key, defaultValue = null) {
     const properties = await $.get(`${prUrl}/properties?api-version=5.1-preview.1`);
@@ -1523,63 +2139,9 @@
     return (await $.get(url)).value.some(x => x.isBlocking && x.settings.statusName === 'owners-approved');
   }
 
-  // Cached "Code of the Day" thread data.
-  let niCodeOfTheDayThreadsArray = null;
-
-  // Async helper function to flag or unflag a PR discussion thread for National Instruments "Code of the Day" blog.
-  async function toggleThreadFlaggedForNICodeOfTheDay(prUrl, value) {
-    const flaggedComments = await getNICodeOfTheDayThreadsAsync();
-    const index = findFlaggedThreadArrayIndex(flaggedComments, value.threadId, value.flaggedBy);
-    if (index >= 0) {
-      // found, so unflag it
-      flaggedComments.splice(index, 1);
-    } else {
-      // not found, so flag it
-      flaggedComments.push(value);
-    }
-
-    const patch = [{
-      op: flaggedComments.length ? 'add' : 'remove',
-      path: '/NI.CodeOfTheDay',
-      value: flaggedComments.length ? JSON.stringify(flaggedComments) : null,
-    }];
-    try {
-      await $.ajax({
-        type: 'PATCH',
-        url: `${prUrl}/properties?api-version=5.1-preview.1`,
-        data: JSON.stringify(patch),
-        contentType: 'application/json-patch+json',
-      });
-    } catch (e) {
-      // invalidate cached value so we re-fetch
-      niCodeOfTheDayThreadsArray = null;
-    }
-
-    // re-query to get the current state of the flagged threads
-    return findFlaggedThreadArrayIndex((await getNICodeOfTheDayThreadsAsync()), value.threadId, value.flaggedBy) !== -1;
-  }
-
-  // Helper function to find the index of a flagged thread record within the provided array.
-  function findFlaggedThreadArrayIndex(flaggedCommentArray, threadId, flaggedBy) {
-    return _.findIndex(flaggedCommentArray, x => x.threadId === threadId && x.flaggedBy === flaggedBy);
-  }
-
-  // Async helper function to get the discussion threads (in the current PR) that have been flagged for "Code of the Day."
-  async function getNICodeOfTheDayThreadsAsync() {
-    if (!niCodeOfTheDayThreadsArray) {
-      niCodeOfTheDayThreadsArray = await getPullRequestProperty(await getCurrentPullRequestUrlAsync(), 'NI.CodeOfTheDay', []);
-    }
-    return niCodeOfTheDayThreadsArray;
-  }
-
   // Helper function to access an object member, where the exact, full name of the member is not known.
   function getPropertyThatStartsWith(instance, startOfName) {
     return instance[Object.getOwnPropertyNames(instance).find(x => x.startsWith(startOfName))];
-  }
-
-  // Helper function to limit a string to a certain length, adding an ellipsis if necessary.
-  function truncate(text, maxLength) {
-    return text.length > maxLength ? `${text.substring(0, maxLength - 3)}...` : text;
   }
 
   // Helper function to encode any string into an string that can be placed directly into HTML.
@@ -1615,6 +2177,7 @@
       isCurrentUserResponsibleForFileInFolderPath(folderPath) {
         return Object.keys(this.currentUserFilesToRole).some(path => path.startsWith(folderPath));
       },
+      reviewProperties,
     };
 
     // See if the current user is listed in this PR.
@@ -1650,10 +2213,5 @@
     return ownersInfo;
   }
 
-  // Start modifying the page once the DOM is ready.
-  if (document.readyState !== 'loading') {
-    onReady();
-  } else {
-    document.addEventListener('DOMContentLoaded', onReady);
-  }
+  main();
 }());
