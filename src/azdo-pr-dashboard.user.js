@@ -131,6 +131,7 @@
 
       watchForStatusCardAndMoveToRightSideBar(session);
       addEditButtons(session);
+      addTrophiesToPullRequest(session, pageData);
     });
 
     eus.onUrl(/\/(agentqueues|agentpools)(\?|\/)/gi, (session, urlMatch) => {
@@ -771,7 +772,6 @@
         if (atNI) {
           conditionallyAddBypassReminderAsync();
         }
-        addTrophiesToPullRequest();
       }
 
       if (/\/(pullrequests)/i.test(window.location.pathname)) {
@@ -1184,45 +1184,54 @@
   }
 
   // Adds a "Trophies" section to the Overview tab of a PR for a qualifying PR number
-  function addTrophiesToPullRequest() {
-    // Pull request author is sometimes undefined on first call. Only add trophies if we can get the author name.
-    const pullRequestAuthor = $('div.vc-pullrequest-created-by-section.row-group').children('div.ms-TooltipHost').children('span').text();
+  function addTrophiesToPullRequest(session, pageData) {
+    session.onEveryNew(document, '.repos-overview-right-pane', elm => {
+      if ($('#trophies-section').length > 0) return;
 
-    // Only create the trophies section once.
-    if ($('#trophies-section').length === 0 && pullRequestAuthor.length !== 0) {
-      const pullRequestId = getCurrentPullRequestId();
-      let trophyAwarded = false;
+      const pr = pageData['ms.vss-code-web.pr-detail-data-provider'].pullRequest;
+      const prId = pr.pullRequestId;
+      const prAuthor = pr.createdBy.displayName;
+      const prCreationDate = new Date(Number(pr.creationDate.match(/\d+/)[0])); // Format `/Date(1670934813744)/`.
+      const twoAm = new Date(prCreationDate.getFullYear(), prCreationDate.getMonth(), prCreationDate.getDate(), 2, 0, 0);
+      const fiveAm = new Date(prCreationDate.getFullYear(), prCreationDate.getMonth(), prCreationDate.getDate(), 5, 0, 0);
 
-      const trophiesLeftPaneSection = $('<div>').addClass('vc-pullrequest-leftpane-section').attr('id', 'trophies-section');
-
-      const sectionTitle = $('<div>').addClass('vc-pullrequest-leftpane-section-title').append('<span>Trophies</span>');
-      const divider = $('<div>').addClass('divider');
-      const sectionContent = $('<div>').addClass('policies-section');
-
-      trophiesLeftPaneSection
-        .append(sectionTitle)
-        .append(divider)
-        .append(sectionContent);
+      const trophiesAwarded = [];
 
       // Milestone trophy: Awarded if pull request ID is greater than 1000 and is a non-zero digit followed by only zeroes (e.g. 1000, 5000, 10000).
-      if (pullRequestId >= 1000 && pullRequestId.match('^[1-9]0+$')) {
-        const milestoneTrophyMessage = $('<div>)').text(`${pullRequestAuthor} got pull request #${pullRequestId}!`);
-        sectionContent.append(milestoneTrophyMessage.prepend('&ensp;🏆&emsp;'));
-        trophyAwarded = true;
+      if (prId >= 1000 && prId.toString().match('^[1-9]0+$')) {
+        const milestoneTrophyMessage = $('<div>').addClass('bolt-table-cell-content').text(`🏆 ${prAuthor} got pull request #${prId}`);
+        trophiesAwarded.push(milestoneTrophyMessage);
       }
 
       // Fish trophy: Give a man a fish, he'll waste hours trying to figure out why. (Awarded if the ID is a palindrome.)
-      if (pullRequestId === pullRequestId.split('').reverse().join('')) {
-        const fishTrophyMessage = $('<div>)').text(`${pullRequestAuthor} got a fish trophy!`);
-        sectionContent.append(fishTrophyMessage.prepend('&ensp;🐠&emsp;'));
-        trophyAwarded = true;
+      // Requires an id with at least three numbers.
+      if (prId > 100 && prId.toString() === prId.toString().split('').reverse().join('')) {
+        const fishTrophyMessage = $('<div>').addClass('bolt-table-cell-content').text(`🐠 ${prAuthor} got a fish trophy`);
+        trophiesAwarded.push(fishTrophyMessage);
       }
 
-      // Add the trophy section to the Overview tab pane only if a trophy has been awarded.
-      if (trophyAwarded) {
-        $('div.overview-tab-pane').append(trophiesLeftPaneSection);
+      // 1337 leetspeak.
+      if (prId === 1337) {
+        const leetMessage = $('<div>').addClass('bolt-table-cell-content').text(`👨‍💻 ${prAuthor} speaks leet`);
+        trophiesAwarded.push(leetMessage);
+      } else if (prId === 1) { // First PR.
+        const firstPrTrophyMessage = $('<div>').addClass('bolt-table-cell-content').text(`🥇 ${prAuthor} first pull request`);
+        trophiesAwarded.push(firstPrTrophyMessage);
       }
-    }
+
+      // Who need sleep when you have coffee? PR created between 2 and 5 am.
+      if (dateFns.isAfter(prCreationDate, twoAm) && dateFns.isBefore(prCreationDate, fiveAm)) {
+        const nightTrophyMessage = $('<div>').addClass('bolt-table-cell-content').text(`🦉 ${prAuthor} is an night owl`);
+        trophiesAwarded.push(nightTrophyMessage);
+      }
+
+      if (trophiesAwarded.length > 0) {
+        const header = $('<div/>').addClass('bolt-header-title body-xl m').text('Trophies');
+        const sectionContent = $('<div/>').append(trophiesAwarded);
+        const section = $('<div/>').attr('id', 'trophies-section').append(header).append(sectionContent);
+        $(elm).append(section);
+      }
+    });
   }
 
   async function watchForLVDiffsAndAddNIBinaryDiffButton(session) {
