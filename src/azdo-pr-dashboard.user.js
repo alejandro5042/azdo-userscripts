@@ -1215,14 +1215,8 @@
         const leetMessage = $('<div>').addClass('bolt-table-cell-content').text(`👨‍💻 ${prAuthor} speaks leet`);
         trophiesAwarded.push(leetMessage);
       } else if (prId === 1) { // First PR.
-        const firstPrTrophyMessage = $('<div>').addClass('bolt-table-cell-content').text(`🥇 ${prAuthor} first pull request`);
+        const firstPrTrophyMessage = $('<div>').addClass('bolt-table-cell-content').text(`🥇 ${prAuthor} is first`);
         trophiesAwarded.push(firstPrTrophyMessage);
-      }
-
-      // Who need sleep when you have coffee? PR created between 2 and 5 am.
-      if (dateFns.isAfter(prCreationDate, twoAm) && dateFns.isBefore(prCreationDate, fiveAm)) {
-        const nightTrophyMessage = $('<div>').addClass('bolt-table-cell-content').text(`🦉 ${prAuthor} is an night owl`);
-        trophiesAwarded.push(nightTrophyMessage);
       }
 
       if (trophiesAwarded.length > 0) {
