@@ -1191,9 +1191,6 @@
       const pr = pageData['ms.vss-code-web.pr-detail-data-provider'].pullRequest;
       const prId = pr.pullRequestId;
       const prAuthor = pr.createdBy.displayName;
-      const prCreationDate = new Date(Number(pr.creationDate.match(/\d+/)[0])); // Format `/Date(1670934813744)/`.
-      const twoAm = new Date(prCreationDate.getFullYear(), prCreationDate.getMonth(), prCreationDate.getDate(), 2, 0, 0);
-      const fiveAm = new Date(prCreationDate.getFullYear(), prCreationDate.getMonth(), prCreationDate.getDate(), 5, 0, 0);
 
       const trophiesAwarded = [];
 
