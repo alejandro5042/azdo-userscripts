@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.5.3
+// @version      3.6.0
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -132,6 +132,7 @@
       watchForStatusCardAndMoveToRightSideBar(session);
       addEditButtons(session);
       addTrophiesToPullRequest(session, pageData);
+      fixImageUrls(session);
     });
 
     eus.onUrl(/\/(agentqueues|agentpools)(\?|\/)/gi, (session, urlMatch) => {
@@ -2183,6 +2184,32 @@
         }
       }
     }
+  }
+
+  // Fix PR image URLs to match the window URL (whether dev.azure.com/account/ or account.visualstudio.com/)
+  function fixImageUrls(session) {
+    let account;
+    let badPrefix;
+    let goodPrefix;
+    if (window.location.host === 'dev.azure.com') {
+      account = window.location.pathname.match(/^\/(\w+)/)[1];
+      badPrefix = new RegExp(`^${window.location.protocol}//${account}.visualstudio.com/`);
+      goodPrefix = `${window.location.protocol}//dev.azure.com/${account}/`;
+    } else {
+      const match = window.location.host.match(/^(\w+)\.visualstudio.com/);
+      if (!match) return;
+      account = match[1];
+      badPrefix = new RegExp(`^${window.location.protocol}//dev.azure.com/${account}/`);
+      goodPrefix = `${window.location.protocol}//${account}.visualstudio.com/`;
+    }
+
+    session.onEveryNew(document, 'img', img => {
+      const src = img.getAttribute('src');
+      if (src && src.match(badPrefix)) {
+        // For debugging: debug("Fixing img src", src);
+        img.setAttribute('src', src.replace(badPrefix, goodPrefix));
+      }
+    });
   }
 
   // Helper function to get the file extension out of a file path; e.g. `cs` from `blah.cs`.
