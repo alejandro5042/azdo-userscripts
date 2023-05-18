@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.5.0
+// @version      3.5.1
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -279,6 +279,10 @@
         text-decoration: none;
         background: var(--search-selected-match-background);
       }
+      input:read-only {
+        cursor: not-allowed;
+        color: #b1b1b1;
+      }
     `);
 
     session.onEveryNew(document, '.pipelines-pool-agents.page-content.page-content-top', agentsTable => {
@@ -300,7 +304,7 @@
         const regexFilterString = new URL(window.location.href).searchParams.get('agentFilter') || '';
         const agentFilterBarElement = `
         <div style="padding-bottom: 16px">
-          <div class="vss-FilterBar bolt-filterbar-white depth-8 no-v-margin" role="search" id="__bolt-filter-bar-0">
+          <div class="vss-FilterBar bolt-filterbar-white depth-8 no-v-margin" role="search" id="testfilter">
               <div class="vss-FilterBar--list">
                   <div class="vss-FilterBar--item vss-FilterBar--item-keyword-container">
                       <div class="flex-column flex-grow">
@@ -333,37 +337,63 @@
           </div>
         </div>`;
         $(agentsTable).prepend(agentFilterBarElement);
-        document.getElementById('agentFilterInput').addEventListener('input', filterAgentsDebouncer());
-        document.getElementById('agentFilterRefresh').addEventListener('click', filterAgentsDebouncer());
+        document.getElementById('agentFilterInput').addEventListener('input', filterAgentsDebouncer);
+        document.getElementById('agentFilterInput').addEventListener('keydown', filterAgentsNow);
+        document.getElementById('agentFilterRefresh').addEventListener('click', filterAgentsNow);
       }
       filterAgents();
     });
 
     // Status of agents can change as the table is constantly updating.
-    setInterval(filterAgentsDebouncer(), 10000);
+    setInterval(filterAgents, 60000);
+  }
+
+  function filterAgentsNow(event) {
+    if (event.key === 'Enter' || event.type === 'click') {
+      filterAgents.enter = true;
+      filterAgents();
+    }
   }
 
   function filterAgentsDebouncer() {
     let timeout;
-    return function () {
-      if (!document.hidden) {
-        document.getElementById('agentFilterCounter').innerText = 'Filtering...';
-        clearTimeout(timeout);
-        timeout = setTimeout(filterAgents, 500);
-      }
-    };
+    if (!document.hidden) {
+      clearTimeout(timeout);
+      timeout = setTimeout(filterAgents, 1000);
+    }
   }
 
   async function filterAgents() {
-    let regexFilterString;
-    let regexFilter;
-    try {
+    if (filterAgents.running) return;
+    filterAgents.running = true;
+
+    let regexFilterString = document.getElementById('agentFilterInput').value.trim();
+    let previousRegexFilterString = '';
+    let filterCheckCounter = 0;
+    const minimumNumberOfMatches = 10;
+    while (filterCheckCounter < minimumNumberOfMatches && !filterAgents.enter) {
+      if (previousRegexFilterString === regexFilterString) {
+        filterCheckCounter += 1;
+      } else {
+        filterCheckCounter = 0;
+      }
+      previousRegexFilterString = regexFilterString;
       regexFilterString = document.getElementById('agentFilterInput').value.trim();
+      /* eslint-disable no-await-in-loop, no-promise-executor-return */
+      await new Promise(r => setTimeout(r, 100));
+      /* eslint-enable no-await-in-loop, no-promise-executor-return */
+    }
+
+    let regexFilter = '';
+    try {
       regexFilter = new RegExp(regexFilterString, 'i');
     } catch (e) {
       showAllAgents(e);
+      filterAgents.running = false;
       return;
     }
+    document.getElementById('agentFilterCounter').innerText = 'Filtering...';
+    document.getElementById('agentFilterInput').readOnly = true;
 
     // Try to push the filter term if possible.
     try {
@@ -430,6 +460,10 @@
     } catch (e) {
       showAllAgents(e);
     }
+
+    filterAgents.running = false;
+    filterAgents.enter = false;
+    document.getElementById('agentFilterInput').readOnly = false;
   }
 
   function addAgentArbitrationInformation(agentRow, currentPoolId, poolAgentsInfo) {
@@ -472,13 +506,18 @@
         hiddenDisableReason.style = 'display: none';
 
         const disableReasonMessage = document.createElement('a');
+        let reservedBy = disableReason.match(/\[(.*)\]/);
+        if (!reservedBy) {
+          reservedBy = disableReason.match(/^([^-]*)/);
+        }
+
         disableReasonMessage.className = 'disable-reason';
-        disableReasonMessage.text = ' Reserved';
+        disableReasonMessage.text = reservedBy ? reservedBy[1] : disableReason;
         disableReasonMessage.href = `${azdoApiBaseUrl}/_settings/agentpools?agentId=${agentInfo.id}&poolId=${currentPoolId}&view=capabilities`;
         disableReasonMessage.prepend(userIcon);
         disableReasonMessage.prepend(hiddenDisableReason);
         disableReasonMessage.title = disableReason;
-
+        disableReasonMessage.style = 'max-width: 200px; text-overflow: ellipsis; overflow: hidden';
         $(agentCells[5]).prepend(disableReasonMessage);
       }
     }
