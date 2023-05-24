@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.5.1
+// @version      3.5.2
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -283,6 +283,18 @@
         cursor: not-allowed;
         color: #b1b1b1;
       }
+      .agent-name-span {
+        width: calc(100% - 60px);
+      }
+      .capabilities-holder {
+        font-size: 20px;
+        text-align: left;
+        width: 40px;
+        margin-right: 20px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
     `);
 
     session.onEveryNew(document, '.pipelines-pool-agents.page-content.page-content-top', agentsTable => {
@@ -389,7 +401,6 @@
       regexFilter = new RegExp(regexFilterString, 'i');
     } catch (e) {
       showAllAgents(e);
-      filterAgents.running = false;
       return;
     }
     document.getElementById('agentFilterCounter').innerText = 'Filtering...';
@@ -404,9 +415,8 @@
       error(e);
     }
 
-    let totalCount = 0;
-    let matchedCount = 0;
     const agentRows = document.querySelectorAll('a.bolt-list-row.single-click-activation');
+    const totalCount = agentRows.length;
 
     const poolName = Array.from(document.querySelectorAll('div.bolt-breadcrumb-item-text-container')).pop().innerText;
     const currentPoolId = await fetchJsonAndCache(
@@ -419,7 +429,7 @@
 
     const poolAgentsInfo = await fetchJsonAndCache(
       `azdoPool${poolName}IdAgents`,
-      5,
+      6,
       `${azdoApiBaseUrl}/_apis/distributedtask/pools/${currentPoolId}/agents?includeCapabilities=True&propertyFilters=*`,
       2,
       poolAgentsInfoWithCapabilities => {
@@ -428,6 +438,7 @@
           filteredAgentInfo[agentInfo.name] = {
             id: agentInfo.id,
             userCapabilities: agentInfo.userCapabilities,
+            participatesInRelease: agentInfo.systemCapabilities.PARTICIPATES_IN_RELEASE,
             properties: agentInfo.properties,
           };
         });
@@ -436,65 +447,49 @@
     );
 
     try {
+      $('.hiddenAgentRow').show();
+      $(agentRows).find('.disable-reason').remove();
+      $(agentRows).find('.capabilities-holder').remove();
+
+      const matchedAgents = {};
       agentRows.forEach(agentRow => {
-        totalCount += 1;
-        agentRow.classList.remove('hiddenAgentRow');
-        agentRow.classList.remove('visibleAgentRow');
+        const agentCells = agentRow.querySelectorAll('div');
+        const agentName = agentCells[1].innerText;
+        const disableReason = (poolAgentsInfo[agentName].userCapabilities || {}).DISABLE_REASON || null;
 
-        if (atNI) {
-          addAgentDisableReason(agentRow, currentPoolId, poolAgentsInfo);
-          addAgentArbitrationInformation(agentRow, currentPoolId, poolAgentsInfo);
-        }
-
-        const rowValue = agentRow.textContent.replace(/[\r\n]/g, '').trim();
+        const rowValue = agentRow.textContent.replace(/[\r\n]/g, '').trim() + disableReason;
         if (!regexFilter.test(rowValue)) {
           agentRow.classList.add('hiddenAgentRow');
         } else {
-          matchedCount += 1;
-          agentRow.classList.add('visibleAgentRow');
+          agentCells[1].querySelectorAll('span')[0].classList.add('agent-name-span');
+          agentRow.classList.remove('hiddenAgentRow');
+          if (atNI) {
+            matchedAgents[agentName] = agentCells;
+          }
         }
       });
-      $('.visibleAgentRow').show();
       $('.hiddenAgentRow').hide();
-      document.getElementById('agentFilterCounter').innerText = `(${matchedCount}/${totalCount})`;
+
+      for (const [agentName, agentCells] of Object.entries(matchedAgents)) {
+        addAgentExtraInformation(agentCells, agentName, currentPoolId, poolAgentsInfo);
+      }
+      document.getElementById('agentFilterCounter').innerText = `(${Object.keys(matchedAgents).length}/${totalCount})`;
     } catch (e) {
       showAllAgents(e);
+      return;
     }
+    exitFilterAgents();
+  }
 
+  function exitFilterAgents() {
+    document.getElementById('agentFilterInput').readOnly = false;
     filterAgents.running = false;
     filterAgents.enter = false;
-    document.getElementById('agentFilterInput').readOnly = false;
   }
 
-  function addAgentArbitrationInformation(agentRow, currentPoolId, poolAgentsInfo) {
-    $(agentRow).find('.arbiter').remove();
-
-    if (document.body.classList.contains('agent-arbitration-status-off')) return;
-
-    const agentCells = agentRow.querySelectorAll('div');
-    const agentName = agentCells[1].innerText;
+  function addAgentExtraInformation(agentCells, agentName, currentPoolId, poolAgentsInfo) {
     const agentInfo = poolAgentsInfo[agentName];
 
-    if (agentInfo.properties && Object.prototype.hasOwnProperty.call(agentInfo.properties, 'under_arbitration')) {
-      const underArbitration = agentInfo.properties.under_arbitration.$value.toLowerCase() === 'true';
-      const iconType = underArbitration ? 'CirclePause' : 'Airplane';
-
-      const arbitrationIcon = document.createElement('span');
-      arbitrationIcon.className = `arbiter fabric-icon ms-Icon--${iconType}`;
-      arbitrationIcon.title = underArbitration ? 'Arbitration Started: ' : 'Last Arbitration: ';
-      arbitrationIcon.title += new Date(agentInfo.properties.arbitration_start.$value * 1000);
-      arbitrationIcon.style = 'padding-right: 5px';
-
-      agentCells[2].prepend(arbitrationIcon);
-    }
-  }
-
-  function addAgentDisableReason(agentRow, currentPoolId, poolAgentsInfo) {
-    const agentCells = agentRow.querySelectorAll('div');
-    const agentName = agentCells[1].innerText;
-    const agentInfo = poolAgentsInfo[agentName];
-
-    $(agentRow).find('.disable-reason').remove();
     if (agentInfo.userCapabilities) {
       const disableReason = agentInfo.userCapabilities.DISABLE_REASON || null;
       if (disableReason) {
@@ -521,16 +516,42 @@
         $(agentCells[5]).prepend(disableReasonMessage);
       }
     }
+
+    const capabilitiesHolder = document.createElement('div');
+    capabilitiesHolder.className = 'capabilities-holder';
+
+    const participatesInRelease = agentInfo.participatesInRelease || null;
+    if (participatesInRelease === '1') {
+      const participatesInReleaseElement = document.createElement('span');
+      participatesInReleaseElement.className = 'capability-icon release-machine fabric-icon ms-Icon--Rocket';
+      participatesInReleaseElement.title = 'PARTICIPATES_IN_RELEASE';
+      capabilitiesHolder.append(participatesInReleaseElement);
+    }
+
+    if (!document.body.classList.contains('agent-arbitration-status-off')) {
+      if (agentInfo.properties && Object.prototype.hasOwnProperty.call(agentInfo.properties, 'under_arbitration')) {
+        const underArbitration = agentInfo.properties.under_arbitration.$value.toLowerCase() === 'true';
+        const iconType = underArbitration ? 'CirclePause' : 'Airplane';
+
+        const arbitrationIcon = document.createElement('span');
+        arbitrationIcon.className = `capability-icon arbiter fabric-icon ms-Icon--${iconType}`;
+        arbitrationIcon.title = underArbitration ? 'Arbitration Started: ' : 'Last Arbitration: ';
+        arbitrationIcon.title += new Date(agentInfo.properties.arbitration_start.$value * 1000);
+
+        capabilitiesHolder.append(arbitrationIcon);
+      }
+    }
+
+    agentCells[1].append(capabilitiesHolder);
   }
 
   function showAllAgents(searchError) {
     if (searchError) {
       document.getElementById('agentFilterCounter').innerText = searchError;
     }
-    document.querySelectorAll('a.bolt-list-row.single-click-activation').forEach(agentRow => {
-      $(agentRow).show();
-    });
-    document.getElementById('agentFilterRefresh').disabled = false;
+    $('.hiddenAgentRow').show();
+    $('.hiddenAgentRow').removeClass('hiddenAgentRow');
+    exitFilterAgents();
   }
 
   async function watchForReviewerList(session) {
