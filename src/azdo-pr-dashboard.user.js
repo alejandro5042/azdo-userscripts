@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.5.2
+// @version      3.5.3
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -333,12 +333,22 @@
                             <div id="agentFilterCounter" style="color: var(--text-secondary-color);"/>
                             <div>
                               <button
+                                id="copyMatchedAgentsToClipboard"
+                                class="bolt-button bolt-icon-button subtle bolt-focus-treatment"
+                                role="button"
+                                tabindex="0"
+                                type="button"
+                                style="padding: 0px; margin-left: 10px;"
+                                title="Copy Matched Agents to Clipboard">
+                                <span class="left-icon flex-noshrink fabric-icon ms-Icon--Copy medium" style="padding: 5px 10px"/>
+                              </button>
+                              <button
                                 id="agentFilterRefresh"
                                 class="refresh-dashboard-button bolt-button bolt-icon-button subtle bolt-focus-treatment"
                                 role="button"
                                 tabindex="0"
                                 type="button"
-                                style="padding: 0px; margin-left: 10px;">
+                                style="padding: 0px;">
                                 <span class="left-icon flex-noshrink fabric-icon ms-Icon--Refresh medium" style="padding: 5px 10px"/>
                               </button>
                             </div>
@@ -352,12 +362,37 @@
         document.getElementById('agentFilterInput').addEventListener('input', filterAgentsDebouncer);
         document.getElementById('agentFilterInput').addEventListener('keydown', filterAgentsNow);
         document.getElementById('agentFilterRefresh').addEventListener('click', filterAgentsNow);
+        document.getElementById('copyMatchedAgentsToClipboard').addEventListener('click', copyMatchedAgentsToClipboard);
       }
       filterAgents();
     });
 
     // Status of agents can change as the table is constantly updating.
     setInterval(filterAgents, 60000);
+  }
+
+  function copyMatchedAgentsToClipboard() {
+    if (filterAgents.running) return;
+
+    let matchString = '';
+    let total = 0;
+    const agentRows = document.querySelectorAll('a.bolt-list-row.single-click-activation');
+    agentRows.forEach(agentRow => {
+      const agentCells = agentRow.querySelectorAll('div');
+      const agentName = agentCells[1].innerText;
+      if ($(agentRow).is(':visible')) {
+        matchString += `${agentName}.*,`;
+        total += 1;
+      }
+    });
+
+    navigator.clipboard.writeText(matchString);
+    swal.fire({
+      icon: 'success',
+      title: `${total} matched agents copied to clipboard!`,
+      showConfirmButton: false,
+      timer: 1500,
+    });
   }
 
   function filterAgentsNow(event) {
@@ -405,6 +440,7 @@
     }
     document.getElementById('agentFilterCounter').innerText = 'Filtering...';
     document.getElementById('agentFilterInput').readOnly = true;
+    document.getElementById('copyMatchedAgentsToClipboard').disabled = true;
 
     // Try to push the filter term if possible.
     try {
@@ -461,17 +497,17 @@
         if (!regexFilter.test(rowValue)) {
           agentRow.classList.add('hiddenAgentRow');
         } else {
-          agentCells[1].querySelectorAll('span')[0].classList.add('agent-name-span');
           agentRow.classList.remove('hiddenAgentRow');
-          if (atNI) {
-            matchedAgents[agentName] = agentCells;
-          }
+          matchedAgents[agentName] = agentCells;
         }
       });
       $('.hiddenAgentRow').hide();
 
       for (const [agentName, agentCells] of Object.entries(matchedAgents)) {
-        addAgentExtraInformation(agentCells, agentName, currentPoolId, poolAgentsInfo);
+        if (atNI) {
+          agentCells[1].querySelectorAll('span')[0].classList.add('agent-name-span');
+          addAgentExtraInformation(agentCells, agentName, currentPoolId, poolAgentsInfo);
+        }
       }
       document.getElementById('agentFilterCounter').innerText = `(${Object.keys(matchedAgents).length}/${totalCount})`;
     } catch (e) {
@@ -483,6 +519,7 @@
 
   function exitFilterAgents() {
     document.getElementById('agentFilterInput').readOnly = false;
+    document.getElementById('copyMatchedAgentsToClipboard').disabled = false;
     filterAgents.running = false;
     filterAgents.enter = false;
   }
