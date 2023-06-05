@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.6.0
+// @version      3.6.1
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -16,6 +16,7 @@
 // @include      https://*.visualstudio.com/*
 
 // @run-at       document-body
+// @run-at       document-start
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js#sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jquery-once/2.2.3/jquery.once.min.js#sha256-HaeXVMzafCQfVtWoLtN3wzhLWNs8cY2cH9OIQ8R9jfM=
 // @require      https://cdnjs.cloudflare.com/ajax/libs/date-fns/1.30.1/date_fns.min.js#sha256-wCBClaCr6pJ7sGU5kfb3gQMOOcIZNzaWpWcj/lD9Vfk=
@@ -90,11 +91,27 @@
       `);
     }
 
+    eus.registerCssClassConfig(document.body, 'Redirect visualstudio.com to dev.azure.com', 'visualstudio-redirect', 'visualstudio-redirect-off', {
+      'visualstudio-redirect-on': 'On',
+      'visualstudio-redirect-off': 'Off',
+    });
+
     // Start modifying the page once the DOM is ready.
     if (document.readyState !== 'loading') {
       onReady();
     } else {
+      onStart();
       document.addEventListener('DOMContentLoaded', onReady);
+    }
+  }
+
+  function onStart() {
+    const host = window.location.host;
+    if (document.body.classList.contains('visualstudio-redirect-on') && host.endsWith('.visualstudio.com')) {
+      // Redirect to dev.azure.com if the user has enabled that option
+      window.stop();
+      const subDomain = host.split('.')[0];
+      window.location.href = window.location.href.replace(host, `dev.azure.com/${subDomain}`);
     }
   }
 
