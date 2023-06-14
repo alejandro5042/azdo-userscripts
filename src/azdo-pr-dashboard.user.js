@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.5.3
+// @version      3.6.0
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -24,8 +24,8 @@
 // @require      https://cdn.jsdelivr.net/npm/sweetalert2@9.13.1/dist/sweetalert2.all.min.js#sha384-8oDwN6wixJL8kVeuALUvK2VlyyQlpEEN5lg6bG26x2lvYQ1HWAV0k8e2OwiWIX8X
 // @require      https://gist.githubusercontent.com/alejandro5042/af2ee5b0ad92b271cd2c71615a05da2c/raw/45da85567e48c814610f1627148feb063b873905/easy-userscripts.js#sha384-t7v/Pk2+HNbUjKwXkvcRQIMtDEHSH9w0xYtq5YdHnbYKIV7Jts9fSZpZq+ESYE4v
 
-// @require      https://unpkg.com/@popperjs/core@2#sha384-7+zCNj/IqJ95wo16oMtfsKbZ9ccEh31eOz1HGyDuCQ6wgnyJNSYdrPa03rtR1zdB
-// @require      https://unpkg.com/tippy.js@6#sha384-AiTRpehQ7zqeua0Ypfa6Q4ki/ddhczZxrKtiQbTQUlJIhBkTeyoZP9/W/5ulFt29
+// @require      https://unpkg.com/@popperjs/core@2.11.7#sha384-zYPOMqeu1DAVkHiLqWBUTcbYfZ8osu1Nd6Z89ify25QV9guujx43ITvfi12/QExE
+// @require      https://unpkg.com/tippy.js@6.3.7#sha384-AiTRpehQ7zqeua0Ypfa6Q4ki/ddhczZxrKtiQbTQUlJIhBkTeyoZP9/W/5ulFt29
 
 // @require      https://highlightjs.org/static/highlight.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/js-yaml/3.14.0/js-yaml.min.js#sha512-ia9gcZkLHA+lkNST5XlseHz/No5++YBneMsDp1IZRJSbi1YqQvBeskJuG1kR+PH1w7E0bFgEZegcj0EwpXQnww==
@@ -132,6 +132,7 @@
       watchForStatusCardAndMoveToRightSideBar(session);
       addEditButtons(session);
       addTrophiesToPullRequest(session, pageData);
+      fixImageUrls(session);
     });
 
     eus.onUrl(/\/(agentqueues|agentpools)(\?|\/)/gi, (session, urlMatch) => {
@@ -2183,6 +2184,32 @@
         }
       }
     }
+  }
+
+  // Fix PR image URLs to match the window URL (whether dev.azure.com/account/ or account.visualstudio.com/)
+  function fixImageUrls(session) {
+    let account;
+    let badPrefix;
+    let goodPrefix;
+    if (window.location.host === 'dev.azure.com') {
+      account = window.location.pathname.match(/^\/(\w+)/)[1];
+      badPrefix = new RegExp(`^${window.location.protocol}//${account}.visualstudio.com/`);
+      goodPrefix = `${window.location.protocol}//dev.azure.com/${account}/`;
+    } else {
+      const match = window.location.host.match(/^(\w+)\.visualstudio.com/);
+      if (!match) return;
+      account = match[1];
+      badPrefix = new RegExp(`^${window.location.protocol}//dev.azure.com/${account}/`);
+      goodPrefix = `${window.location.protocol}//${account}.visualstudio.com/`;
+    }
+
+    session.onEveryNew(document, 'img', img => {
+      const src = img.getAttribute('src');
+      if (src && src.match(badPrefix)) {
+        // For debugging: debug("Fixing img src", src);
+        img.setAttribute('src', src.replace(badPrefix, goodPrefix));
+      }
+    });
   }
 
   // Helper function to get the file extension out of a file path; e.g. `cs` from `blah.cs`.
