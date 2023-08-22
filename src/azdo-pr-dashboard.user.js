@@ -1618,7 +1618,7 @@
     if (!pr.lastMergeCommit) return;
 
     const builds = (await $.get(`${pr.lastMergeCommit.url}/statuses?api-version=5.1&latestOnly=true`)).value;
-    if (!builds) return;
+    if (!(builds && builds.length)) return;
 
     let state;
     if (builds.every(b => b.state === 'succeeded' || b.description.includes('partially succeeded'))) {
