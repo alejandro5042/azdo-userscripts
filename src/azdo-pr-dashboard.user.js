@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.7.3
+// @version      3.8.0
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -1472,6 +1472,7 @@
       await annotateBugsOnPullRequestRow(row, pr);
       await annotateFileCountOnPullRequestRow(row, pr);
       await annotateBuildStatusOnPullRequestRow(row, pr);
+      annotateSourceBranchOnPullRequestRow(row, pr);
 
       if (votes.userVote === 0 && votes.missingVotes === 1 && votes.userIsRequired && !votes.userHasDeclined) {
         annotatePullRequestTitle(row, 'repos-pr-list-late-review-pill', 'Last Reviewer', 'Everyone is waiting on you!');
@@ -1492,6 +1493,7 @@
       await annotateBugsOnPullRequestRow(row, pr);
       await annotateFileCountOnPullRequestRow(row, pr);
       await annotateBuildStatusOnPullRequestRow(row, pr);
+      annotateSourceBranchOnPullRequestRow(row, pr);
     }
   }
 
@@ -1640,6 +1642,20 @@
     const tooltip = _.map(builds, 'description').join('\n');
     const label = `<span aria-hidden="true" class="contributed-icon flex-noshrink fabric-icon ms-Icon--Build"></span>&nbsp;${state}`;
     annotatePullRequestLabel(row, 'build-status', tooltip, label);
+  }
+
+  function annotateSourceBranchOnPullRequestRow(row, pr) {
+    if (!pr.lastMergeCommit) return;
+
+    let sourceBranch = pr.sourceRefName.replace(/^refs\/heads\//, '');
+    // Abbreviate e.g. 'users/kroeschl/foo' as 'u/k/foo' to save space
+    sourceBranch = sourceBranch.replace(/^users\/([^/])[^/]*\//, 'u/$1/');
+    const secondary = row.querySelector('.secondary-text span');
+
+    const sourceBranchAnnotation = `from
+      <span class="fluent-icons-enabled"><span aria-hidden="true" class="flex-noshrink fabric-icon ms-Icon--OpenSource"
+      ></span></span><span class="monospaced-xs padding-horizontal-4">${sourceBranch}</span>`;
+    secondary.insertAdjacentHTML('beforeend', sourceBranchAnnotation);
   }
 
   function annotatePullRequestTitle(row, cssClass, message, tooltip) {
