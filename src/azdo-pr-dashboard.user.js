@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.6.1
+// @version      3.7.0
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -1775,26 +1775,50 @@
           padding: 7px 10px;
         }`);
 
+    // Update expandedFilesCache when an expand-button is clicked
+    // TODO: Make this optional.
+    let expandedFilesCache = {};
+    document.addEventListener('click', e => {
+      const collapseButton = e.target.closest('.bolt-card-expand-button');
+      if (collapseButton) {
+        const wasExpanded = collapseButton.getAttribute('aria-expanded') === 'true';
+        const isExpanded = !wasExpanded;
+        const pathWithLeadingSlash = collapseButton.parentElement.querySelector('.secondary-text.text-ellipsis').textContent;
+        expandedFilesCache[pathWithLeadingSlash] = isExpanded;
+      }
+    });
+
     eus.onUrl(/\/pullrequest\//gi, async (session, urlMatch) => {
       // Get the current iteration of the PR.
       const prUrl = await getCurrentPullRequestUrlAsync();
+      const prCreatedBy = await getCurrentPullRequestCreatedBy();
       // Get owners info for this PR.
       const ownersInfo = await getNationalInstrumentsPullRequestOwnersInfo(prUrl);
       const hasOwnersInfo = ownersInfo && ownersInfo.currentUserFileCount > 0;
-      if (!hasOwnersInfo) return;
+      const autoCollapse = hasOwnersInfo && currentUser.uniqueName !== prCreatedBy.uniqueName;
+      // Reset the cache for each new PR.
+      expandedFilesCache = {};
 
       session.onEveryNew(document, '.repos-summary-header', diff => {
         const header = diff.children[0];
-        const pathWithLeadingSlash = $(header).find('.secondary-text.text-ellipsis')[0].textContent;
+        const pathWithLeadingSlash = header.querySelector('.secondary-text.text-ellipsis').textContent;
         const path = pathWithLeadingSlash.substring(1); // Remove leading slash.
 
-        if (ownersInfo.isCurrentUserResponsibleForFile(path)) {
-          $(header).addClass('file-to-review-header');
+        if (hasOwnersInfo && ownersInfo.isCurrentUserResponsibleForFile(path)) {
+          header.classList.add('file-to-review-header');
 
           $('<div class="file-owners-role-header" />').text(`${ownersInfo.currentUserFilesToRole[path]}:`).prependTo(header.children[1]);
-        } else {
-          // TODO: Make this optional.
-          $(header).find('button[aria-label="Collapse"]').click();
+        }
+
+        if (pathWithLeadingSlash in expandedFilesCache) {
+          if (!expandedFilesCache[pathWithLeadingSlash]) {
+            header.querySelector('button[aria-label="Collapse"]').click();
+          }
+        } else if (autoCollapse) {
+          if (!ownersInfo.isCurrentUserResponsibleForFile(path)) {
+            // TODO: Make this optional.
+            header.querySelector('button[aria-label="Collapse"]').click();
+          }
         }
       });
     });
@@ -2242,6 +2266,11 @@
   // Helper function to get the url of the PR that's currently on screen.
   async function getCurrentPullRequestUrlAsync() {
     return (await getCurrentPullRequestAsync()).url;
+  }
+
+  // Helper function to get the creator of the PR that's currently on screen.
+  async function getCurrentPullRequestCreatedBy() {
+    return (await getCurrentPullRequestAsync()).createdBy;
   }
 
   // Async helper function get info on a single PR. Defaults to the PR that's currently on screen.
