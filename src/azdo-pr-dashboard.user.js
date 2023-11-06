@@ -1469,7 +1469,7 @@
       await annotateFileCountOnPullRequestRow(row, pr);
       await annotateBuildStatusOnPullRequestRow(row, pr);
 
-      if (votes.userVote === 0 && votes.missingVotes === 1) {
+      if (votes.userVote === 0 && votes.missingVotes === 1 && votes.userIsRequired && !votes.userHasDeclined) {
         annotatePullRequestTitle(row, 'repos-pr-list-late-review-pill', 'Last Reviewer', 'Everyone is waiting on you!');
       }
 
@@ -1538,11 +1538,15 @@
       missingVotes: 0,
       waitingOrRejectedVotes: 0,
       userVote: 0,
+      userIsRequired: true,
+      userHasDeclined: false,
     };
 
     for (const reviewer of pr.reviewers) {
       if (reviewer.uniqueName === currentUser.uniqueName) {
         votes.userVote = reviewer.vote;
+        votes.userIsRequired = reviewer.isRequired;
+        votes.userHasDeclined = reviewer.hasDeclined;
       }
       if (reviewer.vote === 0) {
         votes.missingVotes += 1;
