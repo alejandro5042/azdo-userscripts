@@ -35,6 +35,7 @@ By default, Violentmonkey will auto-update scripts from the original install loc
     - ![Await comments are highlighted.](assets/await-comments.png)
 - **[Not working at the moment](https://github.com/alejandro5042/azdo-userscripts/issues/95):** Folder-level PR diffs are now syntax highlighted!
     > Note: Not all highlights will be correct; it can only highlight the code that appears in the diff; so multi-line strings may appear weird. Practically, these sorts of issues are rare and overshadowed by the benefit of syntax highlighting in all other cases.
+- In the multi-file diff view, which diffs you have expanded/collapsed will now be remembered as you navigate between folders (or between tabs) in the same PR.
 
 ### Better owners review (NI-only)
 
@@ -42,8 +43,9 @@ By default, Violentmonkey will auto-update scripts from the original install loc
 
 - The PR file tree will now highlight the files you need to review with a letter to represent your role (Owner, Alternate, Reviewer):
     - ![Files tree highlighting.](assets/owners-file-tree.png)
-- Collapsed files are highlighted if they contain files you need to review:
+- Collapsed folders are highlighted if they contain files you need to review:
     - ![Highlighted folder.](assets/owners-collapsed-folders.png)
+- In the multi-file diff view, files that are not your files are automatically collapsed, unless you are the one that filed the PR
 - In the multi-file diff view, your files are also highlighted with a blue hedaer (vs. the typical gray)
 - Bypass owners reminder: For PRs into branches requiring a passing `ni/owners-approved` status, hovering over the Approve button pops up a reminder to consider bypassing owners
 - Some tags/labels are colored (e.g. red if the label contains "Blocked")
