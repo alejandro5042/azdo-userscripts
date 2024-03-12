@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.7.1
+// @version      3.7.2
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -474,8 +474,7 @@
         poolAgentsInfoWithCapabilities.value.forEach(agentInfo => {
           filteredAgentInfo[agentInfo.name] = {
             id: agentInfo.id,
-            userCapabilities: agentInfo.userCapabilities,
-            participatesInRelease: agentInfo.systemCapabilities.PARTICIPATES_IN_RELEASE,
+            userCapabilities: agentInfo.userCapabilities || {},
             properties: agentInfo.properties,
           };
         });
@@ -492,7 +491,7 @@
       agentRows.forEach(agentRow => {
         const agentCells = agentRow.querySelectorAll('div');
         const agentName = agentCells[1].innerText;
-        const disableReason = (poolAgentsInfo[agentName].userCapabilities || {}).DISABLE_REASON || null;
+        const disableReason = poolAgentsInfo[agentName].userCapabilities.DISABLE_REASON || null;
 
         const rowValue = agentRow.textContent.replace(/[\r\n]/g, '').trim() + disableReason;
         if (!regexFilter.test(rowValue)) {
@@ -558,12 +557,12 @@
     const capabilitiesHolder = document.createElement('div');
     capabilitiesHolder.className = 'capabilities-holder';
 
-    const participatesInRelease = agentInfo.participatesInRelease || null;
-    if (participatesInRelease === '1') {
-      const participatesInReleaseElement = document.createElement('span');
-      participatesInReleaseElement.className = 'capability-icon release-machine fabric-icon ms-Icon--Rocket';
-      participatesInReleaseElement.title = 'PARTICIPATES_IN_RELEASE';
-      capabilitiesHolder.append(participatesInReleaseElement);
+    const participateInRelease = agentInfo.userCapabilities.PARTICIPATE_IN_RELEASE || null;
+    if (participateInRelease === '1') {
+      const participateInReleaseElement = document.createElement('span');
+      participateInReleaseElement.className = 'capability-icon release-machine fabric-icon ms-Icon--Rocket';
+      participateInReleaseElement.title = 'PARTICIPATE_IN_RELEASE=1';
+      capabilitiesHolder.append(participateInReleaseElement);
     }
 
     if (!document.body.classList.contains('agent-arbitration-status-off')) {
