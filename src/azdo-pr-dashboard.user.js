@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.7.2
+// @version      3.7.3
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -769,7 +769,12 @@
           }
 
           if (employee.status) {
-            annotateReviewer(nameElement, 'ooo', escapeStringForHtml(employee.status));
+            let status = employee.status;
+            if (status === "Leave Without Pay") {
+              // Be nice and not show this status like this.
+              status = "On Leave"
+            }
+            annotateReviewer(nameElement, 'ooo', escapeStringForHtml(status));
           }
         }
       }
