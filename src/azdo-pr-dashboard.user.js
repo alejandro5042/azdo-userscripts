@@ -76,10 +76,13 @@
         'agent-arbitration-status-off': 'Off',
       });
 
-      eus.showTipOnce('release-2026-04-17', 'New in the AzDO userscript', `
-        <p>Highlights from the 2026-04-17 update!</p>
+      eus.showTipOnce('release-2026-05-01', 'New in the AzDO userscript', `
+        <p>Highlights from the 2026-05-01 update!</p>
+        <p>Changes to the PR dashboard view:</p>
         <ul>
-          <li>Switch from Rebrandly to GitHub for update URL (#247)</li>
+          <li>Source branch name is now shown for each PR.</li>
+          <li>Target branch name is hidden if it's <code>main</code> or <code>master</code>.</li>
+          <li>Branch names like <code>users/name/foo</code> are abbreviated to <code>u/n/foo</code>.</li>
         </ul>
         <p>Comments, bugs, suggestions? File an issue on <a href="https://github.com/alejandro5042/azdo-userscripts" target="_blank">GitHub</a> 🧡</p>
       `);
