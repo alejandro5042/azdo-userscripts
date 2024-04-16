@@ -1657,6 +1657,10 @@
       secondary.querySelector('.ms-Icon--OpenSource').remove(); // Branch icon
       secondary.querySelector('.monospaced-xs').remove(); // Branch name
       secondary.innerHTML = secondary.innerHTML.replace('into ', '');
+    } else {
+      const targetBranch = pr.targetRefName.replace(/^refs\/heads\//, '');
+      const targetBranchAbbrev = targetBranch.replace(/^users\/([^/])[^/]*\//, 'u/$1/');
+      secondary.innerHTML = secondary.innerHTML.replace(targetBranch, targetBranchAbbrev);
     }
 
     const sourceBranchAnnotation = `from
