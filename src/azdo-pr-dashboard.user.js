@@ -1652,6 +1652,13 @@
     sourceBranch = sourceBranch.replace(/^users\/([^/])[^/]*\//, 'u/$1/');
     const secondary = row.querySelector('.secondary-text span');
 
+    if (['refs/heads/master', 'refs/heads/main'].includes(pr.targetRefName)) {
+      // Hide target branch and icon if it's main or master, which is very common
+      secondary.querySelector('.ms-Icon--OpenSource').remove(); // Branch icon
+      secondary.querySelector('.monospaced-xs').remove(); // Branch name
+      secondary.innerHTML = secondary.innerHTML.replace('into ', '');
+    }
+
     const sourceBranchAnnotation = `from
       <span class="fluent-icons-enabled"><span aria-hidden="true" class="flex-noshrink fabric-icon ms-Icon--OpenSource"
       ></span></span><span class="monospaced-xs padding-horizontal-4">${sourceBranch}</span>`;
