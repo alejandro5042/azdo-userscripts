@@ -1232,6 +1232,11 @@
       .swal2-html-container {
         text-align: left;
       }
+      .swal2-html-container code {
+        background-color: rgba(0,0,0,.06);
+        padding: 0.2em 0.4em;
+        border-radius: 0.2em;
+      }
       .swal2-html-container li {
         list-style: disc;
         margin-left: 4ch;
