@@ -76,15 +76,15 @@
         'agent-arbitration-status-off': 'Off',
       });
 
-      eus.showTipOnce('release-2021-11-14', 'New in the AzDO userscript', `
-        <p>Highlights from the 2021-11-14 update!</p>
-        <p>PR reviewers are now annotated with:</p>
+      eus.showTipOnce('release-2024-04-24', 'New in the AzDO userscript', `
+        <p>Highlights from the 2024-04-24 update!</p>
+        <p>Changes to the PR dashboard view:</p>
         <ul>
-          <li><b>Out-of-office status</b>: From Outlook auto-reply messages. Hover over to see the full message</li>
-          <li><b>Owner info</b>: How many files the reviewer is listed as an owner, alternate, and expert. Hover over to see which files</li>
-          <li><b>Country flags</b>: Shown if they are they are in a different country than you (these reviewers could have a longer response time due to timezones)</li>
-          <li><b>Employment status</b>: Ex-employee, leave of absence, etc.</li>
+          <li>Source branch name is now shown for each PR.</li>
+          <li>Target branch name is hidden if it's <code>main</code> or <code>master</code>.</li>
+          <li>Branch names like <code>users/name/foo</code> are abbreviated to <code>u/n/foo</code>.</li>
         </ul>
+        <p>See also <a href="https://github.com/alejandro5042/azdo-userscripts/commits/master/?since=2021-11-15&until=2024-04-16" target="_blank">other changes since our last update notification</a>.</p>
         <hr>
         <p>Comments, bugs, suggestions? File an issue on <a href="https://github.com/alejandro5042/azdo-userscripts" target="_blank">GitHub</a> 🧡</p>
       `);
