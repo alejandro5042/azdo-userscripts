@@ -770,9 +770,9 @@
 
           if (employee.status) {
             let status = employee.status;
-            if (status === "Leave Without Pay") {
+            if (status === 'Leave Without Pay') {
               // Be nice and not show this status like this.
-              status = "On Leave"
+              status = 'On Leave';
             }
             annotateReviewer(nameElement, 'ooo', escapeStringForHtml(status));
           }
