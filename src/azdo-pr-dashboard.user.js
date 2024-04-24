@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.7.3
+// @version      3.8.0
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -76,15 +76,15 @@
         'agent-arbitration-status-off': 'Off',
       });
 
-      eus.showTipOnce('release-2021-11-14', 'New in the AzDO userscript', `
-        <p>Highlights from the 2021-11-14 update!</p>
-        <p>PR reviewers are now annotated with:</p>
+      eus.showTipOnce('release-2024-04-24', 'New in the AzDO userscript', `
+        <p>Highlights from the 2024-04-24 update!</p>
+        <p>Changes to the PR dashboard view:</p>
         <ul>
-          <li><b>Out-of-office status</b>: From Outlook auto-reply messages. Hover over to see the full message</li>
-          <li><b>Owner info</b>: How many files the reviewer is listed as an owner, alternate, and expert. Hover over to see which files</li>
-          <li><b>Country flags</b>: Shown if they are they are in a different country than you (these reviewers could have a longer response time due to timezones)</li>
-          <li><b>Employment status</b>: Ex-employee, leave of absence, etc.</li>
+          <li>Source branch name is now shown for each PR.</li>
+          <li>Target branch name is hidden if it's <code>main</code> or <code>master</code>.</li>
+          <li>Branch names like <code>users/name/foo</code> are abbreviated to <code>u/n/foo</code>.</li>
         </ul>
+        <p>See also <a href="https://github.com/alejandro5042/azdo-userscripts/commits/master/?since=2021-11-15&until=2024-04-16" target="_blank">other changes since our last update notification</a>.</p>
         <hr>
         <p>Comments, bugs, suggestions? File an issue on <a href="https://github.com/alejandro5042/azdo-userscripts" target="_blank">GitHub</a> 🧡</p>
       `);
@@ -1232,6 +1232,11 @@
       .swal2-html-container {
         text-align: left;
       }
+      .swal2-html-container code {
+        background-color: rgba(0,0,0,.06);
+        padding: 0.2em 0.4em;
+        border-radius: 0.2em;
+      }
       .swal2-html-container li {
         list-style: disc;
         margin-left: 4ch;
@@ -1472,6 +1477,7 @@
       await annotateBugsOnPullRequestRow(row, pr);
       await annotateFileCountOnPullRequestRow(row, pr);
       await annotateBuildStatusOnPullRequestRow(row, pr);
+      annotateSourceBranchOnPullRequestRow(row, pr);
 
       if (votes.userVote === 0 && votes.missingVotes === 1 && votes.userIsRequired && !votes.userHasDeclined) {
         annotatePullRequestTitle(row, 'repos-pr-list-late-review-pill', 'Last Reviewer', 'Everyone is waiting on you!');
@@ -1492,6 +1498,7 @@
       await annotateBugsOnPullRequestRow(row, pr);
       await annotateFileCountOnPullRequestRow(row, pr);
       await annotateBuildStatusOnPullRequestRow(row, pr);
+      annotateSourceBranchOnPullRequestRow(row, pr);
     }
   }
 
@@ -1640,6 +1647,31 @@
     const tooltip = _.map(builds, 'description').join('\n');
     const label = `<span aria-hidden="true" class="contributed-icon flex-noshrink fabric-icon ms-Icon--Build"></span>&nbsp;${state}`;
     annotatePullRequestLabel(row, 'build-status', tooltip, label);
+  }
+
+  function annotateSourceBranchOnPullRequestRow(row, pr) {
+    if (!pr.lastMergeCommit) return;
+
+    let sourceBranch = pr.sourceRefName.replace(/^refs\/heads\//, '');
+    // Abbreviate e.g. 'users/kroeschl/foo' as 'u/k/foo' to save space
+    sourceBranch = sourceBranch.replace(/^users\/([^/])[^/]*\//, 'u/$1/');
+    const secondary = row.querySelector('.secondary-text span');
+
+    if (['refs/heads/master', 'refs/heads/main'].includes(pr.targetRefName)) {
+      // Hide target branch and icon if it's main or master, which is very common
+      secondary.querySelector('.ms-Icon--OpenSource').remove(); // Branch icon
+      secondary.querySelector('.monospaced-xs').remove(); // Branch name
+      secondary.innerHTML = secondary.innerHTML.replace('into ', '');
+    } else {
+      const targetBranch = pr.targetRefName.replace(/^refs\/heads\//, '');
+      const targetBranchAbbrev = targetBranch.replace(/^users\/([^/])[^/]*\//, 'u/$1/');
+      secondary.innerHTML = secondary.innerHTML.replace(targetBranch, targetBranchAbbrev);
+    }
+
+    const sourceBranchAnnotation = `from
+      <span class="fluent-icons-enabled"><span aria-hidden="true" class="flex-noshrink fabric-icon ms-Icon--OpenSource"
+      ></span></span><span class="monospaced-xs padding-horizontal-4">${sourceBranch}</span>`;
+    secondary.insertAdjacentHTML('beforeend', sourceBranchAnnotation);
   }
 
   function annotatePullRequestTitle(row, cssClass, message, tooltip) {
