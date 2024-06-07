@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.7.3
+// @version      3.7.4
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -115,6 +115,7 @@
     watchForWorkItemForms();
     watchForNewDiffs(isDarkTheme);
     watchForShowMoreButtons();
+    watchForBuildResultsPage();
 
     if (atNI) {
       watchForDiffHeaders();
@@ -1431,6 +1432,14 @@
           // React will re-use this DOM element, so we need to re-enhance.
           session.onAnyChangeTo(row, () => enhancePullRequestRow(row, sectionTitle));
         });
+      });
+    });
+  }
+
+  function watchForBuildResultsPage() {
+    eus.onUrl(/\/(_build\/results)/gi, (session, urlMatch) => {
+      session.onEveryNew(document, '.bolt-master-panel', panel => {
+        $(panel).css('resize', 'horizontal');
       });
     });
   }
