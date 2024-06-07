@@ -1438,8 +1438,8 @@
 
   function watchForBuildResultsPage() {
     eus.onUrl(/\/(_build\/results)/gi, (session, urlMatch) => {
-      session.onEveryNew(document, '.bolt-master-panel', async tree => {
-        $('.bolt-master-panel').css('resize', 'horizontal');
+      session.onEveryNew(document, '.bolt-master-panel', panel => {
+        $(panel).css('resize', 'horizontal');
       });
     });
   }
