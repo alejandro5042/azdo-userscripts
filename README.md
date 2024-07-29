@@ -58,7 +58,13 @@ By default, Violentmonkey will auto-update scripts from the original install loc
 - "Show More" buttons on work item forms and on Kanban boards are auto-clicked for you! (But only if the New column is expanded)
 - Work item forms show under the comment box who else is following the work item (disclaimer: also shows people that are only following state changes)
 
-### Augmented build results view (NI-only)
+### Augmented build results view
+
+In the builds results logs view, the left pane is now resizable so that job and step names are more visible.
+
+![Resizable build results view.](assets/resizable-build-logs-pane.png)
+
+#### NI-only changes
 
 > These features are only available in [NI](https://www.ni.com) AzDO accounts.
 
