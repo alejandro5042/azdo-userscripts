@@ -148,7 +148,7 @@
     });
 
     eus.onUrl(/\/(_releaseProgress)/gi, (session, urlMatch) => {
-      fixScrollBarColor(isDarkTheme);
+      fixScrollBarColor();
     });
 
     // Throttle page update events to avoid using up CPU when AzDO is adding a lot of elements during a short time (like on page load).
@@ -1330,12 +1330,8 @@
     });
   }
 
-  function fixScrollBarColor(isDarkTheme) {
-    if (isDarkTheme) {
-      GM_addStyle('.custom-scrollbar { scrollbar-color: rgb(99 99 99) black !important; }');
-    } else {
-      GM_addStyle('.custom-scrollbar { scrollbar-color: rgb(0 0 0 / 20%) white !important; }');
-    }
+  function fixScrollBarColor() {
+    GM_addStyle('.custom-scrollbar { scrollbar-color: rgb(99 99 99) black !important; }');
   }
 
   async function watchForLVDiffsAndAddNIBinaryDiffButton(session) {
