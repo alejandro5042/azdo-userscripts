@@ -6,7 +6,7 @@ A collection of userscripts to improve the Azure DevOps UI.
 
 ## Getting Started
 
-1. [Install the Violentmonkey extension](https://violentmonkey.github.io/)
+1. Install a userscript manager such as [Violentmonkey](https://violentmonkey.github.io/) or [Tampermonkey](https://www.tampermonkey.net/)
 2. Refresh this page if you just installed this extension (or the download link won't work)
 3. [Install this userscript](https://github.com/alejandro5042/azdo-userscripts/raw/master/src/azdo-pr-dashboard.user.js)
 
