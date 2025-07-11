@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.7.5
+// @version      3.8.0
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -972,14 +972,14 @@
     }`);
 
   function watchForWorkItemForms() {
-    eus.globalSession.onEveryNew(document, '.menu-item.follow-item-menu-item-gray', followButton => {
+    eus.globalSession.onEveryNew(document, '#__bolt-follow', followButton => {
       followButton.addEventListener('click', async _ => {
-        await eus.sleep(100); // We need to allow the other handlers to send the request to follow/unfollow. After the request is sent, we can annotate our follows list correctly.
-        await annotateWorkItemWithFollowerList(document.querySelector('.discussion-messages-right'));
+        await eus.sleep(1000); // We need to allow the other handlers to send the request to follow/unfollow. After the request is sent, we can annotate our follows list correctly.
+        await annotateWorkItemWithFollowerList(document.querySelector('.comment-editor.enter-new-comment'));
       });
     });
     // Annotate work items (under the comment box) with who is following it.
-    eus.globalSession.onEveryNew(document, '.discussion-messages-right', async commentEditor => {
+    eus.globalSession.onEveryNew(document, '.comment-editor.enter-new-comment', async commentEditor => {
       await annotateWorkItemWithFollowerList(commentEditor);
     });
   }
@@ -987,8 +987,8 @@
   async function annotateWorkItemWithFollowerList(commentEditor) {
     document.querySelectorAll('.work-item-followers-list').forEach(e => e.remove());
 
-    const workItemId = commentEditor.closest('.witform-layout').querySelector('.work-item-form-id > span').innerText;
-    const queryResponse = await fetch(`${azdoApiBaseUrl}/_apis/notification/subscriptionquery?api-version=6.0`, {
+    const workItemId = getCurrentWorkItemId();
+    const queryResponse = await fetch(`${azdoApiBaseUrl}_apis/notification/subscriptionquery?api-version=6.0`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1007,15 +1007,34 @@
         queryFlags: 'alwaysReturnBasicInformation',
       }),
     });
-
     const followers = [...(await queryResponse.json()).value].sort((a, b) => a.subscriber.displayName.localeCompare(b.subscriber.displayName));
     const followerList = followers
-      .map(s => `<a href="mailto:${s.subscriber.uniqueName}">${s.subscriber.displayName}</a>`)
-      .join(', ')
-      || 'Nobody';
+      .map(s => `<a class="bolt-link no-underline-link" target="_blank" href="https://teams.microsoft.com/l/chat/0/0?users=${s.subscriber.uniqueName}">${s.subscriber.displayName}</a>`)
+      .join(', ');
+    if (followerList) {
+      const annotation = `<div class="work-item-followers-list" style="margin: 1em 0em; opacity: 0.7"><span class="menu-item-icon bowtie-icon bowtie-watch-eye-fill" aria-hidden="true"></span> ${followerList}</div>`;
+      commentEditor.insertAdjacentHTML('afterend', annotation);
+    }
+  }
 
-    const annotation = `<div class="work-item-followers-list" style="margin: 1em 0em; opacity: 0.8"><span class="menu-item-icon bowtie-icon bowtie-watch-eye-fill" aria-hidden="true"></span> ${followerList}</div>`;
-    commentEditor.insertAdjacentHTML('BeforeEnd', annotation);
+  function getCurrentWorkItemId() {
+    // Try getting the link from the work item header, in case this is opened in preview view
+    const header = document.querySelector('.work-item-form-header');
+    const links = header.querySelectorAll('a');
+    // Loop through the links and check if their target matches a link for a work item
+    const workItemLink = Array.from(links).find(link => link.href.includes('_workitems'));
+
+    // Default to the window URL if the find operation fails
+    let currentUrl = window.location.href;
+    if(workItemLink) {
+      currentUrl = workItemLink.href;
+    }
+
+    const [baseUrl] = currentUrl.split('?');
+    const urlSegments = baseUrl.split('/');
+    const workItemId = urlSegments[urlSegments.length - 1];
+
+    return workItemId;
   }
 
   function watchForRepoBrowsingPages(session) {
