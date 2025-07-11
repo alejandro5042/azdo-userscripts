@@ -1026,7 +1026,7 @@
 
     // Default to the window URL if the find operation fails
     let currentUrl = window.location.href;
-    if(workItemLink) {
+    if (workItemLink) {
       currentUrl = workItemLink.href;
     }
 
