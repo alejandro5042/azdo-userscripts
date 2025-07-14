@@ -985,9 +985,10 @@
   }
 
   async function annotateWorkItemWithFollowerList(commentEditor) {
-    document.querySelectorAll('.work-item-followers-list').forEach(e => e.remove());
+    const commentEditorContainer = commentEditor.closest('.new-comment-div');
+    commentEditorContainer.querySelectorAll('.work-item-followers-list').forEach(e => e.remove());
 
-    const workItemId = getCurrentWorkItemId();
+    const workItemId = getCurrentWorkItemId(commentEditor);
     const queryResponse = await fetch(`${azdoApiBaseUrl}_apis/notification/subscriptionquery?api-version=6.0`, {
       method: 'POST',
       headers: {
@@ -1017,9 +1018,10 @@
     }
   }
 
-  function getCurrentWorkItemId() {
+  function getCurrentWorkItemId(commentEditor) {
     // Try getting the link from the work item header, in case this is opened in preview view
-    const header = document.querySelector('.work-item-form-header');
+    const workItemPage = commentEditor.closest('.work-item-form-page');
+    const header = workItemPage.querySelector('.work-item-form-header');
     const links = header.querySelectorAll('a');
     // Loop through the links and check if their target matches a link for a work item
     const workItemLink = Array.from(links).find(link => link.href.includes('_workitems'));
