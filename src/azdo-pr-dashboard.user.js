@@ -155,7 +155,9 @@
     onPageUpdatedThrottled.flush();
 
     // Call our event handler if we notice new elements being inserted into the DOM. This happens as the page is loading or updating dynamically based on user activity.
-    $('body > div.full-size')[0].addEventListener('DOMNodeInserted', onPageUpdatedThrottled);
+    const targetNode = $('body > div.full-size')[0];
+    const observer = new MutationObserver(onPageUpdatedThrottled);
+    observer.observe(targetNode, {childList: true, subtree: true});
   }
 
   function watchForStatusCardAndMoveToRightSideBar(session) {
