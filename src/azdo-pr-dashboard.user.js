@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.8.0
+// @version      3.8.1
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -76,14 +76,12 @@
         'agent-arbitration-status-off': 'Off',
       });
 
-      eus.showTipOnce('release-2024-06-06', 'New in the AzDO userscript', `
-        <p>Highlights from the 2024-06-06 update!</p>
-        <p>Changes to the build logs view:</p>
+      eus.showTipOnce('release-2025-08-08', 'New in the AzDO userscript', `
+        <p>Highlights from the 2025-08-08 update!</p>
         <ul>
-          <li>The left-side jobs pane is now resizable.</li>
+          <li>New: display the followers of a work item in the newer Boards view (#240).</li>
+          <li>Fix: navigating to the pull requests view from another AzDO page will now correctly show the organization pull requests page link. (#242)</li>
         </ul>
-        <p>See also <a href="https://github.com/alejandro5042/azdo-userscripts/commits/master/?since=2021-11-15&until=2024-04-16" target="_blank">other changes since our last update notification</a>.</p>
-        <hr>
         <p>Comments, bugs, suggestions? File an issue on <a href="https://github.com/alejandro5042/azdo-userscripts" target="_blank">GitHub</a> 🧡</p>
       `);
     }
@@ -155,7 +153,9 @@
     onPageUpdatedThrottled.flush();
 
     // Call our event handler if we notice new elements being inserted into the DOM. This happens as the page is loading or updating dynamically based on user activity.
-    $('body > div.full-size')[0].addEventListener('DOMNodeInserted', onPageUpdatedThrottled);
+    const targetNode = $('body > div.full-size')[0];
+    const observer = new MutationObserver(onPageUpdatedThrottled);
+    observer.observe(targetNode, { childList: true, subtree: true });
   }
 
   function watchForStatusCardAndMoveToRightSideBar(session) {
