@@ -1693,7 +1693,7 @@
             <div class="bolt-pill-observe"></div>
           </div>
         </div>`)[0];
-      pullRequestRow.querySelector('.body-l').insertAdjacentElement('afterend', labelContainer);
+      pullRequestRow.querySelector('.bolt-table-two-line-cell-item').insertAdjacentElement('beforeend', labelContainer);
       labels = pullRequestRow.querySelector('.bolt-pill-group-inner');
     }
 
