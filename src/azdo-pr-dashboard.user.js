@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.8.1
+// @version      3.8.2
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -76,11 +76,10 @@
         'agent-arbitration-status-off': 'Off',
       });
 
-      eus.showTipOnce('release-2025-08-08', 'New in the AzDO userscript', `
-        <p>Highlights from the 2025-08-08 update!</p>
+      eus.showTipOnce('release-2026-04-15', 'New in the AzDO userscript', `
+        <p>Highlights from the 2026-04-15 update!</p>
         <ul>
-          <li>New: display the followers of a work item in the newer Boards view (#240).</li>
-          <li>Fix: navigating to the pull requests view from another AzDO page will now correctly show the organization pull requests page link. (#242)</li>
+          <li>Fix: correct labels container position in the PR dashboard. (#245)</li>
         </ul>
         <p>Comments, bugs, suggestions? File an issue on <a href="https://github.com/alejandro5042/azdo-userscripts" target="_blank">GitHub</a> 🧡</p>
       `);
