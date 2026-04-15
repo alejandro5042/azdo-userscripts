@@ -82,7 +82,7 @@
         <ul>
           <li>Source branch name is now shown for each PR.</li>
           <li>Target branch name is hidden if it's <code>main</code> or <code>master</code>.</li>
-          <li>Branch names like <code>users/name/foo</code> are abbreviated to <code>u/n/foo</code>.</li>
+          <li>Branch names like <code>users/name/foo</code> are abbreviated to <code><span class="flex-noshrink fabric-icon ms-Icon--Contact medium"></span>/foo</code>.</li>
         </ul>
         <p>Comments, bugs, suggestions? File an issue on <a href="https://github.com/alejandro5042/azdo-userscripts" target="_blank">GitHub</a> 🧡</p>
       `);
@@ -1683,10 +1683,16 @@
     if (!pr.lastMergeCommit) return;
 
     let sourceBranch = pr.sourceRefName.replace(/^refs\/heads\//, '');
-    // Abbreviate e.g. 'users/kroeschl/foo' as 'u/k/foo' to save space
-    sourceBranch = sourceBranch.replace(/^users\/([^/])[^/]*\//, 'u/$1/');
-    const secondary = row.querySelector('.secondary-text span');
+    // Abbreviate e.g. 'users/kroeschl/foo' as '👤/foo' to save space
+    sourceBranch = sourceBranch.replace(/^users\/[^/]+\//, '/');
+    let sourceBranchIcon = '';
+    // Weird margin/padding to make this inline with the text
+    const userIcon = '<span class="fluent-icons-enabled" style="padding-left: 4px; margin-right: -4px"><span aria-hidden="true" class="flex-noshrink fabric-icon ms-Icon--Contact"></span></span>';
+    if (sourceBranch.startsWith('/')) {
+      sourceBranchIcon = userIcon;
+    }
 
+    const secondary = row.querySelector('.secondary-text span');
     if (['refs/heads/master', 'refs/heads/main'].includes(pr.targetRefName)) {
       // Hide target branch and icon if it's main or master, which is very common
       secondary.querySelector('.ms-Icon--OpenSource').remove(); // Branch icon
@@ -1694,13 +1700,17 @@
       secondary.innerHTML = secondary.innerHTML.replace('into ', '');
     } else {
       const targetBranch = pr.targetRefName.replace(/^refs\/heads\//, '');
-      const targetBranchAbbrev = targetBranch.replace(/^users\/([^/])[^/]*\//, 'u/$1/');
-      secondary.innerHTML = secondary.innerHTML.replace(targetBranch, targetBranchAbbrev);
+      const targetBranchAbbrev = targetBranch.replace(/^users\/[^/]+\//, '/');
+      const targetBranchElement = secondary.querySelector('.monospaced-xs');
+      targetBranchElement.innerHTML = targetBranchElement.innerHTML.replace(targetBranch, targetBranchAbbrev);
+      if (targetBranchAbbrev.startsWith('/')) {
+        targetBranchElement.insertAdjacentHTML('beforebegin', userIcon);
+      }
     }
 
     const sourceBranchAnnotation = `from
       <span class="fluent-icons-enabled"><span aria-hidden="true" class="flex-noshrink fabric-icon ms-Icon--OpenSource"
-      ></span></span><span class="monospaced-xs padding-horizontal-4">${sourceBranch}</span>`;
+      ></span></span>${sourceBranchIcon}<span class="monospaced-xs padding-horizontal-4">${sourceBranch}</span>`;
     secondary.insertAdjacentHTML('beforeend', sourceBranchAnnotation);
   }
 
