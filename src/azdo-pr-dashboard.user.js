@@ -1315,27 +1315,67 @@
 
       const trophiesAwarded = [];
 
+      /* eslint-disable brace-style */
+
       // Milestone trophy: Awarded if pull request ID is greater than 1000 and is a non-zero digit followed by only zeroes (e.g. 1000, 5000, 10000).
       if (prId >= 1000 && prId.toString().match('^[1-9]0+$')) {
         const milestoneTrophyMessage = $('<div>').addClass('bolt-table-cell-content').text(`🏆 ${prAuthor} got pull request #${prId}`);
         trophiesAwarded.push(milestoneTrophyMessage);
       }
-
-      // Fish trophy: Give a man a fish, he'll waste hours trying to figure out why. (Awarded if the ID is a palindrome.)
-      // Requires an id with at least three numbers.
-      if (prId > 100 && prId.toString() === prId.toString().split('').reverse().join('')) {
+      // Repeating digits trophy: Awarded if the ID is greater than 100 and consists of only one repeated digit (e.g. 1111, 2222).
+      else if (prId > 100 && /^(\d)\1+$/.test(prId.toString())) {
+        const repeatingDigitMessage = $('<div>').addClass('bolt-table-cell-content').text(`🔢 ${prAuthor} got a fancy pull request #${prId}`);
+        trophiesAwarded.push(repeatingDigitMessage);
+      }
+      // Fish trophy: Give a man a fish, he'll waste hours trying to figure out why.
+      // Awarded if the ID is greater than 100 and is a palindrome (e.g. 12321).
+      else if (prId > 100 && prId.toString() === prId.toString().split('').reverse().join('')) {
         const fishTrophyMessage = $('<div>').addClass('bolt-table-cell-content').text(`🐠 ${prAuthor} got a fish trophy`);
         trophiesAwarded.push(fishTrophyMessage);
       }
 
-      // 1337 leetspeak.
-      if (prId === 1337) {
-        const leetMessage = $('<div>').addClass('bolt-table-cell-content').text(`👨‍💻 ${prAuthor} speaks leet`);
-        trophiesAwarded.push(leetMessage);
-      } else if (prId === 1) { // First PR.
+      // First PR.
+      if (prId === 1) {
         const firstPrTrophyMessage = $('<div>').addClass('bolt-table-cell-content').text(`🥇 ${prAuthor} is first`);
         trophiesAwarded.push(firstPrTrophyMessage);
       }
+      // 42: The answer to life, the universe, and everything.
+      else if (prId === 42) {
+        const meaningOfLifeMessage = $('<div>').addClass('bolt-table-cell-content').text(`🌌 ${prAuthor} found the answer to life, the universe, and everything`);
+        trophiesAwarded.push(meaningOfLifeMessage);
+      }
+      // 404: Not found.
+      else if (prId === 404) {
+        const notFoundMessage = $('<div>').addClass('bolt-table-cell-content').text(`🔍 ${prAuthor}'s pull request was not found (just kidding, here it is)`);
+        trophiesAwarded.push(notFoundMessage);
+      }
+      // 418: I'm a teapot.
+      else if (prId === 418) {
+        const teapotMessage = $('<div>').addClass('bolt-table-cell-content').text(`🫖 ${prAuthor} is a teapot`);
+        trophiesAwarded.push(teapotMessage);
+      }
+      // 666: The number of the beast.
+      else if (prId === 666) {
+        const beastMessage = $('<div>').addClass('bolt-table-cell-content').text(`😈 ${prAuthor} is a beast`);
+        trophiesAwarded.push(beastMessage);
+      }
+      // 777: Lucky sevens.
+      else if (prId === 777) {
+        const luckyMessage = $('<div>').addClass('bolt-table-cell-content').text(`🎰 ${prAuthor} hit the jackpot`);
+        trophiesAwarded.push(luckyMessage);
+      }
+      // 1337 leetspeak.
+      else if (prId === 1337) {
+        const leetMessage = $('<div>').addClass('bolt-table-cell-content').text(`👨‍💻 ${prAuthor} speaks leet`);
+        trophiesAwarded.push(leetMessage);
+      }
+      // 31337 elite leetspeak.
+      else if (prId === 31337) {
+        const eliteLeetMessage = $('<div>').addClass('bolt-table-cell-content').text(`🧠 ${prAuthor} speaks elite!`);
+        trophiesAwarded.push(eliteLeetMessage);
+      }
+
+      /* eslint-enable brace-style */
 
       if (trophiesAwarded.length > 0) {
         const header = $('<div/>').addClass('bolt-header-title body-xl m').text('Trophies');
