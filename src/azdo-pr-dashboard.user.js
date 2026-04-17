@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.8.2
+// @version      3.8.3
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -9,7 +9,7 @@
 // @namespace    https://github.com/alejandro5042
 // @homepageURL  https://alejandro5042.github.io/azdo-userscripts/
 // @supportURL   https://alejandro5042.github.io/azdo-userscripts/SUPPORT.html
-// @updateURL    https://rebrand.ly/update-azdo-pr-dashboard-user-js
+// @updateURL    https://github.com/alejandro5042/azdo-userscripts/releases/latest/download/azdo-pr-dashboard.user.js
 // @contributionURL  https://github.com/alejandro5042/azdo-userscripts
 
 // @include      https://dev.azure.com/*
@@ -76,10 +76,10 @@
         'agent-arbitration-status-off': 'Off',
       });
 
-      eus.showTipOnce('release-2026-04-15', 'New in the AzDO userscript', `
-        <p>Highlights from the 2026-04-15 update!</p>
+      eus.showTipOnce('release-2026-04-17', 'New in the AzDO userscript', `
+        <p>Highlights from the 2026-04-17 update!</p>
         <ul>
-          <li>Fix: correct labels container position in the PR dashboard. (#245)</li>
+          <li>Switch from Rebrandly to GitHub for update URL (#247)</li>
         </ul>
         <p>Comments, bugs, suggestions? File an issue on <a href="https://github.com/alejandro5042/azdo-userscripts" target="_blank">GitHub</a> 🧡</p>
       `);
