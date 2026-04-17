@@ -9,7 +9,7 @@
 // @namespace    https://github.com/alejandro5042
 // @homepageURL  https://alejandro5042.github.io/azdo-userscripts/
 // @supportURL   https://alejandro5042.github.io/azdo-userscripts/SUPPORT.html
-// @updateURL    https://rebrand.ly/update-azdo-pr-dashboard-user-js
+// @updateURL    https://github.com/alejandro5042/azdo-userscripts/releases/latest/download/azdo-pr-dashboard.user.js
 // @contributionURL  https://github.com/alejandro5042/azdo-userscripts
 
 // @include      https://dev.azure.com/*
