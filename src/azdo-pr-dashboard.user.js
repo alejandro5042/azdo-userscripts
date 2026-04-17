@@ -1954,7 +1954,7 @@
 
         let queryResponse;
         try {
-          queryResponse = await fetch(`${azdoApiBaseUrl}/DevCentral/_apis/git/repositories/tools/items?path=/report/build_failure_analysis/pipeline-results/known-issues.json&api-version=6.0`);
+          queryResponse = await fetch(`${azdoApiBaseUrl}/DevCentral/_apis/git/repositories/tools/items?path=/report/build_failure_analysis/pipeline_results/known-issues.json&api-version=6.0`);
         } catch (err) {
           debug('Could not fetch known issues file from AzDO');
           return;
