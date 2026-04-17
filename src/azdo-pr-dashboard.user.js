@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.7.6
+// @version      3.9.0
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -9,7 +9,7 @@
 // @namespace    https://github.com/alejandro5042
 // @homepageURL  https://alejandro5042.github.io/azdo-userscripts/
 // @supportURL   https://alejandro5042.github.io/azdo-userscripts/SUPPORT.html
-// @updateURL    https://rebrand.ly/update-azdo-pr-dashboard-user-js
+// @updateURL    https://github.com/alejandro5042/azdo-userscripts/releases/latest/download/azdo-pr-dashboard.user.js
 // @contributionURL  https://github.com/alejandro5042/azdo-userscripts
 
 // @include      https://dev.azure.com/*
@@ -76,14 +76,11 @@
         'agent-arbitration-status-off': 'Off',
       });
 
-      eus.showTipOnce('release-2024-06-06', 'New in the AzDO userscript', `
-        <p>Highlights from the 2024-06-06 update!</p>
-        <p>Changes to the build logs view:</p>
+      eus.showTipOnce('release-2026-04-17', 'New in the AzDO userscript', `
+        <p>Highlights from the 2026-04-17 update!</p>
         <ul>
-          <li>The left-side jobs pane is now resizable.</li>
+          <li>Switch from Rebrandly to GitHub for update URL (#247)</li>
         </ul>
-        <p>See also <a href="https://github.com/alejandro5042/azdo-userscripts/commits/master/?since=2021-11-15&until=2024-04-16" target="_blank">other changes since our last update notification</a>.</p>
-        <hr>
         <p>Comments, bugs, suggestions? File an issue on <a href="https://github.com/alejandro5042/azdo-userscripts" target="_blank">GitHub</a> 🧡</p>
       `);
     }
@@ -159,7 +156,9 @@
     onPageUpdatedThrottled.flush();
 
     // Call our event handler if we notice new elements being inserted into the DOM. This happens as the page is loading or updating dynamically based on user activity.
-    $('body > div.full-size')[0].addEventListener('DOMNodeInserted', onPageUpdatedThrottled);
+    const targetNode = $('body > div.full-size')[0];
+    const observer = new MutationObserver(onPageUpdatedThrottled);
+    observer.observe(targetNode, { childList: true, subtree: true });
   }
 
   function watchForStatusCardAndMoveToRightSideBar(session) {
@@ -976,23 +975,24 @@
     }`);
 
   function watchForWorkItemForms() {
-    eus.globalSession.onEveryNew(document, '.menu-item.follow-item-menu-item-gray', followButton => {
+    eus.globalSession.onEveryNew(document, '#__bolt-follow', followButton => {
       followButton.addEventListener('click', async _ => {
-        await eus.sleep(100); // We need to allow the other handlers to send the request to follow/unfollow. After the request is sent, we can annotate our follows list correctly.
-        await annotateWorkItemWithFollowerList(document.querySelector('.discussion-messages-right'));
+        await eus.sleep(1000); // We need to allow the other handlers to send the request to follow/unfollow. After the request is sent, we can annotate our follows list correctly.
+        await annotateWorkItemWithFollowerList(document.querySelector('.comment-editor.enter-new-comment'));
       });
     });
     // Annotate work items (under the comment box) with who is following it.
-    eus.globalSession.onEveryNew(document, '.discussion-messages-right', async commentEditor => {
+    eus.globalSession.onEveryNew(document, '.comment-editor.enter-new-comment', async commentEditor => {
       await annotateWorkItemWithFollowerList(commentEditor);
     });
   }
 
   async function annotateWorkItemWithFollowerList(commentEditor) {
-    document.querySelectorAll('.work-item-followers-list').forEach(e => e.remove());
+    const commentEditorContainer = commentEditor.closest('.new-comment-div');
+    commentEditorContainer.querySelectorAll('.work-item-followers-list').forEach(e => e.remove());
 
-    const workItemId = commentEditor.closest('.witform-layout').querySelector('.work-item-form-id > span').innerText;
-    const queryResponse = await fetch(`${azdoApiBaseUrl}/_apis/notification/subscriptionquery?api-version=6.0`, {
+    const workItemId = getCurrentWorkItemId(commentEditor);
+    const queryResponse = await fetch(`${azdoApiBaseUrl}_apis/notification/subscriptionquery?api-version=6.0`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1011,15 +1011,35 @@
         queryFlags: 'alwaysReturnBasicInformation',
       }),
     });
-
     const followers = [...(await queryResponse.json()).value].sort((a, b) => a.subscriber.displayName.localeCompare(b.subscriber.displayName));
     const followerList = followers
-      .map(s => `<a href="mailto:${s.subscriber.uniqueName}">${s.subscriber.displayName}</a>`)
-      .join(', ')
-      || 'Nobody';
+      .map(s => `<a class="bolt-link no-underline-link" target="_blank" href="https://teams.microsoft.com/l/chat/0/0?users=${s.subscriber.uniqueName}">${s.subscriber.displayName}</a>`)
+      .join(', ');
+    if (followerList) {
+      const annotation = `<div class="work-item-followers-list" style="margin: 1em 0em; opacity: 0.7"><span class="menu-item-icon bowtie-icon bowtie-watch-eye-fill" aria-hidden="true"></span> ${followerList}</div>`;
+      commentEditor.insertAdjacentHTML('afterend', annotation);
+    }
+  }
 
-    const annotation = `<div class="work-item-followers-list" style="margin: 1em 0em; opacity: 0.8"><span class="menu-item-icon bowtie-icon bowtie-watch-eye-fill" aria-hidden="true"></span> ${followerList}</div>`;
-    commentEditor.insertAdjacentHTML('BeforeEnd', annotation);
+  function getCurrentWorkItemId(commentEditor) {
+    // Try getting the link from the work item header, in case this is opened in preview view
+    const workItemPage = commentEditor.closest('.work-item-form-page');
+    const header = workItemPage.querySelector('.work-item-form-header');
+    const links = header.querySelectorAll('a');
+    // Loop through the links and check if their target matches a link for a work item
+    const workItemLink = Array.from(links).find(link => link.href.includes('_workitems'));
+
+    // Default to the window URL if the find operation fails
+    let currentUrl = window.location.href;
+    if (workItemLink) {
+      currentUrl = workItemLink.href;
+    }
+
+    const [baseUrl] = currentUrl.split('?');
+    const urlSegments = baseUrl.split('/');
+    const workItemId = urlSegments[urlSegments.length - 1];
+
+    return workItemId;
   }
 
   function watchForRepoBrowsingPages(session) {
@@ -1299,27 +1319,67 @@
 
       const trophiesAwarded = [];
 
+      /* eslint-disable brace-style */
+
       // Milestone trophy: Awarded if pull request ID is greater than 1000 and is a non-zero digit followed by only zeroes (e.g. 1000, 5000, 10000).
       if (prId >= 1000 && prId.toString().match('^[1-9]0+$')) {
         const milestoneTrophyMessage = $('<div>').addClass('bolt-table-cell-content').text(`🏆 ${prAuthor} got pull request #${prId}`);
         trophiesAwarded.push(milestoneTrophyMessage);
       }
-
-      // Fish trophy: Give a man a fish, he'll waste hours trying to figure out why. (Awarded if the ID is a palindrome.)
-      // Requires an id with at least three numbers.
-      if (prId > 100 && prId.toString() === prId.toString().split('').reverse().join('')) {
+      // Repeating digits trophy: Awarded if the ID is greater than 100 and consists of only one repeated digit (e.g. 1111, 2222).
+      else if (prId > 100 && /^(\d)\1+$/.test(prId.toString())) {
+        const repeatingDigitMessage = $('<div>').addClass('bolt-table-cell-content').text(`🔢 ${prAuthor} got a fancy pull request #${prId}`);
+        trophiesAwarded.push(repeatingDigitMessage);
+      }
+      // Fish trophy: Give a man a fish, he'll waste hours trying to figure out why.
+      // Awarded if the ID is greater than 100 and is a palindrome (e.g. 12321).
+      else if (prId > 100 && prId.toString() === prId.toString().split('').reverse().join('')) {
         const fishTrophyMessage = $('<div>').addClass('bolt-table-cell-content').text(`🐠 ${prAuthor} got a fish trophy`);
         trophiesAwarded.push(fishTrophyMessage);
       }
 
-      // 1337 leetspeak.
-      if (prId === 1337) {
-        const leetMessage = $('<div>').addClass('bolt-table-cell-content').text(`👨‍💻 ${prAuthor} speaks leet`);
-        trophiesAwarded.push(leetMessage);
-      } else if (prId === 1) { // First PR.
+      // First PR.
+      if (prId === 1) {
         const firstPrTrophyMessage = $('<div>').addClass('bolt-table-cell-content').text(`🥇 ${prAuthor} is first`);
         trophiesAwarded.push(firstPrTrophyMessage);
       }
+      // 42: The answer to life, the universe, and everything.
+      else if (prId === 42) {
+        const meaningOfLifeMessage = $('<div>').addClass('bolt-table-cell-content').text(`🌌 ${prAuthor} found the answer to life, the universe, and everything`);
+        trophiesAwarded.push(meaningOfLifeMessage);
+      }
+      // 404: Not found.
+      else if (prId === 404) {
+        const notFoundMessage = $('<div>').addClass('bolt-table-cell-content').text(`🔍 ${prAuthor}'s pull request was not found (just kidding, here it is)`);
+        trophiesAwarded.push(notFoundMessage);
+      }
+      // 418: I'm a teapot.
+      else if (prId === 418) {
+        const teapotMessage = $('<div>').addClass('bolt-table-cell-content').text(`🫖 ${prAuthor} is a teapot`);
+        trophiesAwarded.push(teapotMessage);
+      }
+      // 666: The number of the beast.
+      else if (prId === 666) {
+        const beastMessage = $('<div>').addClass('bolt-table-cell-content').text(`😈 ${prAuthor} is a beast`);
+        trophiesAwarded.push(beastMessage);
+      }
+      // 777: Lucky sevens.
+      else if (prId === 777) {
+        const luckyMessage = $('<div>').addClass('bolt-table-cell-content').text(`🎰 ${prAuthor} hit the jackpot`);
+        trophiesAwarded.push(luckyMessage);
+      }
+      // 1337 leetspeak.
+      else if (prId === 1337) {
+        const leetMessage = $('<div>').addClass('bolt-table-cell-content').text(`👨‍💻 ${prAuthor} speaks leet`);
+        trophiesAwarded.push(leetMessage);
+      }
+      // 31337 elite leetspeak.
+      else if (prId === 31337) {
+        const eliteLeetMessage = $('<div>').addClass('bolt-table-cell-content').text(`🧠 ${prAuthor} speaks elite!`);
+        trophiesAwarded.push(eliteLeetMessage);
+      }
+
+      /* eslint-enable brace-style */
 
       if (trophiesAwarded.length > 0) {
         const header = $('<div/>').addClass('bolt-header-title body-xl m').text('Trophies');
@@ -1680,7 +1740,7 @@
             <div class="bolt-pill-observe"></div>
           </div>
         </div>`)[0];
-      pullRequestRow.querySelector('.body-l').insertAdjacentElement('afterend', labelContainer);
+      pullRequestRow.querySelector('.bolt-table-two-line-cell-item').insertAdjacentElement('beforeend', labelContainer);
       labels = pullRequestRow.querySelector('.bolt-pill-group-inner');
     }
 
