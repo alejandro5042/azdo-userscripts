@@ -23,7 +23,6 @@ By default, Violentmonkey will auto-update scripts from the original install loc
 - Repo pull request listings will also link to the overall account-wide PR dashboard
 - Each PR is annotated with source branch name.
 - Target branch is hidden for PRs targeting `main` or `master`.
-- Source and/or target branch name are abbreviated if they start with `users/<name>/`.
 - At [NI](https://www.ni.com), some labels get coloring (e.g. "bypass owners" gets a red background)
 - At [NI](https://www.ni.com), reviews are annotated with how long you've been on it if it's been over 1 weekday and you haven't voted or commented
 
