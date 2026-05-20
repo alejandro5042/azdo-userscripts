@@ -2459,6 +2459,8 @@
         const reviewers = file.reviewers ? (file.reviewers.map(r => reviewProperties.reviewerIdentities[r - 1] || {}) || []) : [];
         const experts = file.experts ? (file.experts.map(r => reviewProperties.reviewerIdentities[r - 1] || {}) || []) : [];
 
+        const watchers = file.watchers ? (file.watchers.map(r => reviewProperties.reviewerIdentities[r - 1] || {}) || []) : [];
+
         // Pick the highest role for the current user on this file, and track it.
         if (owner.email === currentUser.uniqueName) {
           ownersInfo.currentUserFilesToRole[file.path] = 'O';
@@ -2469,6 +2471,10 @@
           // eslint-disable-next-line no-loop-func
         } else if (_(experts).some(r => r.email === currentUser.uniqueName) || _(reviewers).some(r => r.email === currentUser.uniqueName)) {
           ownersInfo.currentUserFilesToRole[file.path] = 'E';
+          ownersInfo.currentUserFileCount += 1;
+          // eslint-disable-next-line no-loop-func
+        } else if (_(watchers).some(r => r.email === currentUser.uniqueName)) {
+          ownersInfo.currentUserFilesToRole[file.path] = 'W';
           ownersInfo.currentUserFileCount += 1;
         }
       }
