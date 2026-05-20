@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.11.0
+// @version      3.11.1
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -76,12 +76,10 @@
         'agent-arbitration-status-off': 'Off',
       });
 
-      eus.showTipOnce('release-2026-05-20', 'New in the AzDO userscript', `
-        <p>Highlights from the 2026-05-20 update!</p>
-        <p>Changes to the PR dashboard view:</p>
+      eus.showTipOnce('release-2026-06-19', 'New in the AzDO userscript', `
+        <p>Highlights from the 2026-06-19 update!</p>
         <ul>
-          <li>Source branch name is now shown for each PR.</li>
-          <li>Target branch name is hidden if it's <code>main</code> or <code>master</code>.</li>
+          <li>Add support for Owners-Watcher annotations in Files annotations (#248)</li>
         </ul>
         <p>Comments, bugs, suggestions? File an issue on <a href="https://github.com/alejandro5042/azdo-userscripts" target="_blank">GitHub</a> 🧡</p>
       `);
