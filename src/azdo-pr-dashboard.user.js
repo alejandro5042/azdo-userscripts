@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.11.0
+// @version      3.11.1
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -76,12 +76,10 @@
         'agent-arbitration-status-off': 'Off',
       });
 
-      eus.showTipOnce('release-2026-05-20', 'New in the AzDO userscript', `
-        <p>Highlights from the 2026-05-20 update!</p>
-        <p>Changes to the PR dashboard view:</p>
+      eus.showTipOnce('release-2026-06-19', 'New in the AzDO userscript', `
+        <p>Highlights from the 2026-06-19 update!</p>
         <ul>
-          <li>Source branch name is now shown for each PR.</li>
-          <li>Target branch name is hidden if it's <code>main</code> or <code>master</code>.</li>
+          <li>Add support for Owners-Watcher annotations in Files annotations (#248)</li>
         </ul>
         <p>Comments, bugs, suggestions? File an issue on <a href="https://github.com/alejandro5042/azdo-userscripts" target="_blank">GitHub</a> 🧡</p>
       `);
@@ -2459,6 +2457,8 @@
         const reviewers = file.reviewers ? (file.reviewers.map(r => reviewProperties.reviewerIdentities[r - 1] || {}) || []) : [];
         const experts = file.experts ? (file.experts.map(r => reviewProperties.reviewerIdentities[r - 1] || {}) || []) : [];
 
+        const watchers = file.watchers ? (file.watchers.map(r => reviewProperties.reviewerIdentities[r - 1] || {}) || []) : [];
+
         // Pick the highest role for the current user on this file, and track it.
         if (owner.email === currentUser.uniqueName) {
           ownersInfo.currentUserFilesToRole[file.path] = 'O';
@@ -2469,6 +2469,10 @@
           // eslint-disable-next-line no-loop-func
         } else if (_(experts).some(r => r.email === currentUser.uniqueName) || _(reviewers).some(r => r.email === currentUser.uniqueName)) {
           ownersInfo.currentUserFilesToRole[file.path] = 'E';
+          ownersInfo.currentUserFileCount += 1;
+          // eslint-disable-next-line no-loop-func
+        } else if (_(watchers).some(r => r.email === currentUser.uniqueName)) {
+          ownersInfo.currentUserFilesToRole[file.path] = 'W';
           ownersInfo.currentUserFileCount += 1;
         }
       }
