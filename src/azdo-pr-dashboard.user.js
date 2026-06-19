@@ -76,10 +76,11 @@
         'agent-arbitration-status-off': 'Off',
       });
 
-      eus.showTipOnce('release-2026-06-19', 'New in the AzDO userscript', `
-        <p>Highlights from the 2026-06-19 update!</p>
+      eus.showTipOnce('release-2026-06-26', 'New in the AzDO userscript', `
+        <p>Highlights from the 2026-06-26 update!</p>
         <ul>
-          <li>Add support for Owners-Watcher annotations in Files annotations (#248)</li>
+          <li>Fix pipeline status in the pipelines list view. <a href="https://github.com/alejandro5042/azdo-userscripts/pull/255">#255</a></li>
+          <li>Better match pipeline status icons to existing UI. <a href="https://github.com/alejandro5042/azdo-userscripts/pull/255">#255</a></li>
         </ul>
         <p>Comments, bugs, suggestions? File an issue on <a href="https://github.com/alejandro5042/azdo-userscripts" target="_blank">GitHub</a> 🧡</p>
       `);
