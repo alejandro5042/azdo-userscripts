@@ -236,7 +236,7 @@
     } else {
       // List of Pipelines View
       session.onEveryNew(document, '.bolt-table-row', pipelineTitleElement => {
-        const href = pipelineTitleElement.href;
+        const href = $(pipelineTitleElement).find('.bolt-table-link')[0].href;
         if (href) {
           const pipelineHref = new URL(href);
           const pipelineUrlParams = new URLSearchParams(pipelineHref.search);
