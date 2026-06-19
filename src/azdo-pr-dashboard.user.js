@@ -266,7 +266,7 @@
     userIcon.classList.add({ disabled: 'ms-Icon--Blocked', paused: 'ms-Icon--CirclePause' }[pipelineQueueStatus] || 'ms-Icon--Unknown');
 
     const spanElement = $(pipelineTitleElement).find(classToAppendTo)[0];
-    spanElement.append(userIcon);
+    spanElement.appendChild(userIcon);
   }
 
   function watchForAgentPage(session, pageData) {
