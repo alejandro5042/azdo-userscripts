@@ -215,11 +215,9 @@
   function watchForPipelinesPage(session, pageData) {
     addStyleOnce('agent-css', /* css */ `
       .pipeline-status-icon {
-        margin: 5px !important;
-        padding: 10px;
-        border-radius: 25px;
-        background: var(--search-selected-match-background);
-        color: var(--palette-error);
+        margin-left: 5px;
+        font-size: 26px;
+        color: var(--component-status-error);
       }
     `);
 
@@ -263,7 +261,7 @@
     const userIcon = document.createElement('span');
     userIcon.title = `Pipeline Status: ${pipelineQueueStatus.toUpperCase()}`;
     userIcon.className = 'pipeline-status-icon fabric-icon';
-    userIcon.classList.add({ disabled: 'ms-Icon--Blocked', paused: 'ms-Icon--CirclePause' }[pipelineQueueStatus] || 'ms-Icon--Unknown');
+    userIcon.classList.add({ disabled: 'ms-Icon--Blocked2Solid', paused: 'ms-Icon--CirclePauseSolid' }[pipelineQueueStatus] || 'ms-Icon--Unknown');
 
     const spanElement = $(pipelineTitleElement).find(classToAppendTo)[0];
     spanElement.appendChild(userIcon);
