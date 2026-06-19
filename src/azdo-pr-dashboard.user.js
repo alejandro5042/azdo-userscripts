@@ -217,7 +217,14 @@
       .pipeline-status-icon {
         margin-left: 5px;
         font-size: 26px;
+      }
+
+      .pipeline-status-icon.ms-Icon--Blocked2Solid {
         color: var(--component-status-error);
+      }
+
+      .pipeline-status-icon.ms-Icon--CirclePauseSolid {
+        color: var(--component-status-warning);
       }
     `);
 
