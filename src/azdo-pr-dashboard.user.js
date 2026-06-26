@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.11.1
+// @version      3.12.0
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -76,10 +76,11 @@
         'agent-arbitration-status-off': 'Off',
       });
 
-      eus.showTipOnce('release-2026-06-19', 'New in the AzDO userscript', `
-        <p>Highlights from the 2026-06-19 update!</p>
+      eus.showTipOnce('release-2026-06-26', 'New in the AzDO userscript', `
+        <p>Highlights from the 2026-06-26 update!</p>
         <ul>
-          <li>Add support for Owners-Watcher annotations in Files annotations (#248)</li>
+          <li>Fix pipeline status in the pipelines list view. <a href="https://github.com/alejandro5042/azdo-userscripts/pull/255">#255</a></li>
+          <li>Better match pipeline status icons to existing UI. <a href="https://github.com/alejandro5042/azdo-userscripts/pull/255">#255</a></li>
         </ul>
         <p>Comments, bugs, suggestions? File an issue on <a href="https://github.com/alejandro5042/azdo-userscripts" target="_blank">GitHub</a> 🧡</p>
       `);
@@ -215,11 +216,16 @@
   function watchForPipelinesPage(session, pageData) {
     addStyleOnce('agent-css', /* css */ `
       .pipeline-status-icon {
-        margin: 5px !important;
-        padding: 10px;
-        border-radius: 25px;
-        background: var(--search-selected-match-background);
-        color: var(--palette-error);
+        margin-left: 5px;
+        font-size: 26px;
+      }
+
+      .pipeline-status-icon.ms-Icon--Blocked2Solid {
+        color: var(--component-status-error);
+      }
+
+      .pipeline-status-icon.ms-Icon--CirclePauseSolid {
+        color: var(--component-status-warning);
       }
     `);
 
@@ -236,7 +242,7 @@
     } else {
       // List of Pipelines View
       session.onEveryNew(document, '.bolt-table-row', pipelineTitleElement => {
-        const href = pipelineTitleElement.href;
+        const href = $(pipelineTitleElement).find('.bolt-table-link')[0].href;
         if (href) {
           const pipelineHref = new URL(href);
           const pipelineUrlParams = new URLSearchParams(pipelineHref.search);
@@ -263,10 +269,10 @@
     const userIcon = document.createElement('span');
     userIcon.title = `Pipeline Status: ${pipelineQueueStatus.toUpperCase()}`;
     userIcon.className = 'pipeline-status-icon fabric-icon';
-    userIcon.classList.add({ disabled: 'ms-Icon--Blocked', paused: 'ms-Icon--CirclePause' }[pipelineQueueStatus] || 'ms-Icon--Unknown');
+    userIcon.classList.add({ disabled: 'ms-Icon--Blocked2Solid', paused: 'ms-Icon--CirclePauseSolid' }[pipelineQueueStatus] || 'ms-Icon--Unknown');
 
     const spanElement = $(pipelineTitleElement).find(classToAppendTo)[0];
-    spanElement.append(userIcon);
+    spanElement.appendChild(userIcon);
   }
 
   function watchForAgentPage(session, pageData) {
