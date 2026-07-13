@@ -1156,7 +1156,7 @@
           <p style='font-weight: bold; text-align: center'>Outlook Auto Response</p>
           <p class="user-message">${escapeStringForHtml(oooText).replace(/\r?\n/ig, '<br><br>')}</p>`;
 
-        annotateReviewer(nameElement, 'ooo', 'Auto-Reply On', tooltipHtml);
+        annotateReviewer(nameElement, 'ooo', 'Out of Office', tooltipHtml);
       }).catch(() => {}); // Silently ignore (e.g. Graph not configured, user not found)
     });
   }
