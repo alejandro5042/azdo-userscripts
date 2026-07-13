@@ -104,7 +104,7 @@
         <p>Highlights from the 2026-07-27 update!</p>
         <ul>
           <li>OOO info is now looked up live per-reviewer via Microsoft Graph (no more stale data!)</li>
-          <li>Use <b>Tampermonkey menu → OOO Lookup: Configure Graph Client ID</b> to set up</li>
+          <li>For non-NI/Emerson users, use <b>script menu → OOO Lookup: Configure Graph Client ID</b> to set up</li>
         </ul>
         <p>Comments, bugs, suggestions? File an issue on <a href="https://github.com/alejandro5042/azdo-userscripts" target="_blank">GitHub</a> 🧡</p>
       `);
@@ -113,13 +113,12 @@
         const current = GM_getValue('oooGraphClientId', '');
         // eslint-disable-next-line no-alert
         const clientId = prompt(
-          'Enter your Azure AD Application (Client) ID to enable live OOO lookup.\n\n'
-          + 'One-time Azure AD setup:\n'
-          + '  1. portal.azure.com → Azure Active Directory → App registrations → New registration\n'
-          + `  2. Redirect URIs → Single-page application (SPA): add ${_oooGetRedirectUri()}\n`
-          + '  3. API Permissions: Microsoft Graph → Delegated → Presence.Read.All\n'
-          + '  4. Paste the Application (Client) ID below.\n\n'
-          + 'Leave blank to disable OOO lookup.',
+          'OOO lookup works out of the box using a shared app registration – you normally do not '
+          + 'need to set anything here.\n\n'
+          + 'Only override the Azure AD Application (Client) ID if you are on a non-NI/Emerson tenant/org '
+          + 'and want to use your own app registration (SPA redirect URI '
+          + `${_oooGetRedirectUri()}, delegated Presence.Read.All).\n\n`
+          + 'Leave blank to use the shared default.',
           current,
         );
         if (clientId === null) {
@@ -131,11 +130,6 @@
         GM_deleteValue('oooAccessToken');
         GM_deleteValue('oooAccessTokenExpiry');
         GM_deleteValue('oooRefreshToken'); // clean up any legacy refresh tokens
-
-        if (!clientId.trim()) {
-          swal.fire({ icon: 'info', title: 'OOO lookup disabled', text: 'OOO annotations will not appear.' });
-          return;
-        }
 
         // Sign in immediately so the user consents once and sees any admin-approval message;
         // after this, silent auth keeps the token fresh automatically.
@@ -291,18 +285,24 @@
 
   // ===== OOO Lookup via Microsoft Graph API =====
   // Looks up each reviewer's out-of-office status live at page load time.
-  // Requires a one-time Azure AD app registration with Presence.Read.All (delegated)
-  // and a SPA redirect URI of https://dev.azure.com/. Configure via Tampermonkey menu.
+  // Uses a shared, single-tenant Azure AD app registration (Presence.Read.All, delegated). The
+  // client ID below is public by design: this is an Authorization Code + PKCE public client, so
+  // there is NO client secret to leak. The app is locked down by tenant + delegated scope + the
+  // registered SPA redirect URIs (one per AZDO org root, e.g. https://dev.azure.com/ni/).
+  // Power users on other orgs/tenants can override the client ID via the Tampermonkey menu.
 
   const OOO_GRAPH_SCOPES = 'https://graph.microsoft.com/Presence.Read.All';
   const OOO_STATE_PREFIX = 'azdo-ooo-';
+  // Shared app registration ("TM RD PR Metrics"). Safe to commit – public PKCE client, no secret.
+  const OOO_DEFAULT_GRAPH_CLIENT_ID = '968d0bcc-467a-4ec6-96be-3a1ab9e339e4';
 
   let _oooAccessToken = null;
   let _oooAccessTokenExpiry = null;
   let _oooSilentAuthAttempted = false; // one silent-auth attempt per page session
 
   function _oooGetClientId() {
-    return GM_getValue('oooGraphClientId', '');
+    // A per-user override (via the Tampermonkey menu) takes precedence over the shared default.
+    return GM_getValue('oooGraphClientId', '') || OOO_DEFAULT_GRAPH_CLIENT_ID;
   }
 
   function _oooGetRedirectUri() {
