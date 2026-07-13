@@ -1144,10 +1144,9 @@
       fetchOooForEmail(email).then(ooo => {
         if (!ooo) return;
 
-        // Strip HTML from the OOO message for safe display.
-        const oooMsgDiv = document.createElement('div');
-        oooMsgDiv.innerHTML = ooo.Text;
-        const oooText = oooMsgDiv.textContent || '';
+        // Strip HTML from the OOO message for safe display. DOMParser does not
+        // execute scripts or fire resource-loading events (unlike innerHTML on a live node).
+        const oooText = new DOMParser().parseFromString(ooo.Text, 'text/html').body.textContent || '';
 
         const tooltipHtml = oooText
           ? `<p style='font-weight: bold; text-align: center'>This user is out of office:</p>
