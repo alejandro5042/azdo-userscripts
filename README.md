@@ -52,6 +52,14 @@ By default, Violentmonkey will auto-update scripts from the original install loc
 - Bypass owners reminder: For PRs into branches requiring a passing `ni/owners-approved` status, hovering over the Approve button pops up a reminder to consider bypassing owners
 - Some tags/labels are colored (e.g. red if the label contains "Blocked")
 
+### Reviewer out-of-office annotations
+
+> Works out of the box for reviewers signed in with an NI/Emerson account. Users on other tenants/orgs can enable it by supplying their own Azure AD app registration (see [below](#maintainers-out-of-office-app-registration)).
+
+Reviewers on a PR are annotated with an **Out of Office** label when their Microsoft 365 presence shows they are out of office. Hovering the label shows their Outlook auto-reply message (if any).
+
+This is looked up live per-reviewer via the Microsoft Graph [presence API](https://learn.microsoft.com/en-us/graph/api/presence-get), so it is always current. For NI/Emerson accounts it works with no setup — the script signs you in silently using a shared, single-tenant Azure AD app registration the first time you view a PR. Reviewers that can't be resolved simply show no label.
+
 ### Overall
 
 - Scrollbars throughout the site will now match the current Azure DevOps color theme
@@ -94,6 +102,15 @@ Trophies are awarded for notable PRs and shown in a trophies section on the Over
 - [Support and troubleshooting](SUPPORT.md)
 - [Contributing to this project](CONTRIBUTING.md)
 - [GitHub repo](https://github.com/alejandro5042/azdo-userscripts)
+
+## Maintainers: out-of-office app registration
+
+The [reviewer out-of-office annotations](#reviewer-out-of-office-annotations) use a shared Azure AD app registration so end users don't have to create their own. A few notes for maintainers:
+
+- **The client ID is committed in the script on purpose.** This is an OAuth 2.0 Authorization Code + PKCE public client, which has no client secret. The client ID is not sensitive; it is safe to ship in this public repo. It is defined as `OOO_DEFAULT_GRAPH_CLIENT_ID` in [src/azdo-pr-dashboard.user.js](src/azdo-pr-dashboard.user.js).
+- **The app is single-tenant** (NI/Emerson) with delegated `Presence.Read.All`, admin-consented once by IT. Only tenant accounts can obtain a token, and only to read presence as the signed-in user.
+- **Redirect URIs are the one thing to manage.** Azure AD SPA redirect URIs cannot be wildcarded, and `https://dev.azure.com/` server-redirects to the org root (stripping the OAuth params), so the redirect URI must be the org-specific root. Register each AZDO org root your users use as a **Single-page application** redirect URI on the app registration, e.g. `https://dev.azure.com/ni/`. To support a new org later, add its root URL there — no code change is needed.
+- **Users on another tenant/org** can point the script at their own app registration via the Tampermonkey menu command _"OOO Lookup: Configure Graph Client ID"_ without editing the code.
 
 ## Privacy
 
