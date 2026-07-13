@@ -298,7 +298,7 @@
 
   let _oooAccessToken = null;
   let _oooAccessTokenExpiry = null;
-  let _oooSilentAuthAttempted = false; // one silent-auth attempt per page session
+  let _oooSilentAuthPromise = null; // shared silent-auth attempt (one per page session), coalesced across callers
 
   function _oooGetClientId() {
     // A per-user override (via the Tampermonkey menu) takes precedence over the shared default.
@@ -504,13 +504,14 @@
       _oooAccessTokenExpiry = new Date(savedExpiry);
       return _oooAccessToken;
     }
-    // One silent (prompt=none) auth attempt per page session. Works automatically once
-    // admin consent has been granted; silently does nothing if consent is still pending.
-    if (!_oooSilentAuthAttempted && _oooGetClientId()) {
-      _oooSilentAuthAttempted = true;
-      return _oooAcquireTokenInteractive(/* silent= */ true).catch(() => null);
+    // One silent (prompt=none) auth attempt per page session, shared across all callers so every
+    // reviewer on the page resolves from a single attempt (rather than only the first one
+    // triggering auth while the rest get null). Works automatically once admin consent has been
+    // granted; resolves to null (without retrying) if consent is still pending.
+    if (!_oooSilentAuthPromise && _oooGetClientId()) {
+      _oooSilentAuthPromise = _oooAcquireTokenInteractive(/* silent= */ true).catch(() => null);
     }
-    return null;
+    return _oooSilentAuthPromise;
   }
 
   // Resolves an email to the user's AAD object ID (originId), which Graph's /presence endpoint
