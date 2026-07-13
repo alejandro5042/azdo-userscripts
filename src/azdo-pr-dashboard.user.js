@@ -109,7 +109,7 @@
         <p>Comments, bugs, suggestions? File an issue on <a href="https://github.com/alejandro5042/azdo-userscripts" target="_blank">GitHub</a> 🧡</p>
       `);
 
-      GM_registerMenuCommand('OOO Lookup: Configure Graph Client ID', () => {
+      GM_registerMenuCommand('OOO Lookup: Configure Graph Client ID', async () => {
         const current = GM_getValue('oooGraphClientId', '');
         // eslint-disable-next-line no-alert
         const clientId = prompt(
@@ -122,26 +122,23 @@
           + 'Leave blank to disable OOO lookup.',
           current,
         );
-        if (clientId !== null) {
-          GM_setValue('oooGraphClientId', clientId.trim());
-          _oooAccessToken = null;
-          _oooAccessTokenExpiry = null;
-          GM_deleteValue('oooAccessToken');
-          GM_deleteValue('oooAccessTokenExpiry');
-          GM_deleteValue('oooRefreshToken'); // clean up any legacy refresh tokens
-          swal.fire({
-            icon: clientId.trim() ? 'success' : 'info',
-            title: clientId.trim() ? 'Client ID saved' : 'OOO lookup disabled',
-            text: clientId.trim() ? 'Use "OOO Lookup: Authenticate" from the menu to sign in.' : 'OOO annotations will not appear.',
-          });
-        }
-      });
-
-      GM_registerMenuCommand('OOO Lookup: Authenticate', async () => {
-        if (!_oooGetClientId()) {
-          swal.fire({ icon: 'warning', title: 'Not configured', text: 'Set the Graph Client ID first via the Tampermonkey menu.' });
+        if (clientId === null) {
           return;
         }
+        GM_setValue('oooGraphClientId', clientId.trim());
+        _oooAccessToken = null;
+        _oooAccessTokenExpiry = null;
+        GM_deleteValue('oooAccessToken');
+        GM_deleteValue('oooAccessTokenExpiry');
+        GM_deleteValue('oooRefreshToken'); // clean up any legacy refresh tokens
+
+        if (!clientId.trim()) {
+          swal.fire({ icon: 'info', title: 'OOO lookup disabled', text: 'OOO annotations will not appear.' });
+          return;
+        }
+
+        // Sign in immediately so the user consents once and sees any admin-approval message;
+        // after this, silent auth keeps the token fresh automatically.
         try {
           await _oooAcquireTokenInteractive();
           swal.fire({ icon: 'success', title: 'OOO Lookup Active', text: 'Reload a PR page to see live OOO annotations.' });
