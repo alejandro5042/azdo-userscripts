@@ -570,13 +570,7 @@
         const presence = JSON.parse(graphResp.responseText);
         const oof = presence.outOfOfficeSettings;
         if (oof && oof.isOutOfOffice) {
-          // Presence API doesn't expose start/end dates; treat as currently active OOO.
-          oooData = {
-            Start: new Date(Date.now() - 86400000).toISOString(),
-            End: new Date(Date.now() + 365 * 86400000).toISOString(),
-            Text: oof.message || '',
-            alwaysEnabled: true,
-          };
+          oooData = { Text: oof.message || '' };
         }
       } else if (graphResp.status === 401) {
         // Token rejected; clear both in-memory and GM storage so the next call re-authenticates.
@@ -1151,35 +1145,18 @@
       // OOO lookup via Microsoft Graph API – fires asynchronously so it doesn't block other annotations.
       // The reviewer's AAD object ID is resolved from their email inside fetchOooForEmail.
       fetchOooForEmail(email).then(ooo => {
-        if (!ooo || !dateFns.isFuture(ooo.End)) return;
+        if (!ooo) return;
 
-        let label;
-        if (ooo.alwaysEnabled) {
-          label = 'Auto-Reply On';
-        } else if (dateFns.isFuture(ooo.Start)) {
-          if (dateFns.differenceInHours(ooo.Start, new Date()) <= 24) {
-            label = 'Unavailable in <24h';
-          } else {
-            // Don't show a label. This person is leaving too far into the future.
-            label = null;
-          }
-        } else {
-          label = `Returns in ${dateFns.distanceInWordsToNow(ooo.End)}`;
-        }
+        // Strip HTML from Outlook auto-reply message for safe display.
+        const oooMsgDiv = document.createElement('div');
+        oooMsgDiv.innerHTML = ooo.Text;
+        const oooText = oooMsgDiv.textContent || '';
 
-        if (label) {
-          // Strip HTML from Outlook auto-reply message for safe display.
-          const oooMsgDiv = document.createElement('div');
-          oooMsgDiv.innerHTML = ooo.Text;
-          const oooText = oooMsgDiv.textContent || '';
+        const tooltipHtml = `
+          <p style='font-weight: bold; text-align: center'>Outlook Auto Response</p>
+          <p class="user-message">${escapeStringForHtml(oooText).replace(/\r?\n/ig, '<br><br>')}</p>`;
 
-          const tooltipHtml = `
-            <p style='font-weight: bold; text-align: center'>Outlook Auto Response</p>
-            ${!ooo.alwaysEnabled ? `<h1>Leaving ${dateFns.format(ooo.Start, 'ha ddd, MMM D, YYYY')}<br>Returning ${dateFns.format(ooo.End, 'ha ddd, MMM D, YYYY')}</h1>` : ''}
-            <p class="user-message">${escapeStringForHtml(oooText).replace(/\r?\n/ig, '<br><br>')}</p>`;
-
-          annotateReviewer(nameElement, 'ooo', escapeStringForHtml(label), tooltipHtml);
-        }
+        annotateReviewer(nameElement, 'ooo', 'Auto-Reply On', tooltipHtml);
       }).catch(() => {}); // Silently ignore (e.g. Graph not configured, user not found)
     });
   }
