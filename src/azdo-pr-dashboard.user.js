@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.12.1
+// @version      3.13.0
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -37,11 +37,35 @@
 // @grant        GM_deleteValue
 // @grant        GM_addValueChangeListener
 // @grant        GM_registerMenuCommand
+// @grant        GM_xmlhttpRequest
+// @connect      graph.microsoft.com
+// @connect      login.microsoftonline.com
 
 // ==/UserScript==
 
 (function () {
   'use strict';
+
+  // Early check: are we in an OOO auth redirect popup from the PKCE OAuth flow?
+  // This runs before any other script logic and closes the popup after relaying the code.
+  // Uses GM_setValue (Tampermonkey IPC) — reliable across sandboxed script contexts.
+  {
+    const _oooParams = new URLSearchParams(window.location.search);
+    const _oooState = _oooParams.get('state');
+    if (_oooState && _oooState.startsWith('azdo-ooo-')) {
+      try {
+        // Key is state-specific to avoid collisions between concurrent attempts.
+        GM_setValue(`oooAuthResult-${_oooState}`, JSON.stringify({
+          code: _oooParams.get('code') || null,
+          state: _oooState,
+          error: _oooParams.get('error_description') || null,
+          errorCode: _oooParams.get('error') || null,
+        }));
+      } catch (e) { /* ignore */ }
+      setTimeout(() => window.close(), 200);
+      return;
+    }
+  }
 
   // All REST API calls should fail after a timeout, instead of going on forever.
   $.ajaxSetup({ timeout: 5000 });
@@ -76,14 +100,69 @@
         'agent-arbitration-status-off': 'Off',
       });
 
-      eus.showTipOnce('release-2026-06-26', 'New in the AzDO userscript', `
-        <p>Highlights from the 2026-06-26 update!</p>
+      eus.showTipOnce('release-2026-07-27', 'New in the AzDO userscript', `
+        <p>Highlights from the 2026-07-27 update!</p>
         <ul>
-          <li>Fix pipeline status in the pipelines list view. <a href="https://github.com/alejandro5042/azdo-userscripts/pull/255">#255</a></li>
-          <li>Better match pipeline status icons to existing UI. <a href="https://github.com/alejandro5042/azdo-userscripts/pull/255">#255</a></li>
+          <li>OOO info is now looked up live per-reviewer via Microsoft Graph (no more stale data!)</li>
+          <li>Use <b>Tampermonkey menu → OOO Lookup: Configure Graph Client ID</b> to set up</li>
         </ul>
         <p>Comments, bugs, suggestions? File an issue on <a href="https://github.com/alejandro5042/azdo-userscripts" target="_blank">GitHub</a> 🧡</p>
       `);
+
+      GM_registerMenuCommand('OOO Lookup: Configure Graph Client ID', () => {
+        const current = GM_getValue('oooGraphClientId', '');
+        // eslint-disable-next-line no-alert
+        const clientId = prompt(
+          'Enter your Azure AD Application (Client) ID to enable live OOO lookup.\n\n'
+          + 'One-time Azure AD setup:\n'
+          + '  1. portal.azure.com → Azure Active Directory → App registrations → New registration\n'
+          + `  2. Redirect URIs → Single-page application (SPA): add ${_oooGetRedirectUri()}\n`
+          + '  3. API Permissions: Microsoft Graph → Delegated → Presence.Read.All\n'
+          + '  4. Paste the Application (Client) ID below.\n\n'
+          + 'Leave blank to disable OOO lookup.',
+          current,
+        );
+        if (clientId !== null) {
+          GM_setValue('oooGraphClientId', clientId.trim());
+          _oooAccessToken = null;
+          _oooAccessTokenExpiry = null;
+          GM_deleteValue('oooAccessToken');
+          GM_deleteValue('oooAccessTokenExpiry');
+          GM_deleteValue('oooRefreshToken'); // clean up any legacy refresh tokens
+          swal.fire({
+            icon: clientId.trim() ? 'success' : 'info',
+            title: clientId.trim() ? 'Client ID saved' : 'OOO lookup disabled',
+            text: clientId.trim() ? 'Use "OOO Lookup: Authenticate" from the menu to sign in.' : 'OOO annotations will not appear.',
+          });
+        }
+      });
+
+      GM_registerMenuCommand('OOO Lookup: Authenticate', async () => {
+        if (!_oooGetClientId()) {
+          swal.fire({ icon: 'warning', title: 'Not configured', text: 'Set the Graph Client ID first via the Tampermonkey menu.' });
+          return;
+        }
+        try {
+          await _oooAcquireTokenInteractive();
+          swal.fire({ icon: 'success', title: 'OOO Lookup Active', text: 'Reload a PR page to see live OOO annotations.' });
+        } catch (e) {
+          if (e.code && /consent_required/i.test(e.code)) {
+            const tenantId = GM_getValue('oooTenantId', 'organizations');
+            const adminConsentUrl = `https://login.microsoftonline.com/${tenantId}/v2.0/adminconsent`
+              + `?client_id=${encodeURIComponent(_oooGetClientId())}`
+              + `&redirect_uri=${encodeURIComponent(_oooGetRedirectUri())}`;
+            swal.fire({
+              icon: 'warning',
+              title: 'Admin approval required',
+              html: 'Your organization requires an IT admin to approve this app before users can sign in.<br><br>'
+                + 'Share this URL with your IT admin (one-time setup, unlocks OOO for everyone):<br><br>'
+                + `<input style="width:100%;font-size:0.8em;padding:4px" readonly onclick="this.select()" value="${adminConsentUrl}">`,
+            });
+          } else {
+            swal.fire({ icon: 'error', title: 'Authentication failed', text: String(e.message) });
+          }
+        }
+      });
     }
 
     // Start modifying the page once the DOM is ready.
@@ -211,6 +290,308 @@
     }
 
     return value;
+  }
+
+  // ===== OOO Lookup via Microsoft Graph API =====
+  // Looks up each reviewer's out-of-office status live at page load time.
+  // Requires a one-time Azure AD app registration with Presence.Read.All (delegated)
+  // and a SPA redirect URI of https://dev.azure.com/. Configure via Tampermonkey menu.
+
+  const OOO_GRAPH_SCOPES = 'https://graph.microsoft.com/Presence.Read.All';
+  const OOO_STATE_PREFIX = 'azdo-ooo-';
+
+  let _oooAccessToken = null;
+  let _oooAccessTokenExpiry = null;
+  let _oooSilentAuthAttempted = false; // one silent-auth attempt per page session
+
+  function _oooGetClientId() {
+    return GM_getValue('oooGraphClientId', '');
+  }
+
+  function _oooGetRedirectUri() {
+    // https://dev.azure.com/ does a server-side redirect to https://dev.azure.com/{org}/,
+    // which strips the OAuth code/state query params before the userscript can intercept them.
+    // Use the org-specific root URL instead — it doesn't redirect further.
+    if (window.location.hostname === 'dev.azure.com') {
+      const org = window.location.pathname.split('/').filter(Boolean)[0];
+      if (org) return `${window.location.origin}/${org}/`;
+    }
+    return `${window.location.origin}/`;
+  }
+
+  function _oooRandom(len = 43) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+    const buf = new Uint8Array(len);
+    crypto.getRandomValues(buf);
+    return Array.from(buf, b => chars[b % chars.length]).join('');
+  }
+
+  async function _oooPkceChallenge(verifier) {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+    return btoa(String.fromCharCode(...new Uint8Array(digest)))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  }
+
+  // Promisified GM_xmlhttpRequest — bypasses CORS for all OOO-related network calls.
+  function _oooXhr(method, url, { headers = {}, body = null } = {}) {
+    return new Promise((resolve, reject) => {
+      GM_xmlhttpRequest({
+        method,
+        url,
+        headers,
+        data: body,
+        onload: resp => resolve(resp),
+        onerror: () => reject(new Error(`Network error calling ${url}`)),
+        ontimeout: () => reject(new Error(`Timeout calling ${url}`)),
+      });
+    });
+  }
+
+  // Auto-discovers the AAD tenant ID from the user's email domain via OIDC metadata.
+  // Single-tenant apps (the default after Oct 2018) reject the /common endpoint;
+  // they require a tenant-specific URL like /login.microsoftonline.com/{tenantId}/...
+  async function _oooGetTenantId() {
+    const cached = GM_getValue('oooTenantId', '');
+    if (cached) return cached;
+
+    const email = currentUser && currentUser.uniqueName;
+    const domain = email && email.split('@')[1];
+    if (!domain) return 'organizations';
+
+    try {
+      const resp = await _oooXhr(
+        'GET',
+        `https://login.microsoftonline.com/${encodeURIComponent(domain)}/.well-known/openid-configuration`,
+      );
+      if (resp.status >= 200 && resp.status < 300) {
+        const cfg = JSON.parse(resp.responseText);
+        // issuer is "https://login.microsoftonline.com/{tenantId}/v2.0"
+        const m = cfg.issuer && cfg.issuer.match(/\/([a-f0-9-]{36})\//i);
+        if (m) {
+          GM_setValue('oooTenantId', m[1]);
+          return m[1];
+        }
+      }
+    } catch (e) { /* ignore */ }
+
+    return 'organizations';
+  }
+
+  async function _oooAcquireTokenInteractive(silent = false) {
+    const clientId = _oooGetClientId();
+    if (!clientId) throw new Error('OOO Graph Client ID not configured. Use the Tampermonkey menu.');
+
+    const tenantId = await _oooGetTenantId();
+    const verifier = _oooRandom();
+    const challenge = await _oooPkceChallenge(verifier);
+    const state = OOO_STATE_PREFIX + _oooRandom(16);
+    const redirectUri = _oooGetRedirectUri();
+
+    sessionStorage.setItem(`ooo-pkce-${state}`, verifier);
+
+    function openAuthPopup(promptMode) {
+      const authUrl = new URL(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`);
+      authUrl.searchParams.set('client_id', clientId);
+      authUrl.searchParams.set('response_type', 'code');
+      authUrl.searchParams.set('redirect_uri', redirectUri);
+      authUrl.searchParams.set('scope', OOO_GRAPH_SCOPES);
+      authUrl.searchParams.set('state', state);
+      authUrl.searchParams.set('code_challenge', challenge);
+      authUrl.searchParams.set('code_challenge_method', 'S256');
+      authUrl.searchParams.set('login_hint', currentUser.uniqueName);
+      authUrl.searchParams.set('prompt', promptMode);
+
+      return new Promise((resolve, reject) => {
+        // Clear any stale result from a prior attempt with this same state.
+        GM_deleteValue(`oooAuthResult-${state}`);
+
+        const popup = window.open(authUrl.toString(), 'ooo-auth', 'width=600,height=600,resizable=yes');
+        if (!popup) { reject(new Error('Popup blocked - allow popups for this site')); return; }
+
+        // eslint-disable-next-line no-console
+        console.log('[azdo-ooo] Auth popup opened. Waiting for redirect back to', redirectUri);
+
+        function handleResult(result) {
+          clearInterval(pollId); // eslint-disable-line no-use-before-define
+          clearTimeout(timer); // eslint-disable-line no-use-before-define
+          GM_deleteValue(`oooAuthResult-${state}`);
+          // eslint-disable-next-line no-console
+          console.log('[azdo-ooo] Auth result received:', result.code ? 'code obtained' : `error: ${result.errorCode}`);
+          if (result.error || result.errorCode) {
+            const err = new Error(result.error || result.errorCode);
+            err.code = result.errorCode;
+            reject(err);
+            return;
+          }
+          resolve(result.code);
+        }
+
+        // Poll GM storage every 200ms. GM_addValueChangeListener's 'remote' flag is unreliable
+        // for popup→opener communication (may be false even across windows), so polling is safer.
+        const pollId = setInterval(() => {
+          const rawVal = GM_getValue(`oooAuthResult-${state}`, null);
+          if (rawVal === null) return;
+          try { handleResult(JSON.parse(rawVal)); } catch (e) { clearInterval(pollId); }
+        }, 200);
+
+        const timer = setTimeout(() => {
+          clearInterval(pollId);
+          GM_deleteValue(`oooAuthResult-${state}`);
+          reject(new Error('Authentication timed out (2 min). Check that the redirect URI matches your Azure AD registration.'));
+        }, 2 * 60 * 1000);
+      });
+    }
+
+    // Try silent first (prompt=none); fall back to interactive if AAD requires user interaction.
+    // eslint-disable-next-line no-console
+    console.log('[azdo-ooo] Starting auth. Tenant:', tenantId, 'Redirect URI:', redirectUri);
+    let code;
+    try {
+      code = await openAuthPopup('none');
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.log('[azdo-ooo] Silent auth failed, errorCode:', e.code, '— trying interactive');
+      if (e.code && /interaction_required|consent_required|login_required/i.test(e.code)) {
+        if (silent) throw e; // don't fall back to interactive UI in silent mode
+        code = await openAuthPopup('select_account');
+      } else {
+        throw e;
+      }
+    }
+
+    const storedVerifier = sessionStorage.getItem(`ooo-pkce-${state}`) || verifier;
+    sessionStorage.removeItem(`ooo-pkce-${state}`);
+
+    const tokenResp = await _oooXhr('POST', `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
+      // SPA app registrations require an Origin header matching the redirect URI origin.
+      // GM_xmlhttpRequest doesn't send one automatically, so we add it explicitly.
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Origin: window.location.origin },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        client_id: clientId,
+        code,
+        redirect_uri: redirectUri,
+        code_verifier: storedVerifier,
+        scope: OOO_GRAPH_SCOPES,
+      }).toString(),
+    });
+
+    if (tokenResp.status < 200 || tokenResp.status >= 300) {
+      const errData = JSON.parse(tokenResp.responseText || '{}');
+      // eslint-disable-next-line no-console
+      console.error('[azdo-ooo] Token exchange failed. Status:', tokenResp.status, 'Body:', tokenResp.responseText);
+      throw new Error(errData.error_description || errData.error || `Token exchange failed: HTTP ${tokenResp.status}`);
+    }
+
+    // eslint-disable-next-line no-console
+    console.log('[azdo-ooo] Token exchange succeeded. Access token obtained.');
+    const tokenData = JSON.parse(tokenResp.responseText);
+    _oooAccessToken = tokenData.access_token;
+    _oooAccessTokenExpiry = new Date(Date.now() + (tokenData.expires_in - 300) * 1000);
+    // Cache in GM storage so the token survives page navigations (no refresh token needed).
+    GM_setValue('oooAccessToken', _oooAccessToken);
+    GM_setValue('oooAccessTokenExpiry', _oooAccessTokenExpiry.getTime());
+    return _oooAccessToken;
+  }
+
+  async function getOooGraphAccessToken() {
+    // In-memory cache (fastest path, valid for current page session).
+    if (_oooAccessToken && _oooAccessTokenExpiry && new Date() < _oooAccessTokenExpiry) {
+      return _oooAccessToken;
+    }
+    // GM_setValue cache — survives SPA page navigation, avoids a popup on every page load.
+    const savedToken = GM_getValue('oooAccessToken', '');
+    const savedExpiry = GM_getValue('oooAccessTokenExpiry', 0);
+    if (savedToken && Date.now() < savedExpiry) {
+      _oooAccessToken = savedToken;
+      _oooAccessTokenExpiry = new Date(savedExpiry);
+      return _oooAccessToken;
+    }
+    // One silent (prompt=none) auth attempt per page session. Works automatically once
+    // admin consent has been granted; silently does nothing if consent is still pending.
+    if (!_oooSilentAuthAttempted && _oooGetClientId()) {
+      _oooSilentAuthAttempted = true;
+      return _oooAcquireTokenInteractive(/* silent= */ true).catch(() => null);
+    }
+    return null;
+  }
+
+  // Resolves an email to the user's AAD object ID (originId), which Graph's /presence endpoint
+  // requires. Neither the reviewer's identity.id nor its "aad." descriptor is the AAD object ID
+  // (they're AZDO-internal IMS/storage GUIDs), and the object ID isn't present anywhere on the page.
+  // AZDO's Identity Picker is served same-origin, so it authenticates via the existing session with
+  // no extra Microsoft Graph permission or admin consent.
+  async function _oooResolveAadObjectId(email) {
+    const response = await fetch(`${azdoApiBaseUrl}_apis/IdentityPicker/Identities?api-version=5.0-preview.1`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        query: email,
+        identityTypes: ['user'],
+        operationScopes: ['ims', 'source'],
+        properties: ['DisplayName', 'Mail'],
+        options: { MinResults: 1, MaxResults: 20 },
+      }),
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    const identities = (data.results && data.results[0] && data.results[0].identities) || [];
+    const wanted = email.toLowerCase();
+    const match = identities.find(i => (i.mail || i.signInAddress || '').toLowerCase() === wanted);
+    return (match && match.originId) || null;
+  }
+
+  // Graph's /presence endpoint requires the user's AAD object ID (GUID), resolved from their email.
+  async function fetchOooForEmail(email) {
+    const cacheKey = `azdo-userscripts-ooo-${email.replace(/[^a-z0-9]/gi, '_')}`;
+    const cacheDurationMs = 2 * 60 * 60 * 1000; // 2 hours
+
+    try {
+      const cached = JSON.parse(localStorage.getItem(cacheKey));
+      if (cached && Date.now() < cached.expiry) return cached.data;
+    } catch (e) { /* ignore */ }
+
+    const token = await getOooGraphAccessToken();
+    if (!token) return null;
+
+    const userGuid = await _oooResolveAadObjectId(email);
+    if (!userGuid) return null;
+
+    try {
+      const graphResp = await _oooXhr(
+        'GET',
+        `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(userGuid)}/presence`,
+        { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' } },
+      );
+
+      let oooData = null;
+
+      if (graphResp.status >= 200 && graphResp.status < 300) {
+        const presence = JSON.parse(graphResp.responseText);
+        const oof = presence.outOfOfficeSettings;
+        if (oof && oof.isOutOfOffice) {
+          // Presence API doesn't expose start/end dates; treat as currently active OOO.
+          oooData = {
+            Start: new Date(Date.now() - 86400000).toISOString(),
+            End: new Date(Date.now() + 365 * 86400000).toISOString(),
+            Text: oof.message || '',
+            alwaysEnabled: true,
+          };
+        }
+      } else if (graphResp.status === 401) {
+        // Token rejected; clear both in-memory and GM storage so the next call re-authenticates.
+        _oooAccessToken = null;
+        _oooAccessTokenExpiry = null;
+        GM_deleteValue('oooAccessToken');
+        GM_deleteValue('oooAccessTokenExpiry');
+      }
+
+      localStorage.setItem(cacheKey, JSON.stringify({ expiry: Date.now() + cacheDurationMs, data: oooData }));
+      return oooData;
+    } catch (e) {
+      error(`OOO lookup failed for ${email}:`, e);
+      return null;
+    }
   }
 
   function watchForPipelinesPage(session, pageData) {
@@ -662,26 +1043,6 @@
 
     const dataMaxAgeInDays = 3;
 
-    let oooInfo;
-    let oooByEmail;
-    try {
-      oooInfo = await fetchJsonAndCache('outOfOfficeLatest', 12 * 60 * 60, `${azdoApiBaseUrl}/_apis/git/repositories/3378df6b-8fc9-41dd-a9d9-16640f2392cb/items?api-version=6.0&path=/data/outOfOfficeLatest.json&version=main`);
-      if (oooInfo.version === 1) {
-        const dataDate = dateFns.parse(oooInfo.date);
-        if (dateFns.differenceInDays(new Date(), dataDate) >= dataMaxAgeInDays) {
-          // This data is too old. It hasn't been updated properly by the pipeline producing it. Avoid annotating.
-          throw new Error(`Data is too old (must be ${dataMaxAgeInDays} days old or less). Data date is: ${dataDate.toISOString()}`);
-        }
-
-        oooByEmail = _.keyBy(oooInfo.value, 'Email');
-      } else {
-        throw new Error(`Invalid version: ${oooInfo.version}`);
-      }
-    } catch (e) {
-      oooInfo = null;
-      error(`Cannot annotate out-of-office info on PRs: ${e}`);
-    }
-
     let employeeInfo;
     let employeeByEmail;
     let me;
@@ -787,32 +1148,39 @@
         }
       }
 
-      if (oooInfo) {
-        const ooo = oooByEmail[email];
-        if (ooo && dateFns.isFuture(ooo.End)) {
-          let label;
+      // OOO lookup via Microsoft Graph API – fires asynchronously so it doesn't block other annotations.
+      // The reviewer's AAD object ID is resolved from their email inside fetchOooForEmail.
+      fetchOooForEmail(email).then(ooo => {
+        if (!ooo || !dateFns.isFuture(ooo.End)) return;
 
-          if (dateFns.isFuture(ooo.Start)) {
-            if (dateFns.differenceInHours(ooo.Start, new Date()) <= 24) {
-              label = 'Unavailable in <24h';
-            } else {
-              // Don't show a label. This person is leaving too far into the future.
-              label = null;
-            }
+        let label;
+        if (ooo.alwaysEnabled) {
+          label = 'Auto-Reply On';
+        } else if (dateFns.isFuture(ooo.Start)) {
+          if (dateFns.differenceInHours(ooo.Start, new Date()) <= 24) {
+            label = 'Unavailable in <24h';
           } else {
-            label = `Returns in ${dateFns.distanceInWordsToNow(ooo.End)}`;
+            // Don't show a label. This person is leaving too far into the future.
+            label = null;
           }
-
-          if (label) {
-            const tooltipHtml = `
-              <p style='font-weight: bold; text-align: center'>Outlook Auto Response</p>
-              <h1>Leaving ${dateFns.format(ooo.Start, 'ha ddd, MMM D, YYYY')}<br>Returning ${dateFns.format(ooo.End, 'ha ddd, MMM D, YYYY')}</h1>
-              <p class="user-message">${ooo.Text.replace(/\r?\n/ig, '<br><br>')}</p>`;
-
-            annotateReviewer(nameElement, 'ooo', escapeStringForHtml(label), tooltipHtml);
-          }
+        } else {
+          label = `Returns in ${dateFns.distanceInWordsToNow(ooo.End)}`;
         }
-      }
+
+        if (label) {
+          // Strip HTML from Outlook auto-reply message for safe display.
+          const oooMsgDiv = document.createElement('div');
+          oooMsgDiv.innerHTML = ooo.Text;
+          const oooText = oooMsgDiv.textContent || '';
+
+          const tooltipHtml = `
+            <p style='font-weight: bold; text-align: center'>Outlook Auto Response</p>
+            ${!ooo.alwaysEnabled ? `<h1>Leaving ${dateFns.format(ooo.Start, 'ha ddd, MMM D, YYYY')}<br>Returning ${dateFns.format(ooo.End, 'ha ddd, MMM D, YYYY')}</h1>` : ''}
+            <p class="user-message">${escapeStringForHtml(oooText).replace(/\r?\n/ig, '<br><br>')}</p>`;
+
+          annotateReviewer(nameElement, 'ooo', escapeStringForHtml(label), tooltipHtml);
+        }
+      }).catch(() => {}); // Silently ignore (e.g. Graph not configured, user not found)
     });
   }
 
