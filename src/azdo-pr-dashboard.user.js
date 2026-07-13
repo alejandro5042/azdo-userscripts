@@ -1147,14 +1147,15 @@
       fetchOooForEmail(email).then(ooo => {
         if (!ooo) return;
 
-        // Strip HTML from Outlook auto-reply message for safe display.
+        // Strip HTML from the OOO message for safe display.
         const oooMsgDiv = document.createElement('div');
         oooMsgDiv.innerHTML = ooo.Text;
         const oooText = oooMsgDiv.textContent || '';
 
-        const tooltipHtml = `
-          <p style='font-weight: bold; text-align: center'>Outlook Auto Response</p>
-          <p class="user-message">${escapeStringForHtml(oooText).replace(/\r?\n/ig, '<br><br>')}</p>`;
+        const tooltipHtml = oooText
+          ? `<p style='font-weight: bold; text-align: center'>This user is out of office:</p>
+          <p class="user-message">${escapeStringForHtml(oooText).replace(/\r?\n/ig, '<br><br>')}</p>`
+          : '<p>This user is out of office but has not set an auto-reply message.</p>';
 
         annotateReviewer(nameElement, 'ooo', 'Out of Office', tooltipHtml);
       }).catch(() => {}); // Silently ignore (e.g. Graph not configured, user not found)
