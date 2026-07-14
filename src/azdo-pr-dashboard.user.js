@@ -127,6 +127,8 @@
         GM_setValue('oooGraphClientId', clientId.trim());
         _oooAccessToken = null;
         _oooAccessTokenExpiry = null;
+        _oooAuthPromise = null;
+        _oooSilentAuthAttempted = false;
         GM_deleteValue('oooAccessToken');
         GM_deleteValue('oooAccessTokenExpiry');
         GM_deleteValue('oooRefreshToken'); // clean up any legacy refresh tokens
@@ -298,7 +300,8 @@
 
   let _oooAccessToken = null;
   let _oooAccessTokenExpiry = null;
-  let _oooSilentAuthPromise = null; // shared silent-auth attempt (one per page session), coalesced across callers
+  let _oooAuthPromise = null; // coalesces concurrent token acquisitions (refresh or popup) across callers
+  let _oooSilentAuthAttempted = false; // limit the fallback popup to one attempt per page session
 
   function _oooGetClientId() {
     // A per-user override (via the Tampermonkey menu) takes precedence over the shared default.
@@ -504,14 +507,17 @@
       _oooAccessTokenExpiry = new Date(savedExpiry);
       return _oooAccessToken;
     }
-    // One silent (prompt=none) auth attempt per page session, shared across all callers so every
-    // reviewer on the page resolves from a single attempt (rather than only the first one
-    // triggering auth while the rest get null). Works automatically once admin consent has been
-    // granted; resolves to null (without retrying) if consent is still pending.
-    if (!_oooSilentAuthPromise && _oooGetClientId()) {
-      _oooSilentAuthPromise = _oooAcquireTokenInteractive(/* silent= */ true).catch(() => null);
+    // No valid cached access token. Acquire one via a silent (prompt=none) popup, coalescing all
+    // concurrent callers (e.g. every reviewer on the page) onto a single attempt so we don't open
+    // multiple popups at once, and limiting the fallback popup to one attempt per page session.
+    if (!_oooAuthPromise && _oooGetClientId()) {
+      _oooAuthPromise = (async () => {
+        if (_oooSilentAuthAttempted) return null;
+        _oooSilentAuthAttempted = true;
+        return _oooAcquireTokenInteractive(/* silent= */ true).catch(() => null);
+      })().finally(() => { _oooAuthPromise = null; });
     }
-    return _oooSilentAuthPromise;
+    return _oooAuthPromise;
   }
 
   // Resolves an email to the user's AAD object ID (originId), which Graph's /presence endpoint
