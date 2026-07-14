@@ -95,12 +95,6 @@ Trophies are awarded for notable PRs and shown in a trophies section on the Over
 - [Contributing to this project](CONTRIBUTING.md)
 - [GitHub repo](https://github.com/alejandro5042/azdo-userscripts)
 
-## Privacy
-
-The update URL goes through a URL redirect service to get a rough idea of how many people are using this script. To opt-out, change the update URL to the original download URL your usescript dashboard (or disable updates). This redirect service may also help if the URL needs to change; e.g. if the file is moved or renamed.
-
-No other data is collected. The script is sourced and updated directly from the master branch of this repo.
-
 ## Credits
 
 Inspired by a PR filtering script originally written by Tian Yu, which faded out approved PRs. Further improved by Alejandro Barreto.
