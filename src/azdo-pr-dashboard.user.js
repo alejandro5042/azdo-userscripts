@@ -625,6 +625,7 @@
         if (oof && oof.isOutOfOffice) {
           oooData = { Text: oof.message || '' };
         }
+        localStorage.setItem(cacheKey, JSON.stringify({ expiry: Date.now() + cacheDurationMs, data: oooData }));
       } else if (graphResp.status === 401) {
         // Token rejected; clear both in-memory and GM storage so the next call re-authenticates.
         oooAccessToken = null;
@@ -633,7 +634,6 @@
         GM_deleteValue('oooAccessTokenExpiry');
       }
 
-      localStorage.setItem(cacheKey, JSON.stringify({ expiry: Date.now() + cacheDurationMs, data: oooData }));
       return oooData;
     } catch (e) {
       error(`OOO lookup failed for ${email}:`, e);
