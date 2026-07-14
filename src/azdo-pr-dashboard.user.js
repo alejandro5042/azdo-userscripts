@@ -50,16 +50,16 @@
   // This runs before any other script logic and closes the popup after relaying the code.
   // Uses GM_setValue (Tampermonkey IPC) — reliable across sandboxed script contexts.
   {
-    const _oooParams = new URLSearchParams(window.location.search);
-    const _oooState = _oooParams.get('state');
-    if (_oooState && _oooState.startsWith('azdo-ooo-')) {
+    const oooParams = new URLSearchParams(window.location.search);
+    const oooState = oooParams.get('state');
+    if (oooState && oooState.startsWith('azdo-ooo-')) {
       try {
         // Key is state-specific to avoid collisions between concurrent attempts.
-        GM_setValue(`oooAuthResult-${_oooState}`, JSON.stringify({
-          code: _oooParams.get('code') || null,
-          state: _oooState,
-          error: _oooParams.get('error_description') || null,
-          errorCode: _oooParams.get('error') || null,
+        GM_setValue(`oooAuthResult-${oooState}`, JSON.stringify({
+          code: oooParams.get('code') || null,
+          state: oooState,
+          error: oooParams.get('error_description') || null,
+          errorCode: oooParams.get('error') || null,
         }));
       } catch (e) { /* ignore */ }
       setTimeout(() => window.close(), 200);
@@ -72,6 +72,10 @@
 
   let currentUser;
   let azdoApiBaseUrl;
+  let oooAccessToken = null;
+  let oooAccessTokenExpiry = null;
+  let oooAuthPromise = null; // coalesces concurrent token acquisitions (refresh or popup) across callers
+  let oooSilentAuthAttempted = false; // limit the fallback popup to one attempt per page session
 
   // Some features only apply at National Instruments.
   const atNI = /^ni\./i.test(window.location.hostname) || /^\/ni\//i.test(window.location.pathname);
@@ -117,7 +121,7 @@
           + 'need to set anything here.\n\n'
           + 'Only override the Azure AD Application (Client) ID if you are on a non-NI/Emerson tenant/org '
           + 'and want to use your own app registration (SPA redirect URI '
-          + `${_oooGetRedirectUri()}, delegated Presence.Read.All + offline_access).\n\n`
+          + `${getOooRedirectUri()}, delegated Presence.Read.All + offline_access).\n\n`
           + 'Leave blank to use the shared default.',
           current,
         );
@@ -125,10 +129,10 @@
           return;
         }
         GM_setValue('oooGraphClientId', clientId.trim());
-        _oooAccessToken = null;
-        _oooAccessTokenExpiry = null;
-        _oooAuthPromise = null;
-        _oooSilentAuthAttempted = false;
+        oooAccessToken = null;
+        oooAccessTokenExpiry = null;
+        oooAuthPromise = null;
+        oooSilentAuthAttempted = false;
         GM_deleteValue('oooAccessToken');
         GM_deleteValue('oooAccessTokenExpiry');
         // A new client ID means any stored refresh token is for a different app; drop it.
@@ -138,14 +142,14 @@
         // Sign in immediately so the user consents once and sees any admin-approval message;
         // after this, silent auth keeps the token fresh automatically.
         try {
-          await _oooAcquireTokenInteractive();
+          await acquireOooTokenInteractive();
           swal.fire({ icon: 'success', title: 'OOO Lookup Active', text: 'Reload a PR page to see live OOO annotations.' });
         } catch (e) {
           if (e.code && /consent_required/i.test(e.code)) {
             const tenantId = GM_getValue('oooTenantId', 'organizations');
             const adminConsentUrl = `https://login.microsoftonline.com/${tenantId}/v2.0/adminconsent`
-              + `?client_id=${encodeURIComponent(_oooGetClientId())}`
-              + `&redirect_uri=${encodeURIComponent(_oooGetRedirectUri())}`;
+              + `?client_id=${encodeURIComponent(getOooClientId())}`
+              + `&redirect_uri=${encodeURIComponent(getOooRedirectUri())}`;
             swal.fire({
               icon: 'warning',
               title: 'Admin approval required',
@@ -302,17 +306,12 @@
   // Shared app registration ("TM RD PR Metrics"). Safe to commit – public PKCE client, no secret.
   const OOO_DEFAULT_GRAPH_CLIENT_ID = '968d0bcc-467a-4ec6-96be-3a1ab9e339e4';
 
-  let _oooAccessToken = null;
-  let _oooAccessTokenExpiry = null;
-  let _oooAuthPromise = null; // coalesces concurrent token acquisitions (refresh or popup) across callers
-  let _oooSilentAuthAttempted = false; // limit the fallback popup to one attempt per page session
-
-  function _oooGetClientId() {
+  function getOooClientId() {
     // A per-user override (via the Tampermonkey menu) takes precedence over the shared default.
     return GM_getValue('oooGraphClientId', '') || OOO_DEFAULT_GRAPH_CLIENT_ID;
   }
 
-  function _oooGetRedirectUri() {
+  function getOooRedirectUri() {
     // https://dev.azure.com/ does a server-side redirect to https://dev.azure.com/{org}/,
     // which strips the OAuth code/state query params before the userscript can intercept them.
     // Use the org-specific root URL instead — it doesn't redirect further.
@@ -323,21 +322,21 @@
     return `${window.location.origin}/`;
   }
 
-  function _oooRandom(len = 43) {
+  function getOooRandom(len = 43) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
     const buf = new Uint8Array(len);
     crypto.getRandomValues(buf);
     return Array.from(buf, b => chars[b % chars.length]).join('');
   }
 
-  async function _oooPkceChallenge(verifier) {
+  async function getOooPkceChallenge(verifier) {
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
     return btoa(String.fromCharCode(...new Uint8Array(digest)))
       .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
   }
 
   // Promisified GM_xmlhttpRequest — bypasses CORS for all OOO-related network calls.
-  function _oooXhr(method, url, { headers = {}, body = null } = {}) {
+  function oooXhr(method, url, { headers = {}, body = null } = {}) {
     return new Promise((resolve, reject) => {
       GM_xmlhttpRequest({
         method,
@@ -354,7 +353,7 @@
   // Auto-discovers the AAD tenant ID from the user's email domain via OIDC metadata.
   // Single-tenant apps (the default after Oct 2018) reject the /common endpoint;
   // they require a tenant-specific URL like /login.microsoftonline.com/{tenantId}/...
-  async function _oooGetTenantId() {
+  async function getOooTenantId() {
     const cached = GM_getValue('oooTenantId', '');
     if (cached) return cached;
 
@@ -363,7 +362,7 @@
     if (!domain) return 'organizations';
 
     try {
-      const resp = await _oooXhr(
+      const resp = await oooXhr(
         'GET',
         `https://login.microsoftonline.com/${encodeURIComponent(domain)}/.well-known/openid-configuration`,
       );
@@ -381,15 +380,15 @@
     return 'organizations';
   }
 
-  async function _oooAcquireTokenInteractive(silent = false) {
-    const clientId = _oooGetClientId();
+  async function acquireOooTokenInteractive(silent = false) {
+    const clientId = getOooClientId();
     if (!clientId) throw new Error('OOO Graph Client ID not configured. Use the Tampermonkey menu.');
 
-    const tenantId = await _oooGetTenantId();
-    const verifier = _oooRandom();
-    const challenge = await _oooPkceChallenge(verifier);
-    const state = OOO_STATE_PREFIX + _oooRandom(16);
-    const redirectUri = _oooGetRedirectUri();
+    const tenantId = await getOooTenantId();
+    const verifier = getOooRandom();
+    const challenge = await getOooPkceChallenge(verifier);
+    const state = OOO_STATE_PREFIX + getOooRandom(16);
+    const redirectUri = getOooRedirectUri();
 
     sessionStorage.setItem(`ooo-pkce-${state}`, verifier);
 
@@ -466,18 +465,18 @@
     const storedVerifier = sessionStorage.getItem(`ooo-pkce-${state}`) || verifier;
     sessionStorage.removeItem(`ooo-pkce-${state}`);
 
-    const tokenResp = await _oooXhr('POST', `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
+    const tokenResp = await oooXhr('POST', `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
       // SPA app registrations require an Origin header matching the redirect URI origin.
       // GM_xmlhttpRequest doesn't send one automatically, so we add it explicitly.
       headers: { 'Content-Type': 'application/x-www-form-urlencoded', Origin: window.location.origin },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        client_id: clientId,
-        code,
-        redirect_uri: redirectUri,
-        code_verifier: storedVerifier,
-        scope: OOO_GRAPH_SCOPES,
-      }).toString(),
+      body: new URLSearchParams([
+        ['grant_type', 'authorization_code'],
+        ['client_id', clientId],
+        ['code', code],
+        ['redirect_uri', redirectUri],
+        ['code_verifier', storedVerifier],
+        ['scope', OOO_GRAPH_SCOPES],
+      ]).toString(),
     });
 
     if (tokenResp.status < 200 || tokenResp.status >= 300) {
@@ -489,20 +488,20 @@
 
     // eslint-disable-next-line no-console
     console.log('[azdo-ooo] Token exchange succeeded. Access token obtained.');
-    _oooStoreTokens(JSON.parse(tokenResp.responseText), /* isFreshLogin= */ true);
-    return _oooAccessToken;
+    storeOooTokens(JSON.parse(tokenResp.responseText), /* isFreshLogin= */ true);
+    return oooAccessToken;
   }
 
   // Persists tokens returned by either the authorization_code or refresh_token grant. Refresh
   // tokens are single-use and rotated, so we always store the latest one. For SPA redirect URIs
   // the refresh token expires 24h after the original interactive login and that expiry carries
   // over across rotations, so we only stamp the 24h clock on a fresh login.
-  function _oooStoreTokens(tokenData, isFreshLogin) {
-    _oooAccessToken = tokenData.access_token;
-    _oooAccessTokenExpiry = new Date(Date.now() + (tokenData.expires_in - 300) * 1000);
+  function storeOooTokens(tokenData, isFreshLogin) {
+    oooAccessToken = tokenData.access_token;
+    oooAccessTokenExpiry = new Date(Date.now() + (tokenData.expires_in - 300) * 1000);
     // Cache in GM storage so the token survives page navigations.
-    GM_setValue('oooAccessToken', _oooAccessToken);
-    GM_setValue('oooAccessTokenExpiry', _oooAccessTokenExpiry.getTime());
+    GM_setValue('oooAccessToken', oooAccessToken);
+    GM_setValue('oooAccessTokenExpiry', oooAccessTokenExpiry.getTime());
 
     if (tokenData.refresh_token) {
       GM_setValue('oooRefreshToken', tokenData.refresh_token);
@@ -515,24 +514,24 @@
   // Mints a new access token from the stored refresh token via a background POST — no popup.
   // Returns null (and drops the refresh token) if there's none or AAD rejects it, so the caller
   // falls back to an interactive/silent popup.
-  async function _oooRefreshAccessToken() {
+  async function refreshOooAccessToken() {
     const refreshToken = GM_getValue('oooRefreshToken', '');
     const refreshExpiry = GM_getValue('oooRefreshTokenExpiry', 0);
     // SPA refresh tokens live only 24h; once past that a popup is unavoidable, so don't bother.
     if (!refreshToken || Date.now() >= refreshExpiry) return null;
 
-    const clientId = _oooGetClientId();
+    const clientId = getOooClientId();
     if (!clientId) return null;
-    const tenantId = await _oooGetTenantId();
+    const tenantId = await getOooTenantId();
 
-    const tokenResp = await _oooXhr('POST', `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
+    const tokenResp = await oooXhr('POST', `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded', Origin: window.location.origin },
-      body: new URLSearchParams({
-        grant_type: 'refresh_token',
-        client_id: clientId,
-        refresh_token: refreshToken,
-        scope: OOO_GRAPH_SCOPES,
-      }).toString(),
+      body: new URLSearchParams([
+        ['grant_type', 'refresh_token'],
+        ['client_id', clientId],
+        ['refresh_token', refreshToken],
+        ['scope', OOO_GRAPH_SCOPES],
+      ]).toString(),
     });
 
     if (tokenResp.status < 200 || tokenResp.status >= 300) {
@@ -542,38 +541,38 @@
       return null;
     }
 
-    _oooStoreTokens(JSON.parse(tokenResp.responseText), /* isFreshLogin= */ false);
-    return _oooAccessToken;
+    storeOooTokens(JSON.parse(tokenResp.responseText), /* isFreshLogin= */ false);
+    return oooAccessToken;
   }
 
-  async function getOooGraphAccessToken() {
+  function getOooGraphAccessToken() {
     // In-memory cache (fastest path, valid for current page session).
-    if (_oooAccessToken && _oooAccessTokenExpiry && new Date() < _oooAccessTokenExpiry) {
-      return _oooAccessToken;
+    if (oooAccessToken && oooAccessTokenExpiry && new Date() < oooAccessTokenExpiry) {
+      return oooAccessToken;
     }
     // GM_setValue cache — survives SPA page navigation, avoids a popup on every page load.
     const savedToken = GM_getValue('oooAccessToken', '');
     const savedExpiry = GM_getValue('oooAccessTokenExpiry', 0);
     if (savedToken && Date.now() < savedExpiry) {
-      _oooAccessToken = savedToken;
-      _oooAccessTokenExpiry = new Date(savedExpiry);
-      return _oooAccessToken;
+      oooAccessToken = savedToken;
+      oooAccessTokenExpiry = new Date(savedExpiry);
+      return oooAccessToken;
     }
     // No valid cached access token. Acquire one, coalescing all concurrent callers (e.g. every
     // reviewer on the page) onto a single attempt so we never fire duplicate single-use refresh
     // requests or open multiple popups. Try the refresh token first (a background POST, no popup);
     // only if that fails fall back to a silent popup, at most once per page session.
-    if (!_oooAuthPromise && _oooGetClientId()) {
-      _oooAuthPromise = (async () => {
-        const refreshed = await _oooRefreshAccessToken();
+    if (!oooAuthPromise && getOooClientId()) {
+      oooAuthPromise = (async () => {
+        const refreshed = await refreshOooAccessToken();
         if (refreshed) return refreshed;
 
-        if (_oooSilentAuthAttempted) return null;
-        _oooSilentAuthAttempted = true;
-        return _oooAcquireTokenInteractive(/* silent= */ true).catch(() => null);
-      })().finally(() => { _oooAuthPromise = null; });
+        if (oooSilentAuthAttempted) return null;
+        oooSilentAuthAttempted = true;
+        return acquireOooTokenInteractive(/* silent= */ true).catch(() => null);
+      })().finally(() => { oooAuthPromise = null; });
     }
-    return _oooAuthPromise;
+    return oooAuthPromise;
   }
 
   // Resolves an email to the user's AAD object ID (originId), which Graph's /presence endpoint
@@ -581,7 +580,7 @@
   // (they're AZDO-internal IMS/storage GUIDs), and the object ID isn't present anywhere on the page.
   // AZDO's Identity Picker is served same-origin, so it authenticates via the existing session with
   // no extra Microsoft Graph permission or admin consent.
-  async function _oooResolveAadObjectId(email) {
+  async function resolveOooAadObjectId(email) {
     const response = await fetch(`${azdoApiBaseUrl}_apis/IdentityPicker/Identities?api-version=5.0-preview.1`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -614,11 +613,11 @@
     const token = await getOooGraphAccessToken();
     if (!token) return null;
 
-    const userGuid = await _oooResolveAadObjectId(email);
+    const userGuid = await resolveOooAadObjectId(email);
     if (!userGuid) return null;
 
     try {
-      const graphResp = await _oooXhr(
+      const graphResp = await oooXhr(
         'GET',
         `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(userGuid)}/presence`,
         { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' } },
@@ -634,8 +633,8 @@
         }
       } else if (graphResp.status === 401) {
         // Token rejected; clear both in-memory and GM storage so the next call re-authenticates.
-        _oooAccessToken = null;
-        _oooAccessTokenExpiry = null;
+        oooAccessToken = null;
+        oooAccessTokenExpiry = null;
         GM_deleteValue('oooAccessToken');
         GM_deleteValue('oooAccessTokenExpiry');
       }
