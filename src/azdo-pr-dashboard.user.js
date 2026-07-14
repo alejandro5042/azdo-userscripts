@@ -411,15 +411,13 @@
         const popup = window.open(authUrl.toString(), 'ooo-auth', 'width=600,height=600,resizable=yes');
         if (!popup) { reject(new Error('Popup blocked - allow popups for this site')); return; }
 
-        // eslint-disable-next-line no-console
-        console.log('[azdo-ooo] Auth popup opened. Waiting for redirect back to', redirectUri);
+        debug('OOO auth popup opened. Waiting for redirect back to', redirectUri);
 
         function handleResult(result) {
           clearInterval(pollId); // eslint-disable-line no-use-before-define
           clearTimeout(timer); // eslint-disable-line no-use-before-define
           GM_deleteValue(`oooAuthResult-${state}`);
-          // eslint-disable-next-line no-console
-          console.log('[azdo-ooo] Auth result received:', result.code ? 'code obtained' : `error: ${result.errorCode}`);
+          debug('OOO auth result received:', result.code ? 'code obtained' : `error: ${result.errorCode}`);
           if (result.error || result.errorCode) {
             const err = new Error(result.error || result.errorCode);
             err.code = result.errorCode;
@@ -446,14 +444,12 @@
     }
 
     // Try silent first (prompt=none); fall back to interactive if AAD requires user interaction.
-    // eslint-disable-next-line no-console
-    console.log('[azdo-ooo] Starting auth. Tenant:', tenantId, 'Redirect URI:', redirectUri);
+    debug('Starting OOO auth. Tenant:', tenantId, 'Redirect URI:', redirectUri);
     let code;
     try {
       code = await openAuthPopup('none');
     } catch (e) {
-      // eslint-disable-next-line no-console
-      console.log('[azdo-ooo] Silent auth failed, errorCode:', e.code, '— trying interactive');
+      debug('Silent OOO auth failed, errorCode:', e.code, '— trying interactive');
       if (e.code && /interaction_required|consent_required|login_required/i.test(e.code)) {
         if (silent) throw e; // don't fall back to interactive UI in silent mode
         code = await openAuthPopup('select_account');
@@ -481,13 +477,11 @@
 
     if (tokenResp.status < 200 || tokenResp.status >= 300) {
       const errData = JSON.parse(tokenResp.responseText || '{}');
-      // eslint-disable-next-line no-console
-      console.error('[azdo-ooo] Token exchange failed. Status:', tokenResp.status, 'Body:', tokenResp.responseText);
+      error('OOO token exchange failed. Status:', tokenResp.status, 'Body:', tokenResp.responseText);
       throw new Error(errData.error_description || errData.error || `Token exchange failed: HTTP ${tokenResp.status}`);
     }
 
-    // eslint-disable-next-line no-console
-    console.log('[azdo-ooo] Token exchange succeeded. Access token obtained.');
+    debug('OOO token exchange succeeded. Access token obtained.');
     storeOooTokens(JSON.parse(tokenResp.responseText), /* isFreshLogin= */ true);
     return oooAccessToken;
   }
