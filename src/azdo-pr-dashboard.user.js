@@ -117,7 +117,7 @@
           + 'need to set anything here.\n\n'
           + 'Only override the Azure AD Application (Client) ID if you are on a non-NI/Emerson tenant/org '
           + 'and want to use your own app registration (SPA redirect URI '
-          + `${_oooGetRedirectUri()}, delegated Presence.Read.All).\n\n`
+          + `${_oooGetRedirectUri()}, delegated Presence.Read.All + offline_access).\n\n`
           + 'Leave blank to use the shared default.',
           current,
         );
@@ -131,7 +131,9 @@
         _oooSilentAuthAttempted = false;
         GM_deleteValue('oooAccessToken');
         GM_deleteValue('oooAccessTokenExpiry');
-        GM_deleteValue('oooRefreshToken'); // clean up any legacy refresh tokens
+        // A new client ID means any stored refresh token is for a different app; drop it.
+        GM_deleteValue('oooRefreshToken');
+        GM_deleteValue('oooRefreshTokenExpiry');
 
         // Sign in immediately so the user consents once and sees any admin-approval message;
         // after this, silent auth keeps the token fresh automatically.
@@ -293,7 +295,9 @@
   // registered SPA redirect URIs (one per AZDO org root, e.g. https://dev.azure.com/ni/).
   // Power users on other orgs/tenants can override the client ID via the Tampermonkey menu.
 
-  const OOO_GRAPH_SCOPES = 'https://graph.microsoft.com/Presence.Read.All';
+  // offline_access is required for AAD to return a refresh token, which lets us mint new access
+  // tokens via a background POST (no popup) until the refresh token's own expiry.
+  const OOO_GRAPH_SCOPES = 'https://graph.microsoft.com/Presence.Read.All offline_access';
   const OOO_STATE_PREFIX = 'azdo-ooo-';
   // Shared app registration ("TM RD PR Metrics"). Safe to commit – public PKCE client, no secret.
   const OOO_DEFAULT_GRAPH_CLIENT_ID = '968d0bcc-467a-4ec6-96be-3a1ab9e339e4';
@@ -485,12 +489,60 @@
 
     // eslint-disable-next-line no-console
     console.log('[azdo-ooo] Token exchange succeeded. Access token obtained.');
-    const tokenData = JSON.parse(tokenResp.responseText);
+    _oooStoreTokens(JSON.parse(tokenResp.responseText), /* isFreshLogin= */ true);
+    return _oooAccessToken;
+  }
+
+  // Persists tokens returned by either the authorization_code or refresh_token grant. Refresh
+  // tokens are single-use and rotated, so we always store the latest one. For SPA redirect URIs
+  // the refresh token expires 24h after the original interactive login and that expiry carries
+  // over across rotations, so we only stamp the 24h clock on a fresh login.
+  function _oooStoreTokens(tokenData, isFreshLogin) {
     _oooAccessToken = tokenData.access_token;
     _oooAccessTokenExpiry = new Date(Date.now() + (tokenData.expires_in - 300) * 1000);
-    // Cache in GM storage so the token survives page navigations (no refresh token needed).
+    // Cache in GM storage so the token survives page navigations.
     GM_setValue('oooAccessToken', _oooAccessToken);
     GM_setValue('oooAccessTokenExpiry', _oooAccessTokenExpiry.getTime());
+
+    if (tokenData.refresh_token) {
+      GM_setValue('oooRefreshToken', tokenData.refresh_token);
+      if (isFreshLogin) {
+        GM_setValue('oooRefreshTokenExpiry', Date.now() + 24 * 60 * 60 * 1000);
+      }
+    }
+  }
+
+  // Mints a new access token from the stored refresh token via a background POST — no popup.
+  // Returns null (and drops the refresh token) if there's none or AAD rejects it, so the caller
+  // falls back to an interactive/silent popup.
+  async function _oooRefreshAccessToken() {
+    const refreshToken = GM_getValue('oooRefreshToken', '');
+    const refreshExpiry = GM_getValue('oooRefreshTokenExpiry', 0);
+    // SPA refresh tokens live only 24h; once past that a popup is unavoidable, so don't bother.
+    if (!refreshToken || Date.now() >= refreshExpiry) return null;
+
+    const clientId = _oooGetClientId();
+    if (!clientId) return null;
+    const tenantId = await _oooGetTenantId();
+
+    const tokenResp = await _oooXhr('POST', `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Origin: window.location.origin },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        client_id: clientId,
+        refresh_token: refreshToken,
+        scope: OOO_GRAPH_SCOPES,
+      }).toString(),
+    });
+
+    if (tokenResp.status < 200 || tokenResp.status >= 300) {
+      // Expired or revoked — drop it so the next acquisition falls back to a popup.
+      GM_deleteValue('oooRefreshToken');
+      GM_deleteValue('oooRefreshTokenExpiry');
+      return null;
+    }
+
+    _oooStoreTokens(JSON.parse(tokenResp.responseText), /* isFreshLogin= */ false);
     return _oooAccessToken;
   }
 
@@ -507,11 +559,15 @@
       _oooAccessTokenExpiry = new Date(savedExpiry);
       return _oooAccessToken;
     }
-    // No valid cached access token. Acquire one via a silent (prompt=none) popup, coalescing all
-    // concurrent callers (e.g. every reviewer on the page) onto a single attempt so we don't open
-    // multiple popups at once, and limiting the fallback popup to one attempt per page session.
+    // No valid cached access token. Acquire one, coalescing all concurrent callers (e.g. every
+    // reviewer on the page) onto a single attempt so we never fire duplicate single-use refresh
+    // requests or open multiple popups. Try the refresh token first (a background POST, no popup);
+    // only if that fails fall back to a silent popup, at most once per page session.
     if (!_oooAuthPromise && _oooGetClientId()) {
       _oooAuthPromise = (async () => {
+        const refreshed = await _oooRefreshAccessToken();
+        if (refreshed) return refreshed;
+
         if (_oooSilentAuthAttempted) return null;
         _oooSilentAuthAttempted = true;
         return _oooAcquireTokenInteractive(/* silent= */ true).catch(() => null);
