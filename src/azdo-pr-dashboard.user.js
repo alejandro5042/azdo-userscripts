@@ -1206,7 +1206,7 @@
 
         const tooltipHtml = oooText
           ? `<p style='font-weight: bold; text-align: center'>This user is out of office:</p>
-          <p class="user-message">${escapeStringForHtml(oooText).replace(/\r?\n/ig, '<br><br>')}</p>`
+          <p class="user-message">${escapeStringForHtml(oooText).trim().replace(/\r?\n/ig, '<br><br>')}</p>`
           : '<p>This user is out of office but has not set an auto-reply message.</p>';
 
         annotateReviewer(nameElement, 'ooo', 'Out of Office', tooltipHtml);
