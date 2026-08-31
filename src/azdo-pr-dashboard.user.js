@@ -1058,6 +1058,10 @@
         background: rgba(var(--palette-primary), 0.3);
         color: #fff;
       }
+      .reviewer-status-message.watcher {
+        background: rgba(var(--palette-primary), 0.3);
+        color: #fff;
+      }
       .tippy-box[data-theme~='azdo-userscript'] {
         padding: 5px 10px;
       }
@@ -1174,6 +1178,7 @@
           annotateReviewerRole('owner', 'owner', f => f.owner === reviewerIdentityIndex + 1);
           annotateReviewerRole('alternate', 'alternate', f => f.alternate === reviewerIdentityIndex + 1);
           annotateReviewerRole('expert', 'expert', f => _.some(f.experts, e => e === reviewerIdentityIndex + 1));
+          annotateReviewerRole('watcher', 'watcher', f => _.some(f.watchers, w => w === reviewerIdentityIndex + 1));
         }
       }
 
