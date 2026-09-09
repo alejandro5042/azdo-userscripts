@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.13.1
+// @version      3.13.2
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -104,11 +104,10 @@
         'agent-arbitration-status-off': 'Off',
       });
 
-      eus.showTipOnce('release-2026-07-27', 'New in the AzDO userscript', `
-        <p>Highlights from the 2026-07-27 update!</p>
+      eus.showTipOnce('release-2026-09-09', 'New in the AzDO userscript', `
+        <p>Highlights from the 2026-09-09 update!</p>
         <ul>
-          <li>OOO info is now looked up live per-reviewer via Microsoft Graph (no more stale data!)</li>
-          <li>For non-NI/Emerson users, use <b>script menu → OOO Lookup: Configure Graph Client ID</b> to set up</li>
+          <li>Label watchers in the Reviewers list on PRs (#268)</li>
         </ul>
         <p>Comments, bugs, suggestions? File an issue on <a href="https://github.com/alejandro5042/azdo-userscripts" target="_blank">GitHub</a> 🧡</p>
       `);
@@ -1058,6 +1057,10 @@
         background: rgba(var(--palette-primary), 0.3);
         color: #fff;
       }
+      .reviewer-status-message.watcher {
+        background: rgba(var(--palette-primary), 0.3);
+        color: #fff;
+      }
       .tippy-box[data-theme~='azdo-userscript'] {
         padding: 5px 10px;
       }
@@ -1174,6 +1177,7 @@
           annotateReviewerRole('owner', 'owner', f => f.owner === reviewerIdentityIndex + 1);
           annotateReviewerRole('alternate', 'alternate', f => f.alternate === reviewerIdentityIndex + 1);
           annotateReviewerRole('expert', 'expert', f => _.some(f.experts, e => e === reviewerIdentityIndex + 1));
+          annotateReviewerRole('watcher', 'watcher', f => _.some(f.watchers, w => w === reviewerIdentityIndex + 1));
         }
       }
 
