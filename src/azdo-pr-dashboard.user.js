@@ -1,7 +1,7 @@
 // ==UserScript==
 
 // @name         More Awesome Azure DevOps (userscript)
-// @version      3.13.2
+// @version      3.13.3
 // @author       Alejandro Barreto (NI)
 // @description  Makes general improvements to the Azure DevOps experience, particularly around pull requests. Also contains workflow improvements for NI engineers.
 // @license      MIT
@@ -1144,7 +1144,7 @@
 
     session.onEveryNew(document, '.repos-pr-details-page .repos-reviewer', reviewer => {
       const imageUrl = $(reviewer).find('.bolt-coin-content')[0].src;
-      const reviewerInfos = getPropertyThatStartsWith(reviewer.parentElement.parentElement, '__reactInternalInstance$').return.stateNode.state.values.reviewers;
+      const reviewerInfos = getPropertyThatStartsWith(reviewer.parentElement.parentElement, '__reactFiber$').return.stateNode.state.values.reviewers;
       const reviewerInfo = _.find(reviewerInfos, r => imageUrl.startsWith(r.identity.imageUrl));
       const email = reviewerInfo.baseReviewer.uniqueName.toLowerCase();
       const nameElement = $(reviewer).find('.body-m')[0];
@@ -2204,7 +2204,7 @@
       }
 
       /* eslint no-underscore-dangle: ["error", { "allow": ["_owner"] }] */
-      const pathAndChangeType = getPropertyThatStartsWith(text[0], '__reactInternalInstance$').memoizedProps.children._owner.stateNode.props.data.path;
+      const pathAndChangeType = getPropertyThatStartsWith(text[0], '__reactFiber$').memoizedProps.children._owner.stateNode.props.data.path;
       const pathWithLeadingSlash = pathAndChangeType.replace(/ \[[a-z]+\]( renamed from .+)?$/, '');
       const path = pathWithLeadingSlash.substring(1); // Remove leading slash.
 
